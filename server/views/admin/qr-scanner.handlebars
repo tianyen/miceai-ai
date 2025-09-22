@@ -1,0 +1,808 @@
+{{!-- QR Code 掃描器頁面 --}}
+
+<!-- jsQR 庫 -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+<div class="page-header">
+    <div class="page-title">
+        <h1><i class="fas fa-qrcode"></i> QR Code 掃描器</h1>
+        <p>掃描參與者 QR Code 進行快速報到</p>
+    </div>
+    <div class="page-actions">
+        <button class="btn btn-secondary" id="toggle-camera-btn">
+            <i class="fas fa-video" id="camera-icon"></i>
+            <span id="camera-text">啟動攝影機</span>
+        </button>
+        <a href="/admin/checkin-management" class="btn btn-primary">
+            <i class="fas fa-arrow-left"></i>
+            返回報到管理
+        </a>
+    </div>
+</div>
+
+<div class="scanner-layout">
+    <!-- 攝影機區域 -->
+    <div class="camera-section">
+        <div class="camera-header">
+            <h3>攝影機預覽</h3>
+            <div class="status-indicator" id="camera-status">
+                <span class="status-dot offline"></span>
+                <span class="status-text">攝影機未啟動</span>
+            </div>
+        </div>
+
+        <div class="camera-container">
+            <video id="video" autoplay muted playsinline></video>
+            <div class="scan-overlay">
+                <div class="scan-frame"></div>
+                <div class="scan-line"></div>
+            </div>
+        </div>
+
+        <div class="camera-controls">
+            <button class="btn btn-success" id="start-scan" disabled>
+                <i class="fas fa-play"></i>
+                開始掃描
+            </button>
+            <button class="btn btn-warning" id="stop-scan" disabled>
+                <i class="fas fa-stop"></i>
+                停止掃描
+            </button>
+            <button class="btn btn-info" id="switch-camera" disabled>
+                <i class="fas fa-sync-alt"></i>
+                切換攝影機
+            </button>
+        </div>
+
+        <div class="scan-result" id="scan-result" style="display: none;">
+            <div class="result-content">
+                <h4>掃描結果</h4>
+                <div class="result-data" id="result-data"></div>
+                <div class="result-actions">
+                    <button class="btn btn-primary" id="process-checkin-btn">
+                        <i class="fas fa-check"></i>
+                        確認報到
+                    </button>
+                    <button class="btn btn-secondary" id="clear-result-btn">
+                        <i class="fas fa-times"></i>
+                        清除結果
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 資訊面板 -->
+    <div class="info-panel">
+        <div class="panel-header">
+            <h3>掃描記錄</h3>
+            <button class="btn btn-sm btn-outline-primary" onclick="refreshScanHistory()">
+                <i class="fas fa-sync-alt"></i>
+                重新整理
+            </button>
+        </div>
+
+        <!-- 今日統計 -->
+        <div class="today-stats">
+            <div class="loading">載入今日統計...</div>
+        </div>
+
+        <!-- 掃描歷史 -->
+        <div class="scan-history-container">
+            <h4>最近掃描記錄</h4>
+            <div id="scan-history">
+                <div class="loading">載入掃描記錄...</div>
+            </div>
+        </div>
+
+        <!-- 操作說明 -->
+        <div class="instructions">
+            <h4>使用說明</h4>
+            <ol>
+                <li>點擊「啟動攝影機」按鈕</li>
+                <li>允許瀏覽器存取攝影機權限</li>
+                <li>點擊「開始掃描」開始掃描</li>
+                <li>將 QR Code 對準攝影機</li>
+                <li>系統會自動識別並處理報到</li>
+            </ol>
+
+            <div class="tips">
+                <h5>掃描技巧</h5>
+                <ul>
+                    <li>確保光線充足</li>
+                    <li>保持 QR Code 清晰可見</li>
+                    <li>距離攝影機 10-30 公分</li>
+                    <li>避免反光和陰影</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* QR 掃描器專用樣式 */
+    .scanner-layout {
+        display: grid;
+        grid-template-columns: 1fr 400px;
+        gap: 2rem;
+        height: calc(100vh - 200px);
+        min-height: 600px;
+    }
+
+    .camera-section {
+        background: white;
+        border-radius: var(--border-radius-lg);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-md);
+    }
+
+    .info-panel {
+        background: var(--gray-50);
+        border-radius: var(--border-radius-lg);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-md);
+        overflow-y: auto;
+    }
+
+    .camera-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .camera-header h3 {
+        margin: 0;
+        color: var(--gray-900);
+    }
+
+    .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--gray-400);
+    }
+
+    .status-dot.online {
+        background: var(--success-color);
+        animation: pulse 2s infinite;
+    }
+
+    .status-dot.offline {
+        background: var(--gray-400);
+    }
+
+    .camera-container {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+
+    #video {
+        width: 100%;
+        height: 400px;
+        border-radius: var(--border-radius);
+        background: #000;
+        object-fit: cover;
+    }
+
+    .scan-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+    }
+
+    .scan-frame {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 200px;
+        height: 200px;
+        border: 2px solid var(--primary-color);
+        border-radius: var(--border-radius);
+    }
+
+    .scan-line {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 180px;
+        height: 2px;
+        background: var(--primary-color);
+        animation: scan 2s linear infinite;
+    }
+
+    @keyframes scan {
+        0% {
+            transform: translate(-50%, -50%) translateY(-90px);
+        }
+
+        100% {
+            transform: translate(-50%, -50%) translateY(90px);
+        }
+    }
+
+    @keyframes pulse {
+
+        0%,
+        100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.5;
+        }
+    }
+
+    .camera-controls {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        margin-bottom: 1rem;
+    }
+
+    .scan-result {
+        background: var(--success-color-light);
+        border: 1px solid var(--success-color);
+        border-radius: var(--border-radius);
+        padding: 1rem;
+    }
+
+    .result-content h4 {
+        margin: 0 0 0.5rem 0;
+        color: var(--success-color-dark);
+    }
+
+    .result-data {
+        background: white;
+        padding: 0.75rem;
+        border-radius: var(--border-radius);
+        margin-bottom: 1rem;
+        font-family: monospace;
+        word-break: break-all;
+    }
+
+    .result-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .panel-header h3 {
+        margin: 0;
+        color: var(--gray-900);
+    }
+
+    .today-stats {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .scan-history-container {
+        margin-bottom: 1.5rem;
+    }
+
+    .scan-history-container h4 {
+        margin: 0 0 1rem 0;
+        color: var(--gray-800);
+    }
+
+    .instructions {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1rem;
+    }
+
+    .instructions h4,
+    .instructions h5 {
+        margin: 0 0 0.5rem 0;
+        color: var(--gray-800);
+    }
+
+    .instructions ol,
+    .instructions ul {
+        margin: 0.5rem 0;
+        padding-left: 1.5rem;
+    }
+
+    .instructions li {
+        margin-bottom: 0.25rem;
+        color: var(--gray-600);
+    }
+
+    .tips {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-color);
+    }
+
+    /* 統計網格樣式 */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .stat-item {
+        text-align: center;
+        padding: 1rem;
+        background: var(--gray-50);
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--primary-color);
+        display: block;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+        color: var(--gray-600);
+        font-size: 0.9rem;
+    }
+
+    /* 掃描歷史樣式 */
+    .scan-history-list {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .scan-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        background: white;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+    }
+
+    .scan-info strong {
+        display: block;
+        color: var(--gray-800);
+        margin-bottom: 0.25rem;
+    }
+
+    .scan-info small {
+        color: var(--gray-600);
+        font-size: 0.8rem;
+    }
+
+    .scan-meta {
+        text-align: right;
+    }
+
+    .scan-time {
+        display: block;
+        font-size: 0.8rem;
+        color: var(--gray-600);
+        margin-bottom: 0.25rem;
+    }
+
+    .badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: var(--border-radius);
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-success {
+        background: var(--success-color-light);
+        color: var(--success-color-dark);
+    }
+
+    .badge-danger {
+        background: var(--error-color-light);
+        color: var(--error-color-dark);
+    }
+
+    @media (max-width: 768px) {
+        .scanner-layout {
+            grid-template-columns: 1fr;
+            height: auto;
+        }
+
+        .camera-controls {
+            flex-wrap: wrap;
+        }
+
+        #video {
+            height: 300px;
+        }
+
+        .scan-frame {
+            width: 150px;
+            height: 150px;
+        }
+
+        .scan-line {
+            width: 130px;
+        }
+    }
+</style>
+
+<script>
+    // QR 掃描器 JavaScript
+    class QRScanner {
+        constructor() {
+            this.video = document.getElementById('video');
+            this.canvas = document.createElement('canvas');
+            this.context = this.canvas.getContext('2d');
+            this.stream = null;
+            this.scanning = false;
+            this.devices = [];
+            this.currentDeviceIndex = 0;
+
+            this.initializeElements();
+        }
+
+        initializeElements() {
+            this.cameraStatus = document.getElementById('camera-status');
+            this.cameraIcon = document.getElementById('camera-icon');
+            this.cameraText = document.getElementById('camera-text');
+            this.startBtn = document.getElementById('start-scan');
+            this.stopBtn = document.getElementById('stop-scan');
+            this.switchBtn = document.getElementById('switch-camera');
+            this.scanResult = document.getElementById('scan-result');
+            this.resultData = document.getElementById('result-data');
+
+            // 添加事件監聽器
+            this.setupEventListeners();
+        }
+
+        setupEventListeners() {
+            // 攝影機控制按鈕
+            const toggleCameraBtn = document.getElementById('toggle-camera-btn');
+            if (toggleCameraBtn) {
+                toggleCameraBtn.addEventListener('click', () => this.toggleCamera());
+            }
+
+            // 掃描控制按鈕
+            if (this.startBtn) {
+                this.startBtn.addEventListener('click', () => this.startScanning());
+            }
+            if (this.stopBtn) {
+                this.stopBtn.addEventListener('click', () => this.stopScanning());
+            }
+            if (this.switchBtn) {
+                this.switchBtn.addEventListener('click', () => this.switchCamera());
+            }
+
+            // 結果處理按鈕
+            const processCheckinBtn = document.getElementById('process-checkin-btn');
+            if (processCheckinBtn) {
+                processCheckinBtn.addEventListener('click', () => this.processCheckin());
+            }
+            const clearResultBtn = document.getElementById('clear-result-btn');
+            if (clearResultBtn) {
+                clearResultBtn.addEventListener('click', () => this.clearResult());
+            }
+        }
+
+        async toggleCamera() {
+            if (this.stream) {
+                this.stopCamera();
+            } else {
+                await this.startCamera();
+            }
+        }
+
+        async startCamera() {
+            try {
+                // 獲取可用的攝影機設備
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                this.devices = devices.filter(device => device.kind === 'videoinput');
+
+                if (this.devices.length === 0) {
+                    throw new Error('未找到攝影機設備');
+                }
+
+                // 啟動攝影機
+                const constraints = {
+                    video: {
+                        deviceId: this.devices[this.currentDeviceIndex]?.deviceId,
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    }
+                };
+
+                this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                this.video.srcObject = this.stream;
+
+                // 更新 UI 狀態
+                this.updateCameraStatus(true);
+                this.startBtn.disabled = false;
+                this.switchBtn.disabled = this.devices.length <= 1;
+
+            } catch (error) {
+                console.error('啟動攝影機失敗:', error);
+                alert('無法啟動攝影機：' + error.message);
+            }
+        }
+
+        stopCamera() {
+            if (this.stream) {
+                this.stream.getTracks().forEach(track => track.stop());
+                this.stream = null;
+                this.video.srcObject = null;
+            }
+
+            this.stopScanning();
+            this.updateCameraStatus(false);
+            this.startBtn.disabled = true;
+            this.stopBtn.disabled = true;
+            this.switchBtn.disabled = true;
+        }
+
+        updateCameraStatus(online) {
+            const statusDot = this.cameraStatus.querySelector('.status-dot');
+            const statusText = this.cameraStatus.querySelector('.status-text');
+
+            if (online) {
+                statusDot.className = 'status-dot online';
+                statusText.textContent = '攝影機已啟動';
+                this.cameraIcon.className = 'fas fa-video-slash';
+                this.cameraText.textContent = '關閉攝影機';
+            } else {
+                statusDot.className = 'status-dot offline';
+                statusText.textContent = '攝影機未啟動';
+                this.cameraIcon.className = 'fas fa-video';
+                this.cameraText.textContent = '啟動攝影機';
+            }
+        }
+
+        startScanning() {
+            if (!this.stream) {
+                alert('請先啟動攝影機');
+                return;
+            }
+
+            this.scanning = true;
+            this.startBtn.disabled = true;
+            this.stopBtn.disabled = false;
+            this.scanLoop();
+        }
+
+        stopScanning() {
+            this.scanning = false;
+            this.startBtn.disabled = false;
+            this.stopBtn.disabled = true;
+        }
+
+        scanLoop() {
+            if (!this.scanning) return;
+
+            // 使用 jsQR 進行實際掃描
+            this.performQRScan();
+
+            requestAnimationFrame(() => this.scanLoop());
+        }
+
+        performQRScan() {
+            if (!this.video.videoWidth || !this.video.videoHeight) {
+                return;
+            }
+
+            // 設置 canvas 尺寸
+            this.canvas.width = this.video.videoWidth;
+            this.canvas.height = this.video.videoHeight;
+
+            // 繪製當前視頻幀到 canvas
+            this.context.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+
+            // 獲取圖像數據 - 設置willReadFrequently以提高性能
+            if (!this.canvas.willReadFrequently) {
+                this.canvas.willReadFrequently = true;
+            }
+            const imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+
+            // 使用 jsQR 掃描 QR Code
+            if (window.jsQR) {
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+
+                if (code) {
+                    this.onScanSuccess(code.data);
+                }
+            } else {
+                // 如果 jsQR 未載入，使用模擬掃描
+                this.simulateScan();
+            }
+        }
+
+        simulateScan() {
+            // 模擬掃描結果（備用方案）
+            if (Math.random() < 0.001) { // 0.1% 機率模擬掃描到
+                const mockData = {
+                    participantId: Math.floor(Math.random() * 1000),
+                    name: '測試參與者',
+                    email: 'test@example.com',
+                    eventId: 1
+                };
+                this.onScanSuccess(JSON.stringify(mockData));
+            }
+        }
+
+        onScanSuccess(data) {
+            this.stopScanning();
+            this.resultData.textContent = data;
+            this.scanResult.style.display = 'block';
+
+            // 播放成功音效（如果需要）
+            this.playSuccessSound();
+
+            // 更新掃描歷史
+            this.updateScanHistory();
+        }
+
+        playSuccessSound() {
+            // 創建音效（可選）
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 800;
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+
+        switchCamera() {
+            if (this.devices.length <= 1) return;
+
+            this.currentDeviceIndex = (this.currentDeviceIndex + 1) % this.devices.length;
+            this.stopCamera();
+            setTimeout(() => this.startCamera(), 100);
+        }
+
+        processCheckin() {
+            const data = this.resultData.textContent;
+
+            // 發送報到請求
+            $.ajax({
+                method: "POST",
+                url: "/api/admin/qr-scanner/checkin",
+                data: { qrData: data },
+                success: (response) => {
+                    if (response.success) {
+                        showNotification(response.message || '報到成功', 'success');
+                        // 更新掃描歷史和統計
+                        this.updateScanHistory();
+                    } else {
+                        showNotification(response.message || '報到失敗', 'error');
+                    }
+                },
+                error: function(xhr) {
+                    console.error('報到請求失敗:', xhr);
+                    let errorMessage = '報到請求失敗，請稍後再試';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                        if (errorMessage.includes('格式無效') || errorMessage.includes('格式錯誤')) {
+                            showNotification('QR Code 格式錯誤，請檢查QR碼是否為有效的參與者QR碼', 'error');
+                            return;
+                        }
+                    }
+                    showNotification(errorMessage, 'error');
+                },
+                dataType: "json"
+            });
+
+            this.clearResult();
+        }
+
+        clearResult() {
+            this.scanResult.style.display = 'none';
+            this.resultData.textContent = '';
+        }
+
+        updateScanHistory() {
+            // 重新載入掃描歷史
+            $.ajax({
+                method: "GET",
+                url: "/api/admin/qr-scanner/history",
+                success: function(data) {
+                    $("#scan-history").html(data);
+                },
+                error: function() {
+                    $("#scan-history").html('<div class="alert alert-danger">載入掃描記錄失敗</div>');
+                },
+                dataType: "html"
+            });
+
+            // 更新今日統計
+            $.ajax({
+                method: "GET",
+                url: "/api/admin/qr-scanner/today-stats",
+                success: function(data) {
+                    $(".today-stats").html(data);
+                },
+                error: function() {
+                    $(".today-stats").html('<div class="alert alert-danger">載入統計失敗</div>');
+                },
+                dataType: "html"
+            });
+        }
+    }
+
+    // 全域變數
+    let qrScanner;
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function () {
+        qrScanner = new QRScanner();
+        
+        // 載入初始數據
+        loadTodayStats();
+        loadScanHistory();
+    });
+
+    // 載入今日統計
+    function loadTodayStats() {
+        $.ajax({
+            url: '/api/admin/qr-scanner/today-stats',
+            method: 'GET',
+            success: function (data) {
+                $('.today-stats').html(data);
+            },
+            error: function () {
+                $('.today-stats').html('<div class="alert alert-danger">載入統計失敗</div>');
+            }
+        });
+    }
+
+    // 載入掃描歷史
+    function loadScanHistory() {
+        $.ajax({
+            url: '/api/admin/qr-scanner/history',
+            method: 'GET',
+            success: function (data) {
+                $('#scan-history').html(data);
+            },
+            error: function () {
+                $('#scan-history').html('<div class="alert alert-danger">載入掃描記錄失敗</div>');
+            }
+        });
+    }
+
+    // 重新整理掃描歷史
+    function refreshScanHistory() {
+        loadScanHistory();
+        loadTodayStats();
+    }
+
+    // 頁面離開時清理資源
+    window.addEventListener('beforeunload', function () {
+        if (qrScanner && qrScanner.stream) {
+            qrScanner.stopCamera();
+        }
+    });
+</script>

@@ -1,0 +1,427 @@
+{{!-- 問卷 QR Code 頁面 --}}
+
+<div class="page-header">
+    <div class="page-title">
+        <h1><i class="fas fa-qrcode"></i> 問卷 QR Code</h1>
+        <p>生成和管理問卷 QR Code</p>
+    </div>
+    <div class="page-actions">
+        <button class="btn btn-primary" onclick="goToQuestionnaireStats()">
+            <i class="fas fa-chart-bar"></i>
+            查看統計
+        </button>
+        <button class="btn btn-secondary" onclick="printQRCodes()">
+            <i class="fas fa-print"></i>
+            列印 QR Code
+        </button>
+    </div>
+</div>
+
+<!-- 問卷選擇器 -->
+<div class="questionnaire-selector">
+    <label for="questionnaire-select">選擇問卷：</label>
+    <select id="questionnaire-select" class="form-control">
+        <option value="">請選擇問卷</option>
+        <option value="1">2024年度科技論壇滿意度調查</option>
+        <option value="2">春季產品發表會回饋問卷</option>
+        <option value="3">客戶需求調研問卷</option>
+    </select>
+</div>
+
+<!-- QR Code 內容 -->
+<div id="qr-codes-content">
+    <div class="loading">載入 QR Code...</div>
+</div>
+
+<style>
+    /* 問卷 QR Code 專用樣式 */
+    .questionnaire-selector {
+        background: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius-lg);
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-md);
+    }
+
+    .questionnaire-selector label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: var(--gray-700);
+    }
+
+    .qr-info-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius-lg);
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-md);
+    }
+
+    .qr-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .info-item {
+        text-align: center;
+        padding: 1rem;
+        background: var(--gray-50);
+        border-radius: var(--border-radius);
+    }
+
+    .info-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--primary-color);
+        display: block;
+        margin-bottom: 0.25rem;
+    }
+
+    .info-label {
+        color: var(--gray-600);
+        font-size: 0.9rem;
+    }
+
+    .qr-codes-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .qr-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--shadow-md);
+        text-align: center;
+    }
+
+    .qr-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--gray-800);
+        margin-bottom: 1rem;
+    }
+
+    .qr-code-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 1rem;
+    }
+
+    .qr-code {
+        width: 200px;
+        height: 200px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .qr-url {
+        font-family: monospace;
+        font-size: 0.8rem;
+        color: var(--gray-600);
+        word-break: break-all;
+        margin-bottom: 1rem;
+        padding: 0.5rem;
+        background: var(--gray-50);
+        border-radius: var(--border-radius);
+    }
+
+    .qr-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+    }
+
+    .qr-stats {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .stat-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+        color: var(--gray-600);
+    }
+
+    .stat-value {
+        font-weight: 600;
+        color: var(--gray-800);
+    }
+
+    .usage-instructions {
+        background: var(--info-color-light);
+        border: 1px solid var(--info-color);
+        border-radius: var(--border-radius-lg);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .usage-instructions h3 {
+        color: var(--info-color-dark);
+        margin: 0 0 1rem 0;
+    }
+
+    .usage-instructions ol {
+        margin: 0;
+        padding-left: 1.5rem;
+    }
+
+    .usage-instructions li {
+        margin-bottom: 0.5rem;
+        color: var(--gray-700);
+    }
+
+    @media print {
+
+        .page-header,
+        .questionnaire-selector,
+        .qr-info-section,
+        .usage-instructions {
+            display: none;
+        }
+
+        .qr-codes-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .qr-card {
+            box-shadow: none;
+            border: 1px solid #000;
+            page-break-inside: avoid;
+        }
+
+        .qr-actions {
+            display: none;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .qr-codes-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .qr-actions {
+            flex-direction: column;
+        }
+
+        .qr-code {
+            width: 150px;
+            height: 150px;
+        }
+    }
+</style>
+
+<script>
+    // 問卷 QR Code 專用 JavaScript
+    $(document).ready(function () {
+        // 載入初始 QR Code 資料
+        loadQRCodes();
+
+        // 問卷選擇器事件
+        $('#questionnaire-select').on('change', function () {
+            loadQRCodes();
+        });
+    });
+
+    // 載入 QR Code 資料
+    function loadQRCodes() {
+        const questionnaireId = $('#questionnaire-select').val();
+
+        const data = {};
+        if (questionnaireId) {
+            data.questionnaire_id = questionnaireId;
+        }
+
+        $.ajax({
+            url: '/api/admin/questionnaire/qr-codes',
+            method: 'GET',
+            data: data,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function (html) {
+                $('#qr-codes-content').html(html);
+            },
+            error: function (xhr) {
+                console.error('載入 QR Code 失敗:', xhr);
+                $('#qr-codes-content').html('<div class="alert alert-danger">載入 QR Code 失敗</div>');
+            }
+        });
+    }
+
+    // 跳轉到統計頁面
+    function goToQuestionnaireStats() {
+        window.location.href = '/admin/questionnaire/stats';
+    }
+
+    // 複製 URL 功能
+    window.copyQRUrl = function (url) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(() => {
+                showNotification('URL 已複製到剪貼簿', 'success');
+            }).catch(() => {
+                fallbackCopyTextToClipboard(url);
+            });
+        } else {
+            fallbackCopyTextToClipboard(url);
+        }
+    };
+
+    // 降級複製功能
+    function fallbackCopyTextToClipboard(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.top = '0';
+        textArea.style.left = '0';
+        textArea.style.position = 'fixed';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                showNotification('URL 已複製到剪貼簿', 'success');
+            } else {
+                showNotification('複製失敗', 'error');
+            }
+        } catch (err) {
+            showNotification('複製失敗', 'error');
+        }
+
+        document.body.removeChild(textArea);
+    }
+
+    // 下載 QR Code 功能
+    window.downloadQR = function (questionnaireId, type) {
+        // 直接下載文件
+        const link = document.createElement('a');
+        link.href = `/api/admin/questionnaire/${questionnaireId}/qr-download?type=${type}`;
+        link.download = `questionnaire-${questionnaireId}-${type}.png`;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    // 列印 QR Code 功能
+    window.printQRCodes = function () {
+        const questionnaire = $('#questionnaire-select').val();
+        if (!questionnaire) {
+            alert('請先選擇問卷');
+            return;
+        }
+
+        window.print();
+    };
+
+    // 生成新 QR Code
+    window.generateNewQR = function (questionnaireId, type) {
+        if (!confirm('確定要重新生成 QR Code 嗎？舊的 QR Code 將會失效。')) {
+            return;
+        }
+
+        $.ajax({
+            url: `/api/admin/questionnaire-qr/generate`,
+            method: 'POST',
+            data: {
+                questionnaire_id: questionnaireId,
+                type: type
+            },
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function (response) {
+                if (response.success) {
+                    showNotification('新的 QR Code 已生成', 'success');
+                    // 重新載入 QR Code 數據
+                    loadQRCodes();
+                } else {
+                    showNotification(response.message || '生成失敗', 'error');
+                }
+            },
+            error: function (xhr) {
+                console.error('生成 QR Code 失敗:', xhr);
+                showNotification('生成 QR Code 失敗', 'error');
+            }
+        });
+    };
+
+    // 顯示通知
+    function showNotification(message, type = 'info') {
+        // Remove existing notifications
+        $('.notification').remove();
+
+        const colorMap = {
+            'success': '#28a745',
+            'error': '#dc3545',
+            'warning': '#ffc107',
+            'info': '#17a2b8'
+        };
+
+        const notification = $(`
+        <div class="notification ${type}" style="
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            background: ${colorMap[type] || colorMap['info']};
+            color: white;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        ">${message}</div>
+    `);
+
+        $('body').append(notification);
+
+        setTimeout(() => {
+            notification.fadeOut(300, function () {
+                $(this).remove();
+            });
+        }, 3000);
+    }
+
+</script>
+
+<style>
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+</style>

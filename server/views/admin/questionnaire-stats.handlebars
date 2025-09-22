@@ -1,0 +1,437 @@
+{{!-- 問卷統計報告頁面 --}}
+
+<div class="page-header">
+    <div class="page-title">
+        <h1><i class="fas fa-chart-bar"></i> 問卷統計報告</h1>
+        <p>分析問卷回應數據和統計趨勢</p>
+    </div>
+    <div class="page-actions">
+        <button class="btn btn-primary" onclick="exportReport()">
+            <i class="fas fa-download"></i>
+            匯出報告
+        </button>
+        <button class="btn btn-secondary" onclick="goToQuestionnaireQR()">
+            <i class="fas fa-qrcode"></i>
+            問卷 QR Code
+        </button>
+    </div>
+</div>
+
+<!-- 問卷選擇器 -->
+<div class="questionnaire-selector">
+    <label for="questionnaire-select">選擇問卷：</label>
+    <select id="questionnaire-select" class="form-control">
+        <option value="">請選擇問卷</option>
+        <option value="1">2024年度科技論壇滿意度調查</option>
+        <option value="2">春季產品發表會回饋問卷</option>
+        <option value="3">客戶需求調研問卷</option>
+    </select>
+</div>
+
+<!-- 統計內容 -->
+<div id="stats-content">
+    <div class="loading">載入問卷統計...</div>
+</div>
+
+<!-- 匯出結果容器 -->
+<div id="export-result"></div>
+
+<style>
+    /* 問卷統計專用樣式 */
+    .questionnaire-selector {
+        background: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius-lg);
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-md);
+    }
+
+    .questionnaire-selector label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: var(--gray-700);
+    }
+
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .overview-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--shadow-md);
+        text-align: center;
+    }
+
+    .overview-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--primary-color);
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    .overview-label {
+        color: var(--gray-600);
+        font-size: 0.9rem;
+    }
+
+    .charts-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .chart-container {
+        background: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--shadow-md);
+    }
+
+    .chart-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--gray-800);
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+
+    .chart-canvas {
+        width: 100%;
+        height: 300px;
+    }
+
+    .responses-section {
+        background: white;
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
+    }
+
+    .responses-header {
+        background: var(--gray-50);
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .responses-header h3 {
+        margin: 0;
+        color: var(--gray-800);
+    }
+
+    .responses-content {
+        padding: 1.5rem;
+    }
+
+    .question-block {
+        margin-bottom: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .question-block:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
+
+    .question-title {
+        font-weight: 600;
+        color: var(--gray-800);
+        margin-bottom: 1rem;
+    }
+
+    .answer-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .answer-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .answer-text {
+        flex: 1;
+        color: var(--gray-700);
+    }
+
+    .answer-bar {
+        flex: 2;
+        height: 20px;
+        background: var(--gray-200);
+        border-radius: 10px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .answer-fill {
+        height: 100%;
+        background: var(--primary-color);
+        border-radius: 10px;
+        transition: width 0.3s ease;
+    }
+
+    .answer-count {
+        min-width: 40px;
+        text-align: right;
+        font-weight: 600;
+        color: var(--gray-600);
+    }
+
+    .text-responses {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        padding: 1rem;
+    }
+
+    .text-response {
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--gray-700);
+    }
+
+    .text-response:last-child {
+        border-bottom: none;
+    }
+
+    .response-meta {
+        font-size: 0.8rem;
+        color: var(--gray-500);
+        margin-top: 0.25rem;
+    }
+
+    /* 新增统计容器样式 */
+    .stats-container {
+        background: white;
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
+    }
+
+    .questionnaire-header {
+        background: var(--gray-50);
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .questionnaire-header h3 {
+        margin: 0 0 0.5rem 0;
+        color: var(--gray-900);
+        font-size: 1.25rem;
+    }
+
+    .questionnaire-header p {
+        margin: 0;
+        color: var(--gray-600);
+        font-size: 0.9rem;
+    }
+
+    .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .stat-card {
+        text-align: center;
+        padding: 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        background: var(--gray-50);
+    }
+
+    .stat-card h4 {
+        margin: 0 0 0.5rem 0;
+        color: var(--gray-700);
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--primary-color);
+        line-height: 1;
+    }
+
+    .stat-text {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--success-color);
+    }
+
+    .responses-list {
+        padding: 1.5rem;
+    }
+
+    .responses-list h4 {
+        margin: 0 0 1rem 0;
+        color: var(--gray-900);
+        font-size: 1.1rem;
+    }
+
+    .response-item {
+        padding: 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        margin-bottom: 0.75rem;
+        background: var(--gray-50);
+    }
+
+    .response-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .response-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .response-meta strong {
+        color: var(--gray-900);
+    }
+
+    .response-time {
+        color: var(--gray-500);
+        font-size: 0.8rem;
+    }
+
+    .response-data {
+        color: var(--gray-700);
+        font-size: 0.9rem;
+        line-height: 1.4;
+        word-break: break-word;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1.5rem;
+        color: var(--gray-500);
+    }
+
+    .empty-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .empty-text h4 {
+        margin: 0 0 0.5rem 0;
+        color: var(--gray-700);
+    }
+
+    .empty-text p {
+        margin: 0;
+        color: var(--gray-500);
+    }
+
+    @media (max-width: 768px) {
+        .charts-section {
+            grid-template-columns: 1fr;
+        }
+
+        .stats-overview {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .answer-item {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.25rem;
+        }
+
+        .answer-bar {
+            flex: none;
+        }
+    }
+</style>
+
+<script>
+    // 問卷統計專用 JavaScript
+    $(document).ready(function () {
+        // 載入初始統計數據
+        loadQuestionnaireStats();
+
+        // 問卷選擇器事件
+        $('#questionnaire-select').on('change', function () {
+            loadQuestionnaireStats();
+        });
+    });
+
+    // 載入問卷統計數據
+    function loadQuestionnaireStats() {
+        const questionnaireId = $('#questionnaire-select').val();
+
+        const data = {};
+        if (questionnaireId) {
+            data.questionnaire_id = questionnaireId;
+        }
+
+        $.ajax({
+            url: '/admin/questionnaire/api/stats',
+            method: 'GET',
+            data: data,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function (html) {
+                $('#stats-content').html(html);
+            },
+            error: function (xhr) {
+                console.error('載入問卷統計失敗:', xhr);
+                $('#stats-content').html('<div class="alert alert-danger">載入統計失敗</div>');
+            }
+        });
+    }
+
+    // 匯出報告
+    function exportReport() {
+        const questionnaire = $('#questionnaire-select').val();
+        if (!questionnaire) {
+            alert('請先選擇問卷');
+            return;
+        }
+
+        // 直接下載文件
+        window.open(`/api/admin/questionnaire/${questionnaire}/export`, '_blank');
+    }
+
+    // 跳轉到問卷QR頁面
+    function goToQuestionnaireQR() {
+        window.location.href = '/admin/questionnaire/qr';
+    }
+
+    // 查看詳細回應
+    function viewResponse(responseId) {
+        $.ajax({
+            url: `/admin/api/questionnaire/response/${responseId}`,
+            method: 'GET',
+            success: function (html) {
+                $('#modal-container').html(html);
+                const modal = $('#modal-container .modal')[0];
+                if (modal) {
+                    $(modal).addClass('show');
+                    $('body').addClass('modal-open');
+                }
+            },
+            error: function (xhr) {
+                console.error('載入回應詳情失敗:', xhr);
+            }
+        });
+    }
+</script>

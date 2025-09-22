@@ -1,0 +1,427 @@
+{{!-- 參加者追蹤頁面 --}}
+
+<div class="page-header">
+    <div class="page-title">
+        <h1><i class="fas fa-route"></i> 參加者追蹤</h1>
+        <p>追蹤參加者的活動軌跡和互動記錄</p>
+    </div>
+    <div class="page-actions">
+        <button class="btn btn-primary" onclick="exportTracking()">
+            <i class="fas fa-download"></i>
+            匯出追蹤記錄
+        </button>
+        <button class="btn btn-secondary" onclick="refreshTracking()">
+            <i class="fas fa-sync-alt"></i>
+            重新整理
+        </button>
+    </div>
+</div>
+
+<!-- 篩選器 -->
+<div class="tracking-filters">
+    <div class="filter-row">
+        <div class="filter-group">
+            <label for="event-select">活動：</label>
+            <select id="event-select" class="form-control">
+                <option value="">所有活動</option>
+                <option value="1">2024年度科技論壇</option>
+                <option value="2">春季產品發表會</option>
+                <option value="3">客戶感謝晚宴</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="date-range">日期範圍：</label>
+            <input type="date" id="date-from" class="form-control">
+            <span>至</span>
+            <input type="date" id="date-to" class="form-control">
+        </div>
+
+        <div class="filter-group">
+            <label for="participant-search">搜尋參加者：</label>
+            <input type="text" id="participant-search" class="form-control" placeholder="姓名或電子郵件...">
+        </div>
+    </div>
+</div>
+
+<!-- 追蹤統計 -->
+<div class="tracking-stats">
+    <div class="loading">載入追蹤統計...</div>
+</div>
+
+<!-- 追蹤內容 -->
+<div id="tracking-content">
+    <div class="loading">載入追蹤數據...</div>
+</div>
+
+<!-- 匯出結果容器 -->
+<div id="export-result"></div>
+
+<style>
+    /* 參加者追蹤專用樣式 */
+    .tracking-filters {
+        background: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius-lg);
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-md);
+    }
+
+    .filter-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-group label {
+        font-weight: 600;
+        color: var(--gray-700);
+    }
+
+    .filter-group span {
+        align-self: center;
+        color: var(--gray-500);
+        font-size: 0.9rem;
+    }
+
+    .tracking-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--shadow-md);
+        text-align: center;
+    }
+
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--primary-color);
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+        color: var(--gray-600);
+        font-size: 0.9rem;
+    }
+
+    .tracking-timeline {
+        background: white;
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
+    }
+
+    .timeline-header {
+        background: var(--gray-50);
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .timeline-header h3 {
+        margin: 0;
+        color: var(--gray-800);
+    }
+
+    .timeline-content {
+        padding: 1.5rem;
+    }
+
+    .participant-card {
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        margin-bottom: 1rem;
+        overflow: hidden;
+    }
+
+    .participant-header {
+        background: var(--gray-50);
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+    }
+
+    .participant-info h4 {
+        margin: 0 0 0.25rem 0;
+        color: var(--gray-800);
+    }
+
+    .participant-meta {
+        font-size: 0.9rem;
+        color: var(--gray-600);
+    }
+
+    .participant-status {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .status-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--success-color);
+    }
+
+    .status-indicator.offline {
+        background: var(--gray-400);
+    }
+
+    .participant-timeline {
+        padding: 1rem;
+        display: none;
+    }
+
+    .participant-timeline.expanded {
+        display: block;
+    }
+
+    .timeline-item {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .timeline-item:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
+
+    .timeline-time {
+        min-width: 80px;
+        font-size: 0.9rem;
+        color: var(--gray-600);
+        font-weight: 500;
+    }
+
+    .timeline-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: var(--primary-color);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        flex-shrink: 0;
+    }
+
+    .timeline-content-item {
+        flex: 1;
+    }
+
+    .timeline-action {
+        font-weight: 600;
+        color: var(--gray-800);
+        margin-bottom: 0.25rem;
+    }
+
+    .timeline-details {
+        font-size: 0.9rem;
+        color: var(--gray-600);
+    }
+
+    .timeline-location {
+        font-size: 0.8rem;
+        color: var(--gray-500);
+        margin-top: 0.25rem;
+    }
+
+    @media (max-width: 768px) {
+        .filter-row {
+            grid-template-columns: 1fr;
+        }
+
+        .tracking-stats {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .participant-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+
+        .timeline-item {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .timeline-time {
+            min-width: auto;
+        }
+    }
+</style>
+
+<script>
+    // 參加者追蹤專用 JavaScript
+    $(document).ready(function () {
+        // 載入初始資料
+        loadTrackingStats();
+        loadTrackingParticipants();
+
+        // 篩選器事件
+        $('#event-select, #date-from, #date-to').on('change', function () {
+            loadTrackingParticipants();
+        });
+
+        // 搜尋輸入框事件
+        $('#participant-search').on('keyup', function () {
+            clearTimeout(window.searchTimeout);
+            window.searchTimeout = setTimeout(function () {
+                searchParticipants();
+            }, 300);
+        });
+
+        // Enter 鍵搜尋
+        $('#participant-search').on('keypress', function (e) {
+            if (e.which === 13) {
+                searchParticipants();
+            }
+        });
+    });
+
+    // 載入追蹤統計
+    function loadTrackingStats() {
+        $.ajax({
+            url: '/api/admin/tracking/stats',
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function (html) {
+                $('.tracking-stats').html(html);
+            },
+            error: function (xhr) {
+                console.error('載入追蹤統計失敗:', xhr);
+                $('.tracking-stats').html('<div class="alert alert-danger">載入統計失敗</div>');
+            }
+        });
+    }
+
+    // 載入參加者追蹤數據
+    function loadTrackingParticipants() {
+        const event = $('#event-select').val();
+        const dateFrom = $('#date-from').val();
+        const dateTo = $('#date-to').val();
+
+        $.ajax({
+            url: '/api/admin/tracking/participants',
+            method: 'GET',
+            data: { event, dateFrom, dateTo },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function (html) {
+                $('#tracking-content').html(html);
+            },
+            error: function (xhr) {
+                console.error('載入追蹤數據失敗:', xhr);
+                $('#tracking-content').html('<div class="alert alert-danger">載入追蹤數據失敗</div>');
+            }
+        });
+    }
+
+    // 搜尋參加者
+    function searchParticipants() {
+        const search = $('#participant-search').val().trim();
+
+        if (!search) {
+            loadTrackingParticipants();
+            return;
+        }
+
+        $.ajax({
+            url: '/api/admin/tracking/search',
+            method: 'GET',
+            data: { search },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function (html) {
+                $('#tracking-content').html(html);
+            },
+            error: function (xhr) {
+                console.error('搜尋失敗:', xhr);
+                $('#tracking-content').html('<div class="alert alert-danger">搜尋失敗</div>');
+            }
+        });
+    }
+
+    // 展開/收合參加者時間軸
+    window.toggleParticipantTimeline = function (participantId) {
+        const timeline = document.getElementById(`timeline-${participantId}`);
+        const header = document.querySelector(`[onclick="toggleParticipantTimeline(${participantId})"]`);
+
+        if (timeline.classList.contains('expanded')) {
+            timeline.classList.remove('expanded');
+            header.querySelector('.fas').className = 'fas fa-chevron-down';
+        } else {
+            timeline.classList.add('expanded');
+            header.querySelector('.fas').className = 'fas fa-chevron-up';
+        }
+    };
+
+    // 重新整理追蹤數據
+    window.refreshTracking = function () {
+        loadTrackingStats();
+        loadTrackingParticipants();
+    };
+
+    // 查看參加者詳情
+    window.viewParticipantDetails = function (participantId) {
+        $.ajax({
+            url: `/api/admin/tracking/participant/${participantId}/details`,
+            method: 'GET',
+            success: function (html) {
+                $('#modal-container').html(html);
+                const modal = $('#modal-container .modal')[0];
+                if (modal) {
+                    $(modal).addClass('show');
+                    $('body').addClass('modal-open');
+                }
+            },
+            error: function (xhr) {
+                console.error('載入參加者詳情失敗:', xhr);
+            }
+        });
+    };
+
+    // 匯出追蹤記錄
+    window.exportTracking = function () {
+        const event = $('#event-select').val();
+        const dateFrom = $('#date-from').val();
+        const dateTo = $('#date-to').val();
+
+        const params = new URLSearchParams();
+        if (event) params.append('event', event);
+        if (dateFrom) params.append('dateFrom', dateFrom);
+        if (dateTo) params.append('dateTo', dateTo);
+
+        // 直接下載文件
+        window.open(`/api/admin/tracking/export?${params.toString()}`, '_blank');
+    };
+</script>

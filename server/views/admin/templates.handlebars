@@ -1,0 +1,483 @@
+{{!-- 模板管理頁面 --}}
+
+<div class="content-header">
+    <h1>模板管理</h1>
+    <p>管理邀請函模板、樣式設定和內容配置</p>
+</div>
+
+<!-- 操作按鈕 -->
+<div class="action-bar">
+    <div class="search-box">
+        <input type="text" id="search-input" class="form-control" placeholder="搜尋模板名稱或標籤...">
+        <button class="btn btn-primary" onclick="searchTemplates()">
+            <i class="fas fa-search"></i> 搜尋
+        </button>
+    </div>
+    <div class="action-buttons">
+        <button class="btn btn-success" onclick="openNewTemplateModal()">
+            <i class="fas fa-plus"></i> 新增模板
+        </button>
+        <button class="btn btn-info" onclick="openImportTemplateModal()">
+            <i class="fas fa-upload"></i> 匯入模板
+        </button>
+        <button class="btn btn-secondary" onclick="refreshTemplates()">
+            <i class="fas fa-sync-alt"></i> 重新整理
+        </button>
+    </div>
+</div>
+
+<!-- 模板列表 -->
+<div class="data-table-container">
+    <div class="table-header">
+        <h3>模板列表</h3>
+        <div class="table-controls">
+            <select id="category-filter" class="form-control" onchange="searchTemplates()">
+                <option value="">所有分類</option>
+                <option value="invitation">邀請函</option>
+                <option value="notification">通知</option>
+                <option value="email">電子郵件</option>
+                <option value="form">表單</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-content">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>預覽</th>
+                    <th data-sortable="name">模板名稱</th>
+                    <th data-sortable="category">分類</th>
+                    <th data-sortable="usage_count">使用次數</th>
+                    <th data-sortable="status">狀態</th>
+                    <th data-sortable="updated_at">最後更新</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="templates-table-body">
+                <tr>
+                    <td colspan="7" class="loading-cell">
+                        <div class="loading-spinner"></div>
+                        載入模板數據中...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 分頁 -->
+    <div class="pagination-container" id="pagination-container">
+        <div class="pagination-info">
+            <span>載入分頁資訊中...</span>
+        </div>
+    </div>
+</div>
+
+<!-- 模態框容器 -->
+<div id="modal-container"></div>
+
+<style>
+    /* 模板管理專用樣式 */
+    .template-preview {
+        width: 60px;
+        height: 40px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius-sm);
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        cursor: pointer;
+        transition: transform var(--transition-fast);
+    }
+
+    .template-preview:hover {
+        transform: scale(1.1);
+    }
+
+    .template-preview.no-preview {
+        background-color: var(--gray-100);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--gray-500);
+        font-size: 0.8rem;
+    }
+
+    .template-category {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.5rem;
+        border-radius: var(--border-radius-sm);
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .template-category.invitation {
+        background-color: #e0f2fe;
+        color: #0277bd;
+    }
+
+    .template-category.notification {
+        background-color: #f3e5f5;
+        color: #7b1fa2;
+    }
+
+    .template-category.email {
+        background-color: #e8f5e8;
+        color: #2e7d32;
+    }
+
+    .template-category.form {
+        background-color: #fff3e0;
+        color: #ef6c00;
+    }
+
+    .usage-count {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        color: var(--gray-600);
+    }
+
+    .usage-count i {
+        font-size: 0.8rem;
+    }
+
+    .template-actions {
+        display: flex;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+    }
+
+    .template-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .template-status.active {
+        color: var(--success-color);
+    }
+
+    .template-status.inactive {
+        color: var(--gray-500);
+    }
+
+    .template-status.draft {
+        color: var(--warning-color);
+    }
+
+    @media (max-width: 768px) {
+        .template-preview {
+            width: 40px;
+            height: 30px;
+        }
+
+        .template-actions {
+            flex-direction: column;
+            gap: 0.125rem;
+        }
+
+        .template-category {
+            font-size: 0.7rem;
+            padding: 0.125rem 0.25rem;
+        }
+    }
+</style>
+
+<script>
+    // 模板管理專用 JavaScript
+    $(document).ready(function () {
+        // 載入模板數據和分頁
+        loadTemplates();
+        loadTemplatesPagination();
+
+        // 搜尋輸入框事件
+        $('#search-input').on('keyup', function () {
+            clearTimeout(window.searchTimeout);
+            window.searchTimeout = setTimeout(function () {
+                searchTemplates();
+            }, 300);
+        });
+
+        // Enter 鍵搜索
+        $('#search-input').on('keypress', function (e) {
+            if (e.which === 13) {
+                searchTemplates();
+            }
+        });
+    });
+
+    // 載入模板列表
+    function loadTemplates(page = 1) {
+        const category = $('#category-filter').val();
+
+        $.ajax({
+            url: '/api/admin/templates',
+            method: 'GET',
+            data: {
+                page: page,
+                category: category,
+                format: 'html'
+            },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function (html) {
+                $('#templates-table-body').html(html);
+            },
+            error: function (xhr) {
+                console.error('載入模板失敗:', xhr);
+                $('#templates-table-body').html(`
+                <tr>
+                    <td colspan="7" class="text-center text-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        載入模板失敗，請稍後重試
+                    </td>
+                </tr>
+            `);
+            }
+        });
+    }
+
+    // 搜索模板
+    function searchTemplates() {
+        const search = $('#search-input').val().trim();
+        const category = $('#category-filter').val();
+
+        $.ajax({
+            url: '/api/admin/templates/search',
+            method: 'GET',
+            data: {
+                search: search,
+                category: category
+            },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function (html) {
+                $('#templates-table-body').html(html);
+            },
+            error: function (xhr) {
+                console.error('搜索模板失敗:', xhr);
+                $('#templates-table-body').html(`
+                <tr>
+                    <td colspan="7" class="text-center text-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        搜索失敗，請稍後重試
+                    </td>
+                </tr>
+            `);
+            }
+        });
+    }
+
+    // 載入分頁信息
+    function loadTemplatesPagination(page = 1) {
+        $.ajax({
+            url: '/api/admin/templates/pagination',
+            method: 'GET',
+            data: { page: page },
+            success: function (html) {
+                $('#pagination-container').html(html);
+            },
+            error: function (xhr) {
+                console.error('載入分頁失敗:', xhr);
+                $('#pagination-container').html('<div class="pagination-info"><span class="text-danger">載入分頁失敗</span></div>');
+            }
+        });
+    }
+
+    // 分頁跳轉
+    function loadTemplatesPage(page) {
+        loadTemplates(page);
+        loadTemplatesPagination(page);
+    }
+
+    // 重新整理模板
+    function refreshTemplates() {
+        loadTemplates();
+        loadTemplatesPagination();
+    }
+
+    // 模板操作函數
+    function previewTemplate(id) {
+        $.ajax({
+            url: `/admin/templates/${id}/preview`,
+            method: 'GET',
+            success: function (html) {
+                $('#modal-container').html(html);
+                const modal = $('#modal-container .modal')[0];
+                if (modal) {
+                    $(modal).addClass('show');
+                    $('body').addClass('modal-open');
+                }
+            },
+            error: function (xhr) {
+                console.error('載入模板預覽失敗:', xhr);
+                showAlert('載入模板預覽失敗', 'danger');
+            }
+        });
+    }
+
+    function editTemplate(id) {
+        $.ajax({
+            url: `/admin/templates/${id}/edit`,
+            method: 'GET',
+            success: function (html) {
+                $('#modal-container').html(html);
+                const modal = $('#modal-container .modal')[0];
+                if (modal) {
+                    $(modal).addClass('show');
+                    $('body').addClass('modal-open');
+                }
+            },
+            error: function (xhr) {
+                console.error('載入編輯模板失敗:', xhr);
+                showAlert('載入編輯模板失敗', 'danger');
+            }
+        });
+    }
+
+    function duplicateTemplate(id) {
+        if (!confirm('確定要複製此模板嗎？')) return;
+
+        $.ajax({
+            url: `/api/admin/templates/${id}/duplicate`,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function (response) {
+                if (response.success) {
+                    showAlert('模板複製成功', 'success');
+                    loadTemplates();
+                } else {
+                    showAlert(response.message || '複製模板失敗', 'danger');
+                }
+            },
+            error: function (xhr) {
+                console.error('複製模板失敗:', xhr);
+                showAlert('複製模板失敗', 'danger');
+            }
+        });
+    }
+
+    function deleteTemplate(id) {
+        if (!confirm('確定要刪除此模板嗎？此操作無法復原。')) return;
+
+        $.ajax({
+            url: `/api/admin/templates/${id}`,
+            method: 'DELETE',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function (response) {
+                if (response.success) {
+                    showAlert('模板刪除成功', 'success');
+                    loadTemplates();
+                } else {
+                    showAlert(response.message || '刪除模板失敗', 'danger');
+                }
+            },
+            error: function (xhr) {
+                console.error('刪除模板失敗:', xhr);
+                showAlert('刪除模板失敗', 'danger');
+            }
+        });
+    }
+
+    function exportTemplate(id) {
+        $.ajax({
+            url: `/api/admin/templates/${id}/export`,
+            method: 'GET',
+            success: function (response) {
+                if (response.success) {
+                    // Handle successful export
+                    window.open(response.download_url, '_blank');
+                } else {
+                    showAlert(response.message || '匯出功能尚未實現', 'info');
+                }
+            },
+            error: function (xhr) {
+                console.error('匯出模板失敗:', xhr);
+                showAlert('匯出模板失敗', 'danger');
+            }
+        });
+    }
+
+    function toggleTemplateStatus(id) {
+        if (!confirm('確定要切換此模板的預設狀態嗎？')) return;
+
+        $.ajax({
+            url: `/api/admin/templates/${id}/toggle-status`,
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function (response) {
+                if (response.success) {
+                    showAlert('模板狀態更新成功', 'success');
+                    loadTemplates();
+                } else {
+                    showAlert(response.message || '更新模板狀態失敗', 'danger');
+                }
+            },
+            error: function (xhr) {
+                console.error('更新模板狀態失敗:', xhr);
+                showAlert('更新模板狀態失敗', 'danger');
+            }
+        });
+    }
+
+    // 打開新增模板模態框
+    function openNewTemplateModal() {
+        $.ajax({
+            url: '/admin/templates/new',
+            method: 'GET',
+            success: function (html) {
+                $('#modal-container').html(html);
+                const modal = $('#modal-container .modal')[0];
+                if (modal) {
+                    $(modal).addClass('show');
+                    $('body').addClass('modal-open');
+                }
+            },
+            error: function (xhr) {
+                console.error('載入新增模板表單失敗:', xhr);
+                showAlert('載入新增模板表單失敗', 'danger');
+            }
+        });
+    }
+
+    // 打開匯入模板模態框
+    function openImportTemplateModal() {
+        showAlert('匯入模板功能尚未實現', 'info');
+    }
+
+    // 顯示提示信息
+    function showAlert(message, type = 'info') {
+        const alertClass = type === 'success' ? 'alert-success' :
+            type === 'danger' ? 'alert-danger' :
+                type === 'warning' ? 'alert-warning' : 'alert-info';
+
+        const alertHtml = `
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+
+        // 將提示添加到頁面頂部
+        $('.content-header').after(alertHtml);
+
+        // 自動消失
+        setTimeout(() => {
+            $('.alert').fadeOut();
+        }, 3000);
+    }
+</script>

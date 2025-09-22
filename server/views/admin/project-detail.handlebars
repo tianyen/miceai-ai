@@ -1,0 +1,840 @@
+{{!-- 專案詳情頁面 --}}
+
+<div class="content-header">
+    <h1>{{project.project_name}}</h1>
+    <p>專案代碼：{{project.project_code}} | 建立者：{{project.creator_name}}</p>
+</div>
+
+<!-- 專案資訊卡片 -->
+<div class="project-overview">
+    <div class="overview-grid">
+        <div class="info-card">
+            <div class="card-header">
+                <h3>專案資訊</h3>
+            </div>
+            <div class="card-content">
+                <div class="info-item">
+                    <label>專案名稱：</label>
+                    <span>{{project.project_name}}</span>
+                </div>
+                <div class="info-item">
+                    <label>專案代碼：</label>
+                    <span>{{project.project_code}}</span>
+                </div>
+                <div class="info-item">
+                    <label>活動日期：</label>
+                    <span>{{#if project.event_date}}{{formatDate project.event_date}}{{else}}-{{/if}}</span>
+                </div>
+                <div class="info-item">
+                    <label>活動地點：</label>
+                    <span>{{#if project.event_location}}{{project.event_location}}{{else}}-{{/if}}</span>
+                </div>
+                <div class="info-item">
+                    <label>專案狀態：</label>
+                    <span class="status-{{project.status}}">
+                        {{#eq project.status 'active'}}進行中{{/eq}}
+                        {{#eq project.status 'completed'}}已完成{{/eq}}
+                        {{#eq project.status 'cancelled'}}已取消{{/eq}}
+                        {{#eq project.status 'draft'}}草稿{{/eq}}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card">
+            <div class="card-header">
+                <h3>專案統計</h3>
+                <button class="btn btn-sm btn-secondary" onclick="refreshStats()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div class="card-content" id="project-stats">
+                <div class="loading">載入統計中...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 功能選項卡 -->
+<div class="project-tabs">
+    <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="participants">參加者管理</button>
+        <button class="tab-btn" data-tab="questionnaires">問卷狀況</button>
+        <button class="tab-btn" data-tab="checkin">簽到管理</button>
+        <button class="tab-btn" data-tab="tracking">參加者追蹤</button>
+        <button class="tab-btn" data-tab="qr-scanner">QR掃描</button>
+    </nav>
+
+    <!-- 參加者管理 -->
+    <div class="tab-content active" id="participants-tab">
+        <div class="section-header">
+            <h3>參加者管理</h3>
+            <div class="section-actions">
+                <button class="btn btn-success" onclick="exportParticipants()">
+                    <i class="fas fa-download"></i> 匯出參加者
+                </button>
+                <button class="btn btn-secondary" onclick="refreshParticipants()">
+                    <i class="fas fa-sync-alt"></i> 重新整理
+                </button>
+            </div>
+        </div>
+        
+        <div class="data-table-container">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>姓名</th>
+                            <th>電子郵件</th>
+                            <th>電話</th>
+                            <th>參與程度</th>
+                            <th>報到狀態</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="participants-list">
+                        <tr>
+                            <td colspan="6" class="text-center">
+                                <div class="loading">載入參加者資料中...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 問卷狀況 -->
+    <div class="tab-content" id="questionnaires-tab">
+        <div class="section-header">
+            <h3>問卷填寫狀況</h3>
+            <div class="section-actions">
+                <button class="btn btn-primary" onclick="createQuestionnaire()">
+                    <i class="fas fa-plus"></i> 新建問卷
+                </button>
+            </div>
+        </div>
+        
+        <div id="questionnaires-content">
+            <div class="loading">載入問卷資料中...</div>
+        </div>
+    </div>
+
+    <!-- 簽到管理 -->
+    <div class="tab-content" id="checkin-tab">
+        <div class="section-header">
+            <h3>簽到管理</h3>
+            <div class="section-actions">
+                <button class="btn btn-success" onclick="openQRScanner()" id="qr-scan-btn">
+                    <i class="fas fa-qrcode"></i> 掃描 QR Code
+                </button>
+                <button class="btn btn-warning" onclick="bulkCheckin()">
+                    <i class="fas fa-users"></i> 批量簽到
+                </button>
+            </div>
+        </div>
+        
+        <div class="checkin-stats" id="checkin-stats">
+            <div class="loading">載入簽到統計中...</div>
+        </div>
+        
+        <div class="checkin-list" id="checkin-list">
+            <div class="loading">載入簽到記錄中...</div>
+        </div>
+    </div>
+
+    <!-- 參加者追蹤 -->
+    <div class="tab-content" id="tracking-tab">
+        <div class="section-header">
+            <h3>參加者追蹤</h3>
+            <div class="search-box">
+                <input type="text" id="tracking-search" placeholder="輸入參加者姓名或 Trace ID">
+                <button class="btn btn-primary" onclick="searchTracking()">
+                    <i class="fas fa-search"></i> 搜尋
+                </button>
+            </div>
+        </div>
+        
+        <div id="tracking-results">
+            <div class="tracking-placeholder">
+                <i class="fas fa-search"></i>
+                <p>請搜尋參加者以查看追蹤資訊</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR掃描 -->
+    <div class="tab-content" id="qr-scanner-tab">
+        <div class="section-header">
+            <h3>QR Code 掃描器</h3>
+            <div class="section-actions">
+                <button class="btn btn-primary" onclick="openScannerWindow()">
+                    <i class="fas fa-external-link-alt"></i> 開啟掃描視窗
+                </button>
+            </div>
+        </div>
+        
+        <div class="scanner-info">
+            <div class="info-box">
+                <h4>掃描說明</h4>
+                <ul>
+                    <li>點擊「開啟掃描視窗」開始掃描</li>
+                    <li>將參加者的 QR Code 對準攝影機</li>
+                    <li>系統會自動識別並處理簽到</li>
+                    <li>掃描結果會即時更新到簽到記錄中</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 模態框容器 -->
+<div id="modal-container"></div>
+
+<style>
+/* 專案詳情頁面樣式 */
+.project-overview {
+    margin-bottom: 2rem;
+}
+
+.overview-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+}
+
+.info-card, .stats-card {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.card-header {
+    background: var(--gray-50);
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-header h3 {
+    margin: 0;
+    color: var(--gray-900);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.card-content {
+    padding: 1.5rem;
+}
+
+.info-item {
+    display: flex;
+    margin-bottom: 1rem;
+}
+
+.info-item:last-child {
+    margin-bottom: 0;
+}
+
+.info-item label {
+    font-weight: 500;
+    color: var(--gray-700);
+    min-width: 100px;
+    margin-right: 1rem;
+}
+
+.info-item span {
+    color: var(--gray-900);
+}
+
+.status-active { color: var(--success-color); }
+.status-completed { color: var(--primary-color); }
+.status-cancelled { color: var(--danger-color); }
+.status-draft { color: var(--warning-color); }
+
+.project-tabs {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.tab-nav {
+    display: flex;
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 1rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--gray-600);
+    transition: all var(--transition-fast);
+    position: relative;
+}
+
+.tab-btn.active {
+    color: var(--primary-color);
+    background: white;
+}
+
+.tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--primary-color);
+}
+
+.tab-btn:hover:not(.active) {
+    background: var(--gray-100);
+    color: var(--gray-800);
+}
+
+.tab-content {
+    display: none;
+    padding: 2rem;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.section-header h3 {
+    margin: 0;
+    color: var(--gray-900);
+}
+
+.section-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.search-box {
+    display: flex;
+    gap: 0.5rem;
+    max-width: 400px;
+}
+
+.search-box input {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+.tracking-placeholder {
+    text-align: center;
+    padding: 3rem;
+    color: var(--gray-500);
+}
+
+.tracking-placeholder i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.scanner-info {
+    padding: 2rem 0;
+}
+
+.info-box {
+    background: var(--gray-50);
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+}
+
+.info-box h4 {
+    margin: 0 0 1rem 0;
+    color: var(--gray-900);
+}
+
+.info-box ul {
+    margin: 0;
+    padding-left: 1.5rem;
+}
+
+.info-box li {
+    margin-bottom: 0.5rem;
+    color: var(--gray-700);
+}
+
+/* 統計卡片樣式 */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+    background: var(--gray-50);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--primary-color);
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    color: var(--gray-600);
+    font-size: 0.9rem;
+}
+
+/* 問卷項目樣式 */
+.questionnaires-list {
+    space-y: 1rem;
+}
+
+.questionnaire-item {
+    background: var(--gray-50);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.questionnaire-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.questionnaire-header h4 {
+    margin: 0;
+    color: var(--gray-900);
+}
+
+.questionnaire-stats {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+}
+
+.questionnaire-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* 簽到統計樣式 */
+.checkin-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    text-align: center;
+    padding: 1.5rem;
+    background: white;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.stat-card.success {
+    border-left: 4px solid var(--success-color);
+}
+
+.stat-card.warning {
+    border-left: 4px solid var(--warning-color);
+}
+
+.stat-card.info {
+    border-left: 4px solid var(--info-color);
+}
+
+/* 追蹤結果樣式 */
+.tracking-result {
+    background: white;
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    border: 1px solid var(--border-color);
+}
+
+.participant-info {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.participant-info h4 {
+    margin: 0 0 1rem 0;
+    color: var(--gray-900);
+}
+
+.participant-info p {
+    margin: 0.25rem 0;
+    color: var(--gray-700);
+}
+
+.interactions-timeline h5 {
+    margin: 0 0 1rem 0;
+    color: var(--gray-900);
+}
+
+.interaction-item {
+    padding: 1rem;
+    background: var(--gray-50);
+    border-radius: var(--border-radius);
+    margin-bottom: 0.5rem;
+    border-left: 3px solid var(--primary-color);
+}
+
+.interaction-time {
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    margin-bottom: 0.25rem;
+}
+
+.interaction-type {
+    font-weight: 500;
+    color: var(--gray-900);
+}
+
+.interaction-target {
+    font-size: 0.9rem;
+    color: var(--gray-600);
+}
+
+@media (max-width: 768px) {
+    .overview-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .tab-nav {
+        flex-wrap: wrap;
+    }
+    
+    .tab-btn {
+        flex: 1 1 50%;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    
+    .section-actions {
+        justify-content: center;
+    }
+    
+    .stats-grid,
+    .checkin-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+</style>
+
+<script>
+// 專案詳情頁面 JavaScript
+const projectId = {{project.id}};
+let currentTab = 'participants';
+
+$(document).ready(function() {
+    // 載入初始數據
+    loadProjectStats();
+    loadParticipants();
+    
+    // 選項卡切換
+    $('.tab-btn').on('click', function() {
+        const tabName = $(this).data('tab');
+        switchTab(tabName);
+    });
+    
+    // 搜尋追蹤
+    $('#tracking-search').on('keypress', function(e) {
+        if (e.which === 13) {
+            searchTracking();
+        }
+    });
+});
+
+// 切換選項卡
+function switchTab(tabName) {
+    $('.tab-btn').removeClass('active');
+    $('.tab-content').removeClass('active');
+    
+    $(`.tab-btn[data-tab="${tabName}"]`).addClass('active');
+    $(`#${tabName}-tab`).addClass('active');
+    
+    currentTab = tabName;
+    
+    // 載入對應內容
+    switch(tabName) {
+        case 'participants':
+            loadParticipants();
+            break;
+        case 'questionnaires':
+            loadQuestionnaires();
+            break;
+        case 'checkin':
+            loadCheckinData();
+            break;
+        case 'tracking':
+            // 追蹤頁面不需要自動載入
+            break;
+        case 'qr-scanner':
+            // QR掃描頁面不需要自動載入
+            break;
+    }
+}
+
+// 載入專案統計
+function loadProjectStats() {
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/stats`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                const stats = response.data;
+                const statsHtml = `
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value">${stats.total_participants || 0}</div>
+                            <div class="stat-label">總報名人數</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${stats.checked_in_count || 0}</div>
+                            <div class="stat-label">已簽到人數</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${stats.questionnaire_responses || 0}</div>
+                            <div class="stat-label">問卷回應數</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${stats.checkin_rate || 0}%</div>
+                            <div class="stat-label">簽到率</div>
+                        </div>
+                    </div>
+                `;
+                $('#project-stats').html(statsHtml);
+            }
+        },
+        error: function() {
+            $('#project-stats').html('<div class="alert alert-danger">載入統計失敗</div>');
+        }
+    });
+}
+
+// 載入參加者列表
+function loadParticipants() {
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/participants`,
+        method: 'GET',
+        success: function(data) {
+            $('#participants-list').html(data);
+        },
+        error: function() {
+            $('#participants-list').html('<tr><td colspan="6" class="text-center text-danger">載入參加者失敗</td></tr>');
+        }
+    });
+}
+
+// 載入問卷資料
+function loadQuestionnaires() {
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/questionnaires`,
+        method: 'GET',
+        success: function(data) {
+            $('#questionnaires-content').html(data);
+        },
+        error: function() {
+            $('#questionnaires-content').html('<div class="alert alert-danger">載入問卷資料失敗</div>');
+        }
+    });
+}
+
+// 載入簽到資料
+function loadCheckinData() {
+    // 載入簽到統計
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/checkin-stats`,
+        method: 'GET',
+        success: function(data) {
+            $('#checkin-stats').html(data);
+        },
+        error: function() {
+            $('#checkin-stats').html('<div class="alert alert-danger">載入簽到統計失敗</div>');
+        }
+    });
+    
+    // 載入簽到記錄
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/checkin-records`,
+        method: 'GET',
+        success: function(data) {
+            $('#checkin-list').html(data);
+        },
+        error: function() {
+            $('#checkin-list').html('<div class="alert alert-danger">載入簽到記錄失敗</div>');
+        }
+    });
+}
+
+// 手動簽到
+function manualCheckin(participantId) {
+    if (confirm('確定要為此參加者辦理簽到嗎？')) {
+        $.ajax({
+            url: `/api/admin/participants/${participantId}/checkin`,
+            method: 'POST',
+            data: { project_id: projectId },
+            success: function(response) {
+                if (response.success) {
+                    showNotification('簽到成功', 'success');
+                    if (currentTab === 'participants') {
+                        loadParticipants();
+                    } else if (currentTab === 'checkin') {
+                        loadCheckinData();
+                    }
+                    loadProjectStats();
+                } else {
+                    showNotification(response.message || '簽到失敗', 'error');
+                }
+            },
+            error: function() {
+                showNotification('簽到失敗，請稍後再試', 'error');
+            }
+        });
+    }
+}
+
+// 取消簽到
+function cancelCheckin(participantId) {
+    if (confirm('確定要取消此參加者的簽到狀態嗎？')) {
+        $.ajax({
+            url: `/api/admin/participants/${participantId}/cancel-checkin`,
+            method: 'POST',
+            success: function(response) {
+                if (response.success) {
+                    showNotification('取消簽到成功', 'success');
+                    if (currentTab === 'participants') {
+                        loadParticipants();
+                    } else if (currentTab === 'checkin') {
+                        loadCheckinData();
+                    }
+                    loadProjectStats();
+                } else {
+                    showNotification(response.message || '取消簽到失敗', 'error');
+                }
+            },
+            error: function() {
+                showNotification('取消簽到失敗，請稍後再試', 'error');
+            }
+        });
+    }
+}
+
+// 查看參加者追蹤
+function viewParticipantTracking(traceId) {
+    // 切換到追蹤選項卡
+    switchTab('tracking');
+    
+    // 設置搜尋框值並執行搜尋
+    $('#tracking-search').val(traceId);
+    searchTracking();
+}
+
+// 搜尋追蹤
+function searchTracking() {
+    const searchTerm = $('#tracking-search').val().trim();
+    if (!searchTerm) {
+        showNotification('請輸入搜尋條件', 'warning');
+        return;
+    }
+    
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/tracking`,
+        method: 'GET',
+        data: { search: searchTerm },
+        success: function(data) {
+            $('#tracking-results').html(data);
+        },
+        error: function() {
+            $('#tracking-results').html('<div class="alert alert-danger">搜尋失敗</div>');
+        }
+    });
+}
+
+// 開啟QR掃描視窗
+function openScannerWindow() {
+    const scannerUrl = `/admin/qr-scanner?project_id=${projectId}`;
+    window.open(scannerUrl, 'qr-scanner', 'width=800,height=600,resizable=yes,scrollbars=yes');
+}
+
+// 開啟QR掃描器（嵌入式）
+function openQRScanner() {
+    switchTab('qr-scanner');
+}
+
+// 重新整理功能
+function refreshStats() {
+    loadProjectStats();
+}
+
+function refreshParticipants() {
+    loadParticipants();
+    showNotification('參加者資料已更新', 'info');
+}
+
+// 匯出功能
+function exportParticipants() {
+    window.open(`/api/admin/projects/${projectId}/export-participants`, '_blank');
+}
+
+// 批量簽到
+function bulkCheckin() {
+    if (confirm('確定要為所有未簽到的參加者批量辦理簽到嗎？')) {
+        $.ajax({
+            url: `/api/admin/projects/${projectId}/bulk-checkin`,
+            method: 'POST',
+            success: function(response) {
+                if (response.success) {
+                    showNotification(`成功為 ${response.data.count} 位參加者辦理簽到`, 'success');
+                    loadCheckinData();
+                    loadProjectStats();
+                } else {
+                    showNotification(response.message || '批量簽到失敗', 'error');
+                }
+            },
+            error: function() {
+                showNotification('批量簽到失敗，請稍後再試', 'error');
+            }
+        });
+    }
+}
+
+// 創建問卷
+function createQuestionnaire() {
+    window.location.href = `/admin/questionnaire/new?project_id=${projectId}`;
+}
+</script>

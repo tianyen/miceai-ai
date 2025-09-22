@@ -1,0 +1,110 @@
+{{!-- 系統設定頁面 --}}
+
+<div class="page-header">
+    <div class="page-title">
+        <h1><i class="fas fa-cog"></i> 系統設定</h1>
+        <p>管理系統設定和配置</p>
+    </div>
+</div>
+
+<div class="settings-container">
+    <div class="row">
+        <!-- 系統設定區塊 -->
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3>基本設定</h3>
+                </div>
+                <div class="card-content">
+                    <form id="settings-form">
+                        <div class="form-group">
+                            <label for="system-name">系統名稱</label>
+                            <input type="text" id="system-name" class="form-control" value="MICE AI 管理系統">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="system-email">系統郵件</label>
+                            <input type="email" id="system-email" class="form-control" value="admin@miceai.com">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="timezone">時區</label>
+                            <select id="timezone" class="form-control">
+                                <option value="Asia/Taipei" selected>Asia/Taipei (GMT+8)</option>
+                                <option value="UTC">UTC</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> 儲存設定
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.settings-container {
+    margin-top: 2rem;
+}
+
+.card {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 2rem;
+}
+
+.card-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.card-header h3 {
+    margin: 0;
+    color: var(--gray-900);
+}
+
+.card-content {
+    padding: 1.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--gray-700);
+}
+
+.form-control {
+    width: 100%;
+    max-width: 500px;
+}
+
+.form-actions {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+</style>
+
+<script>
+$(document).ready(function() {
+    $('#settings-form').on('submit', function(e) {
+        e.preventDefault();
+        
+        // 顯示通知
+        if (typeof showNotification === 'function') {
+            showNotification('設定已儲存', 'success');
+        }
+    });
+});
+</script>

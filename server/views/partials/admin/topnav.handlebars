@@ -1,0 +1,125 @@
+<header class="top-nav">
+    <div class="breadcrumb">
+        <button data-toggle="sidebar" class="btn btn-secondary mobile-only" style="margin-right: 15px;">
+            <i class="fas fa-bars"></i>
+        </button>
+        
+        {{#if breadcrumbs}}
+            {{#each breadcrumbs}}
+                {{#unless @last}}
+                    <span class="breadcrumb-item">
+                        {{#if url}}
+                            <a href="{{url}}">{{name}}</a>
+                        {{else}}
+                            {{name}}
+                        {{/if}}
+                    </span>
+                    <span class="breadcrumb-separator">/</span>
+                {{else}}
+                    <span class="breadcrumb-item active">{{name}}</span>
+                {{/unless}}
+            {{/each}}
+        {{else}}
+            <span class="breadcrumb-item">{{pageTitle}}</span>
+        {{/if}}
+    </div>
+    
+    <div class="user-info">
+        <div class="user-dropdown">
+            <button class="user-dropdown-toggle" onclick="toggleUserDropdown()">
+                <span class="user-name">{{user.full_name}}</span>
+                <span class="user-role">{{user.role}}</span>
+                <i class="fas fa-chevron-down"></i>
+            </button>
+            
+            <div class="user-dropdown-menu" id="userDropdownMenu">
+                <a href="/admin/profile" class="dropdown-item">
+                    <i class="fas fa-user"></i>
+                    個人資料
+                </a>
+                
+                <a href="/admin/settings" class="dropdown-item">
+                    <i class="fas fa-cog"></i>
+                    設定
+                </a>
+                
+                <div class="dropdown-divider"></div>
+                
+                <a href="#" class="dropdown-item" onclick="logoutUser()">
+                    <i class="fas fa-sign-out-alt"></i>
+                    登出
+                </a>
+            </div>
+        </div>
+        
+        <!-- 通知中心 -->
+        <div class="notification-center">
+            <button class="notification-toggle" onclick="toggleNotifications()">
+                <i class="fas fa-bell"></i>
+                <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+            </button>
+            
+            <div class="notification-dropdown" id="notificationDropdown">
+                <!-- 通知內容將通過 jQuery 載入 -->
+            </div>
+        </div>
+    </div>
+</header>
+
+<script>
+    function toggleUserDropdown() {
+        const menu = document.getElementById('userDropdownMenu');
+        menu.classList.toggle('show');
+    }
+    
+    function toggleNotifications() {
+        const dropdown = document.getElementById('notificationDropdown');
+        dropdown.classList.toggle('show');
+        
+        // 載入通知數據
+        if (dropdown.classList.contains('show')) {
+            loadNotifications();
+        }
+    }
+    
+    function logoutUser() {
+        if (confirm('確定要登出嗎？')) {
+            $.post('/admin/logout')
+                .done(function() {
+                    window.location.href = '/admin/login';
+                })
+                .fail(function() {
+                    alert('登出失敗，請稍後再試');
+                });
+        }
+    }
+    
+    function loadNotifications() {
+        $.ajax({
+            url: '/admin/api/notifications/unread',
+            method: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    $('#notificationDropdown').html(response.html || '<div class="no-notifications">暫無通知</div>');
+                }
+            },
+            error: function() {
+                $('#notificationDropdown').html('<div class="notification-error">載入通知失敗</div>');
+            }
+        });
+    }
+    
+    // 點擊外部關閉下拉選單
+    document.addEventListener('click', function(event) {
+        const userDropdown = document.getElementById('userDropdownMenu');
+        const notificationDropdown = document.getElementById('notificationDropdown');
+        
+        if (!event.target.closest('.user-dropdown')) {
+            userDropdown.classList.remove('show');
+        }
+        
+        if (!event.target.closest('.notification-center')) {
+            notificationDropdown.classList.remove('show');
+        }
+    });
+</script>

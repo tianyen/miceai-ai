@@ -1,0 +1,476 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+    font-family: 'Arial', sans-serif;
+    color: white;
+    overflow-x: auto;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.demo-header {
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.mobile-demo-container {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.mobile-frame {
+    width: 280px;
+    height: 580px;
+    background: #000;
+    border-radius: 30px;
+    padding: 25px 15px;
+    position: relative;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+    border: 2px solid #333;
+}
+
+.mobile-frame::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 5px;
+    background: #333;
+    border-radius: 3px;
+}
+
+.mobile-frame::after {
+    content: '';
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 3px;
+    background: #333;
+    border-radius: 2px;
+}
+
+.mobile-screen {
+    width: 100%;
+    height: 520px;
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    background: white;
+}
+
+.demo-label {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 14px;
+    color: #ccc;
+    background: rgba(0,0,0,0.7);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+/* 步驟1: 你有來信 */
+.step-1 {
+    background: linear-gradient(135deg, #ff6b35, #f7931e);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: white;
+}
+
+.step-1 .mail-notification {
+    font-size: 24px;
+    margin-bottom: 40px;
+    font-weight: bold;
+}
+
+.step-1 .mail-icon {
+    width: 80px;
+    height: 80px;
+    border: 4px solid white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    margin-bottom: 40px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.step-1 .mail-icon:hover {
+    transform: scale(1.1);
+}
+
+.step-1 .envelope-graphic {
+    width: 100px;
+    height: 60px;
+    background: white;
+    position: relative;
+    border-radius: 4px;
+}
+
+.step-1 .envelope-graphic::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    border-left: 50px solid transparent;
+    border-right: 50px solid transparent;
+    border-top: 30px solid #ddd;
+    border-radius: 4px 4px 0 0;
+}
+
+/* 步驟2: 邀請函品牌頁面 */
+.step-2 {
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: white;
+    position: relative;
+}
+
+.step-2::before {
+    content: '';
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    background: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%);
+    border-radius: 50%;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    animation: rotate 8s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: translateX(-50%) rotate(0deg); }
+    to { transform: translateX(-50%) rotate(360deg); }
+}
+
+.step-2 .brand-logo {
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(45deg, #ff6b35, #f7931e);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    margin-bottom: 30px;
+    z-index: 2;
+    position: relative;
+}
+
+.step-2 .brand-title {
+    font-size: 36px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    z-index: 2;
+    position: relative;
+}
+
+.step-2 .brand-subtitle {
+    font-size: 16px;
+    opacity: 0.9;
+    z-index: 2;
+    position: relative;
+}
+
+/* 步驟3: 邀請詳情 */
+.step-3 {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    padding: 30px 20px;
+    color: white;
+    overflow-y: auto;
+}
+
+.step-3 .greeting {
+    font-size: 20px;
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+.step-3 .sub-greeting {
+    font-size: 14px;
+    opacity: 0.9;
+    margin-bottom: 30px;
+}
+
+.step-3 .info-section {
+    background: rgba(255,255,255,0.15);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.step-3 .section-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #fff;
+}
+
+.step-3 .section-content {
+    font-size: 14px;
+    line-height: 1.5;
+    opacity: 0.95;
+}
+
+.step-3 .highlight {
+    color: #ffeb3b;
+    font-weight: bold;
+}
+
+/* 步驟4: 表單填寫 */
+.step-4 {
+    background: linear-gradient(135deg, #a8edea, #fed6e3);
+    padding: 20px;
+    color: #333;
+    overflow-y: auto;
+}
+
+.step-4 .form-container {
+    background: rgba(255,255,255,0.9);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.step-4 .form-header {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    color: #333;
+    text-align: center;
+}
+
+.step-4 .input-group {
+    margin-bottom: 15px;
+}
+
+.step-4 .input-label {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.step-4 .form-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 14px;
+    transition: border-color 0.3s ease;
+}
+
+.step-4 .form-input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.step-4 .submit-button {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    border-radius: 25px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.step-4 .submit-button:hover {
+    transform: translateY(-2px);
+}
+
+/* 步驟5: QR碼頁面 */
+.step-5 {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    padding: 30px 20px;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.step-5 .date-info {
+    background: rgba(255,255,255,0.2);
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 14px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.step-5 .event-info {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 30px;
+    line-height: 1.4;
+}
+
+.step-5 .qr-container {
+    width: 180px;
+    height: 180px;
+    background: white;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.step-5 .qr-code {
+    width: 140px;
+    height: 140px;
+    background: #000;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: repeat(12, 1fr);
+    gap: 1px;
+}
+
+.step-5 .qr-pixel {
+    background: #000;
+}
+
+.step-5 .qr-pixel:nth-child(2n) {
+    background: transparent;
+}
+
+.step-5 .qr-pixel:nth-child(3n) {
+    background: #000;
+}
+
+.step-5 .qr-pixel:nth-child(5n) {
+    background: transparent;
+}
+
+.step-5 .instruction {
+    font-size: 14px;
+    opacity: 0.9;
+    margin-top: 15px;
+}
+
+/* 響應式設計 */
+@media (max-width: 1400px) {
+    .mobile-demo-container {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 768px) {
+    .mobile-frame {
+        width: 250px;
+        height: 520px;
+        padding: 20px 12px;
+    }
+    
+    .mobile-screen {
+        height: 470px;
+    }
+    
+    .demo-header {
+        font-size: 20px;
+    }
+}
+
+/* 動畫效果 */
+.mobile-frame {
+    animation: slideInUp 0.8s ease-out;
+}
+
+.mobile-frame:nth-child(2) { animation-delay: 0.2s; }
+.mobile-frame:nth-child(3) { animation-delay: 0.4s; }
+.mobile-frame:nth-child(4) { animation-delay: 0.6s; }
+.mobile-frame:nth-child(5) { animation-delay: 0.8s; }
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.mobile-frame:hover {
+    transform: translateY(-10px);
+    transition: transform 0.3s ease;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+}
+
+/* 單頁模式樣式 */
+.single-page {
+    max-width: 400px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+
+.navigation {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 1000;
+}
+
+.nav-button {
+    padding: 10px 20px;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: bold;
+    transition: transform 0.3s ease;
+}
+
+.nav-button:hover {
+    transform: translateY(-2px);
+}
+
+.nav-button.active {
+    background: linear-gradient(45deg, #ff6b35, #f7931e);
+}

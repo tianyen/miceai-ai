@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{#if pageTitle}}{{pageTitle}} - {{/if}}MICE AI 邀請函管理系統</title>
+
+    <!-- 基礎樣式 -->
+    <link rel="stylesheet" href="/css/common/base.css">
+
+    <!-- 條件載入樣式 -->
+    {{#if isAdmin}}
+    <link rel="stylesheet" href="/css/admin/admin.css">
+    {{else}}
+    <link rel="stylesheet" href="/css/frontend/frontend.css">
+    {{/if}}
+
+    <!-- 頁面特定樣式 -->
+    {{#if additionalCSS}}
+    {{#each additionalCSS}}
+    <link rel="stylesheet" href="{{this}}">
+    {{/each}}
+    {{/if}}
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <!-- jQuery 配置 -->
+    <script>
+        // jQuery 全域 AJAX 配置
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                const token = $('meta[name="csrf-token"]').attr('content');
+                if (token && !settings.crossDomain) {
+                    xhr.setRequestHeader('X-CSRF-Token', token);
+                }
+            }
+        });
+
+        // 全域 AJAX 錯誤處理
+        $(document).ajaxError(function(event, xhr, settings, error) {
+            console.error('AJAX 請求錯誤:', error);
+            if (typeof showNotification === 'function') {
+                showNotification('請求失敗，請稍後再試', 'error');
+            }
+        });
+
+        // 全域 AJAX 開始和完成事件
+        $(document).ajaxStart(function() {
+            $('#loading-indicator').show();
+        });
+
+        $(document).ajaxStop(function() {
+            $('#loading-indicator').hide();
+        });
+    </script>
+
+    <!-- 頁面特定 JavaScript -->
+    {{#if additionalJS}}
+    {{#each additionalJS}}
+    <script src="{{this}}"></script>
+    {{/each}}
+    {{/if}}
+</head>
+
+<body class="{{#if bodyClass}}{{bodyClass}}{{/if}}">
+    <!-- 載入指示器 -->
+    <div id="loading-indicator" class="loading-indicator" style="display: none;">
+        <div class="loading-spinner"></div>
+        <span>載入中...</span>
+    </div>
+
+    <!-- 通知系統 -->
+    <div id="notification-container" class="notification-container"></div>
+
+    <!-- 主要內容 -->
+    {{{body}}}
+
+    <!-- 共用 JavaScript -->
+    <script src="/js/common/utils.js"></script>
+    <script src="/js/common/notifications.js"></script>
+
+    <!-- 條件載入 JavaScript -->
+    {{#if isAdmin}}
+    <script src="/js/admin/admin-common.js"></script>
+    {{else}}
+    <script src="/js/frontend/frontend-common.js"></script>
+    {{/if}}
+
+    <!-- 頁面初始化 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // 初始化通知系統
+            if (typeof initNotifications === 'function') {
+                initNotifications();
+            }
+
+            // 初始化 jQuery 增強功能
+            if (typeof initJQueryEnhancements === 'function') {
+                initJQueryEnhancements();
+            }
+
+            // 頁面特定初始化
+            {{#if pageInitScript}}
+            {{{pageInitScript}}}
+            {{/if}}
+        });
+    </script>
+</body>
+
+</html>

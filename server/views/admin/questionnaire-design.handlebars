@@ -1,0 +1,535 @@
+{{!-- 問卷設計頁面 --}}
+
+<div class="page-header">
+    <div class="page-title">
+        <h1><i class="fas fa-edit"></i> 問卷設計</h1>
+        <p>設計和管理問卷調查</p>
+    </div>
+    <div class="page-actions">
+        {{#if (or (eq user.role 'super_admin') (eq user.role 'project_manager'))}}
+        <button class="btn btn-primary" onclick="openNewQuestionnaireModal()">
+            <i class="fas fa-plus"></i>
+            新建問卷
+        </button>
+        {{/if}}
+        <button class="btn btn-secondary" onclick="refreshQuestionnaires()">
+            <i class="fas fa-sync-alt"></i>
+            重新整理
+        </button>
+    </div>
+</div>
+
+<!-- 篩選區域 -->
+<div class="filter-section">
+    <div class="project-selector">
+        <label for="project-filter">專案篩選：</label>
+        <select id="project-filter" class="form-control">
+            <option value="">所有專案</option>
+        </select>
+    </div>
+    
+    <div class="search-box">
+        <input type="text" id="search-questionnaires" class="form-control" placeholder="搜尋問卷標題...">
+        <i class="fas fa-search"></i>
+    </div>
+</div>
+
+<!-- 問卷列表 -->
+<div class="table-container">
+    <div class="table-header">
+        <h3>問卷列表</h3>
+        <div class="table-actions">
+            <button class="btn btn-sm btn-outline-secondary" onclick="toggleViewMode()">
+                <i class="fas fa-th-list"></i>
+                切換視圖
+            </button>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>問卷標題</th>
+                    <th>專案</th>
+                    <th>題目數量</th>
+                    <th>回應數量</th>
+                    <th>狀態</th>
+                    <th>建立時間</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="questionnaires-table-body">
+                <tr>
+                    <td colspan="7" class="text-center">
+                        <div class="loading">載入問卷數據...</div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 分頁 -->
+    <div class="pagination-container" id="pagination-container">
+    </div>
+</div>
+
+<!-- 模態框容器 -->
+<div id="modal-container"></div>
+
+<style>
+    /* 問卷設計專用樣式 */
+    .filter-section {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        align-items: end;
+    }
+
+    .project-selector {
+        flex: 1;
+    }
+
+    .search-box {
+        position: relative;
+        flex: 1;
+    }
+
+    .search-box i {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--gray-400);
+    }
+
+    .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .table-header h3 {
+        margin: 0;
+        color: var(--gray-900);
+    }
+
+    .table-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .questionnaire-actions {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .status-active {
+        color: var(--success-color);
+    }
+
+    .status-inactive {
+        color: var(--warning-color);
+    }
+
+    .status-draft {
+        color: var(--gray-500);
+    }
+
+    .question-count {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+
+    .response-count {
+        font-weight: 600;
+        color: var(--success-color);
+    }
+
+    /* 問卷設計器樣式 */
+    .questionnaire-designer {
+        background: white;
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
+    }
+
+    .designer-header {
+        background: var(--gray-50);
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .designer-content {
+        padding: 1.5rem;
+    }
+
+    .question-list {
+        margin-bottom: 2rem;
+    }
+
+    .question-item {
+        background: var(--gray-50);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        position: relative;
+    }
+
+    .question-item:hover {
+        box-shadow: var(--shadow-sm);
+    }
+
+    .question-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .question-type {
+        background: var(--primary-color);
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: var(--border-radius-sm);
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .question-actions {
+        display: flex;
+        gap: 0.25rem;
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+
+    .question-text {
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 0.5rem;
+    }
+
+    .question-options {
+        margin-left: 1rem;
+    }
+
+    .question-option {
+        padding: 0.25rem 0;
+        color: var(--gray-700);
+        font-size: 0.9rem;
+    }
+
+    .add-question-btn {
+        width: 100%;
+        padding: 1rem;
+        border: 2px dashed var(--border-color);
+        background: transparent;
+        color: var(--gray-500);
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .add-question-btn:hover {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+        background: var(--primary-color-light);
+    }
+
+    @media (max-width: 768px) {
+        .filter-section {
+            flex-direction: column;
+        }
+
+        .page-actions {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .table-responsive {
+            font-size: 0.875rem;
+        }
+
+        .questionnaire-actions {
+            flex-direction: column;
+        }
+    }
+</style>
+
+<script>
+    // 問卷設計專用 JavaScript
+    $(document).ready(function () {
+        // 初始載入數據
+        loadQuestionnaires();
+        loadQuestionnairesPagination();
+        loadProjects();
+
+        // 專案篩選器變更事件
+        $('#project-filter').on('change', function () {
+            loadQuestionnaires();
+            loadQuestionnairesPagination();
+        });
+
+        // 搜尋功能 - 使用防抖動
+        let searchTimeout;
+        $('#search-questionnaires').on('keyup', function () {
+            const searchTerm = $(this).val();
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchQuestionnaires(searchTerm);
+            }, 300);
+        });
+    });
+
+    // 載入問卷列表
+    function loadQuestionnaires(page = 1) {
+        const params = {
+            page: page,
+            format: 'html'
+        };
+        
+        const projectId = $('#project-filter').val();
+        if (projectId) {
+            params.project_id = projectId;
+        }
+        
+        const searchTerm = $('#search-questionnaires').val();
+        if (searchTerm && searchTerm.trim()) {
+            params.search = searchTerm.trim();
+        }
+        
+        $.ajax({
+            url: '/admin/questionnaire/api/questionnaires',
+            method: 'GET',
+            data: params,
+            success: function (data) {
+                $('#questionnaires-table-body').html(data);
+            },
+            error: function () {
+                $('#questionnaires-table-body').html('<tr><td colspan="7" class="text-center text-danger">載入問卷數據失敗</td></tr>');
+            }
+        });
+    }
+
+    // 載入分頁
+    function loadQuestionnairesPagination(page = 1) {
+        const projectId = $('#project-filter').val();
+        const searchTerm = $('#search-questionnaires').val();
+        
+        const params = { page: page };
+        if (projectId) params.project_id = projectId;
+        if (searchTerm && searchTerm.trim()) params.search = searchTerm.trim();
+        
+        $.ajax({
+            url: '/admin/questionnaire/api/pagination',
+            method: 'GET',
+            data: params,
+            success: function (data) {
+                $('#pagination-container').html(data);
+            },
+            error: function () {
+                console.log('載入分頁失敗');
+            }
+        });
+    }
+
+    // 載入專案列表
+    function loadProjects() {
+        $.ajax({
+            url: '/api/admin/projects',
+            method: 'GET',
+            success: function (response) {
+                if (response.success) {
+                    let options = '<option value="">所有專案</option>';
+                    response.data.forEach(project => {
+                        options += `<option value="${project.id}">${project.project_name}</option>`;
+                    });
+                    $('#project-filter').html(options);
+                }
+            },
+            error: function () {
+                console.log('載入專案列表失敗');
+            }
+        });
+    }
+
+    // 搜尋問卷
+    function searchQuestionnaires(searchTerm) {
+        const projectId = $('#project-filter').val();
+        const params = {
+            format: 'html',
+            search: searchTerm
+        };
+        
+        if (projectId) {
+            params.project_id = projectId;
+        }
+        
+        $.ajax({
+            url: '/admin/questionnaire/api/questionnaires',
+            method: 'GET',
+            data: params,
+            success: function (data) {
+                $('#questionnaires-table-body').html(data);
+                // 同時更新分頁資訊
+                loadQuestionnairesPagination(1);
+            },
+            error: function () {
+                $('#questionnaires-table-body').html('<tr><td colspan="7" class="text-center text-danger">搜尋失敗</td></tr>');
+            }
+        });
+    }
+
+    // 重新整理問卷列表
+    function refreshQuestionnaires() {
+        loadQuestionnaires(1);
+        loadQuestionnairesPagination(1);
+        showNotification('數據已更新', 'info');
+    }
+
+    // 新建問卷
+    function openNewQuestionnaireModal() {
+        $.ajax({
+            url: '/admin/questionnaire/new',
+            method: 'GET',
+            success: function (data) {
+                $('#modal-container').html(data);
+                const modal = $('#modal-container .modal')[0];
+                if (modal) {
+                    $(modal).addClass('show');
+                    $('body').addClass('modal-open');
+                }
+            },
+            error: function () {
+                showNotification('載入新建問卷表單失敗', 'error');
+            }
+        });
+    }
+
+    // 編輯問卷
+    function editQuestionnaire(id) {
+        $.ajax({
+            url: `/admin/questionnaire/${id}/edit`,
+            method: 'GET',
+            success: function (data) {
+                $('#modal-container').html(data);
+                const modal = $('#modal-container .modal')[0];
+                if (modal) {
+                    $(modal).addClass('show');
+                    $('body').addClass('modal-open');
+                }
+            },
+            error: function () {
+                showNotification('載入編輯問卷表單失敗', 'error');
+            }
+        });
+    }
+
+    // 設計問卷（問題編輯器）
+    function designQuestionnaire(id) {
+        window.location.href = `/admin/questionnaire/${id}/design`;
+    }
+
+    // 預覽問卷
+    function previewQuestionnaire(id) {
+        window.open(`/questionnaire/${id}`, '_blank');
+    }
+
+    // 複製問卷
+    function duplicateQuestionnaire(id) {
+        if (confirm('確定要複製此問卷嗎？')) {
+            $.ajax({
+                url: `/api/admin/questionnaire/${id}/duplicate`,
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                success: function (response) {
+                    if (response.success) {
+                        showNotification('問卷複製成功', 'success');
+                        loadQuestionnaires();
+                    } else {
+                        showNotification(response.message || '複製失敗', 'error');
+                    }
+                },
+                error: function () {
+                    showNotification('複製問卷失敗', 'error');
+                }
+            });
+        }
+    }
+
+    // 刪除問卷
+    function deleteQuestionnaire(id) {
+        if (confirm('確定要刪除此問卷嗎？此操作無法撤銷！')) {
+            $.ajax({
+                url: `/api/admin/questionnaire/${id}`,
+                method: 'DELETE',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                success: function (response) {
+                    if (response.success) {
+                        showNotification('問卷刪除成功', 'success');
+                        loadQuestionnaires();
+                        loadQuestionnairesPagination();
+                    } else {
+                        showNotification(response.message || '刪除失敗', 'error');
+                    }
+                },
+                error: function () {
+                    showNotification('刪除問卷失敗', 'error');
+                }
+            });
+        }
+    }
+
+    // 切換問卷狀態
+    function toggleQuestionnaireStatus(id, currentStatus) {
+        const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+        const actionText = newStatus === 'active' ? '啟用' : '停用';
+        
+        if (confirm(`確定要${actionText}此問卷嗎？`)) {
+            $.ajax({
+                url: `/api/admin/questionnaire/${id}/status`,
+                method: 'PATCH',
+                data: { status: newStatus },
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                success: function (response) {
+                    if (response.success) {
+                        showNotification(`問卷${actionText}成功`, 'success');
+                        loadQuestionnaires();
+                    } else {
+                        showNotification(response.message || `${actionText}失敗`, 'error');
+                    }
+                },
+                error: function () {
+                    showNotification(`${actionText}問卷失敗`, 'error');
+                }
+            });
+        }
+    }
+
+    // 切換視圖模式
+    function toggleViewMode() {
+        // 預留功能：在表格視圖和卡片視圖之間切換
+        showNotification('視圖切換功能開發中', 'info');
+    }
+
+    // 關閉模態框
+    function closeModal() {
+        $('#modal-container').html('');
+        $('body').removeClass('modal-open');
+    }
+
+    // 分頁頁面跳轉
+    function loadQuestionnairesPage(page) {
+        loadQuestionnaires(page);
+        loadQuestionnairesPagination(page);
+    }
+</script>

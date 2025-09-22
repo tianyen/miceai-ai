@@ -1,0 +1,588 @@
+{{!-- 表單數據管理頁面 --}}
+
+<div class="content-header">
+    <h1>表單數據管理</h1>
+    <p>查看和管理參加者提交的表單數據</p>
+</div>
+
+<!-- 操作按鈕 -->
+<div class="action-bar">
+    <div class="search-box">
+        <input type="text" id="search-input" class="form-control" placeholder="搜尋參加者姓名或電子郵件...">
+        <button class="btn btn-primary" onclick="searchSubmissions()">
+            <i class="fas fa-search"></i> 搜尋
+        </button>
+    </div>
+    <div class="action-buttons">
+        <button class="btn btn-success" onclick="exportSubmissions()">
+            <i class="fas fa-download"></i> 匯出數據
+        </button>
+        <button class="btn btn-secondary" onclick="refreshSubmissions()">
+            <i class="fas fa-sync-alt"></i> 重新整理
+        </button>
+    </div>
+</div>
+
+<!-- 篩選器 -->
+<div class="filter-bar">
+    <div class="filter-group">
+        <label for="project-filter">專案篩選：</label>
+        <select id="project-filter" name="project-filter" class="form-control">
+            <option value="">所有專案</option>
+            <option value="1">2024年度科技論壇</option>
+            <option value="2">春季產品發表會</option>
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="status-filter">狀態篩選：</label>
+        <select id="status-filter" name="status-filter" class="form-control">
+            <option value="">所有狀態</option>
+            <option value="confirmed">已確認</option>
+            <option value="pending">待確認</option>
+            <option value="cancelled">已取消</option>
+        </select>
+    </div>
+</div>
+
+<!-- 表單數據列表 -->
+<div class="data-table-container">
+    <div class="table-header">
+        <h3>表單提交記錄</h3>
+        <div class="table-stats">
+            <span class="stat-item">總計：<strong id="total-count">-</strong></span>
+            <span class="stat-item">已確認：<strong id="confirmed-count">-</strong></span>
+            <span class="stat-item">待確認：<strong id="pending-count">-</strong></span>
+        </div>
+    </div>
+
+    <div class="table-content">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th data-sortable="name">參加者姓名</th>
+                    <th data-sortable="email">電子郵件</th>
+                    <th data-sortable="phone">聯絡電話</th>
+                    <th data-sortable="participation_level">參與程度</th>
+                    <th data-sortable="project">所屬專案</th>
+                    <th data-sortable="status">狀態</th>
+                    <th data-sortable="submitted_at">提交時間</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="submissions-table-body">
+                <tr>
+                    <td colspan="8" class="loading-cell">
+                        <div class="loading-spinner"></div>
+                        載入表單數據中...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 分頁 -->
+    <div class="pagination-container" id="pagination-container">
+        <div class="pagination-info">
+            <span>載入分頁資訊中...</span>
+        </div>
+    </div>
+</div>
+
+<!-- 模態框容器 -->
+<div id="modal-container"></div>
+
+<style>
+    /* 表單數據管理專用樣式 */
+    .filter-bar {
+        display: flex;
+        gap: 2rem;
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-group label {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--gray-700);
+    }
+
+    .filter-group select {
+        min-width: 200px;
+    }
+
+    .table-stats {
+        display: flex;
+        gap: 1.5rem;
+        align-items: center;
+    }
+
+    .stat-item {
+        font-size: 0.9rem;
+        color: var(--gray-600);
+    }
+
+    .stat-item strong {
+        color: var(--gray-900);
+    }
+
+    .participant-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .participant-name {
+        font-weight: 500;
+        color: var(--gray-900);
+    }
+
+    .participant-details {
+        font-size: 0.85rem;
+        color: var(--gray-600);
+    }
+
+    .submission-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .submission-status.confirmed {
+        color: var(--success-color);
+    }
+
+    .submission-status.pending {
+        color: var(--warning-color);
+    }
+
+    .submission-status.cancelled {
+        color: var(--danger-color);
+    }
+
+    .project-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        background-color: var(--primary-color);
+        color: white;
+        border-radius: var(--border-radius-sm);
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .submission-actions {
+        display: flex;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+    }
+
+    @media (max-width: 768px) {
+        .filter-bar {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .filter-group select {
+            min-width: auto;
+        }
+
+        .table-stats {
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: flex-start;
+        }
+
+        .submission-actions {
+            flex-direction: column;
+            gap: 0.125rem;
+        }
+    }
+
+    /* QR Code 模態框樣式 */
+    .qr-code-display {
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px dashed var(--border-color);
+        border-radius: var(--border-radius);
+        background: var(--gray-50);
+        margin: 1rem 0;
+    }
+
+    .qr-code-display img,
+    .qr-code-display canvas {
+        max-width: 100%;
+        height: auto;
+    }
+
+    .participant-info {
+        background: var(--gray-50);
+        padding: 1rem;
+        border-radius: var(--border-radius);
+        margin-bottom: 1rem;
+    }
+
+    .participant-info h6 {
+        color: var(--primary-color);
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+
+    .participant-info p {
+        margin-bottom: 0.5rem;
+        color: var(--gray-700);
+    }
+
+    .qr-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .modal-backdrop {
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .btn-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--gray-600);
+    }
+
+    .btn-close:hover {
+        color: var(--gray-800);
+    }
+
+    @media (max-width: 768px) {
+        .qr-actions {
+            flex-direction: column;
+        }
+
+        .qr-actions .btn {
+            width: 100%;
+        }
+    }
+</style>
+
+<script>
+    // 表單數據管理專用 JavaScript
+    $(document).ready(function () {
+        // 初始載入數據
+        loadSubmissionStats();
+        loadSubmissions();
+        loadPagination();
+
+        // 搜尋輸入框事件
+        let searchTimeout;
+        $('#search-input').on('keyup', function () {
+            const searchTerm = $(this).val();
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchSubmissions();
+            }, 300);
+        });
+
+        // 篩選器變更事件
+        $('#project-filter, #status-filter').on('change', function () {
+            searchSubmissions();
+        });
+    });
+
+    function loadSubmissionStats() {
+        $.ajax({
+            url: '/api/admin/submissions/stats',
+            method: 'GET',
+            success: function (data) {
+                if (data.success) {
+                    const stats = data.data;
+                    $('#total-count').text(stats.total || 0);
+                    $('#confirmed-count').text(stats.confirmed || 0);
+                    $('#pending-count').text(stats.pending || 0);
+                }
+            },
+            error: function () {
+                console.error('載入統計數據失敗');
+            }
+        });
+    }
+
+    function loadSubmissions(queryParams = '') {
+        $.ajax({
+            url: '/api/admin/submissions' + queryParams,
+            method: 'GET',
+            success: function (data) {
+                $('#submissions-table-body').html(data);
+            },
+            error: function () {
+                $('#submissions-table-body').html('<tr><td colspan="8" class="text-center text-danger">載入表單數據失敗</td></tr>');
+            }
+        });
+    }
+
+    function loadPagination(queryParams = '') {
+        $.ajax({
+            url: '/api/admin/submissions/pagination' + queryParams,
+            method: 'GET',
+            success: function (data) {
+                $('#pagination-container').html(data);
+            },
+            error: function () {
+                console.log('載入分頁失敗');
+            }
+        });
+    }
+
+    function searchSubmissions() {
+        const searchTerm = $('#search-input').val();
+        const projectFilter = $('#project-filter').val();
+        const statusFilter = $('#status-filter').val();
+
+        $.ajax({
+            url: '/api/admin/submissions/search',
+            method: 'GET',
+            data: {
+                search: searchTerm,
+                'project-filter': projectFilter,
+                'status-filter': statusFilter
+            },
+            success: function (data) {
+                $('#submissions-table-body').html(data);
+            },
+            error: function () {
+                $('#submissions-table-body').html('<tr><td colspan="8" class="text-center text-danger">搜尋失敗</td></tr>');
+            }
+        });
+    }
+
+    function exportSubmissions() {
+        window.open('/api/admin/submissions/export', '_blank');
+    }
+
+    function refreshSubmissions() {
+        loadSubmissions();
+        loadSubmissionStats();
+        showNotification('數據已更新', 'info');
+    }
+
+    // 表單數據操作函數
+    function viewSubmission(id) {
+        $.ajax({
+            url: `/admin/submissions/${id}`,
+            method: 'GET',
+            success: function (data) {
+                $('#modal-container').html(data);
+            },
+            error: function () {
+                showNotification('載入表單詳情失敗', 'error');
+            }
+        });
+    }
+
+    function editSubmission(id) {
+        $.ajax({
+            url: `/admin/submissions/${id}/edit`,
+            method: 'GET',
+            success: function (data) {
+                $('#modal-container').html(data);
+            },
+            error: function () {
+                showNotification('載入編輯表單失敗', 'error');
+            }
+        });
+    }
+
+    function confirmSubmission(id) {
+        if (confirm('確定要確認此表單提交嗎？')) {
+            $.ajax({
+                url: `/api/admin/submissions/${id}/confirm`,
+                method: 'PATCH',
+                success: function (response) {
+                    if (response.success) {
+                        showNotification('表單已確認', 'success');
+                        loadSubmissions();
+                        loadSubmissionStats();
+                    } else {
+                        showNotification(response.message || '確認失敗', 'error');
+                    }
+                },
+                error: function () {
+                    showNotification('確認失敗，請稍後再試', 'error');
+                }
+            });
+        }
+    }
+
+    function cancelSubmission(id) {
+        if (confirm('確定要取消此表單提交嗎？')) {
+            $.ajax({
+                url: `/api/admin/submissions/${id}/cancel`,
+                method: 'PATCH',
+                success: function (response) {
+                    if (response.success) {
+                        showNotification('表單已取消', 'success');
+                        loadSubmissions();
+                        loadSubmissionStats();
+                    } else {
+                        showNotification(response.message || '取消失敗', 'error');
+                    }
+                },
+                error: function () {
+                    showNotification('取消失敗，請稍後再試', 'error');
+                }
+            });
+        }
+    }
+
+    function deleteSubmission(id) {
+        if (confirm('確定要刪除此表單提交嗎？此操作無法復原。')) {
+            $.ajax({
+                url: `/api/admin/submissions/${id}`,
+                method: 'DELETE',
+                success: function (response) {
+                    if (response.success) {
+                        showNotification('表單已刪除', 'success');
+                        loadSubmissions();
+                        loadSubmissionStats();
+                    } else {
+                        showNotification(response.message || '刪除失敗', 'error');
+                    }
+                },
+                error: function () {
+                    showNotification('刪除失敗，請稍後再試', 'error');
+                }
+            });
+        }
+    }
+
+    function sendConfirmationEmail(id) {
+        $.ajax({
+            url: `/api/admin/submissions/${id}/send-confirmation`,
+            method: 'POST',
+            success: function (response) {
+                if (response.success) {
+                    showNotification('確認郵件已發送', 'success');
+                    loadSubmissions();
+                } else {
+                    showNotification(response.message || '郵件發送失敗', 'error');
+                }
+            },
+            error: function () {
+                showNotification('郵件發送失敗，請稍後再試', 'error');
+            }
+        });
+    }
+
+    // QR Code 相關函數
+    function generateQRCode(participantId) {
+        // 顯示 QR Code 模態框
+        $.ajax({
+            url: `/api/admin/participants/${participantId}/qr-code`,
+            method: 'GET',
+            success: function (html) {
+                $('#modal-container').html(html);
+                $('body').addClass('modal-open');
+            },
+            error: function (xhr) {
+                console.error('載入 QR Code 失敗:', xhr);
+                showNotification('載入 QR Code 失敗', 'error');
+            }
+        });
+    }
+
+    function generateNewQRCode(participantId) {
+        $.ajax({
+            url: `/api/admin/participants/${participantId}/generate-qr`,
+            method: 'POST',
+            success: function (response) {
+                if (response.success) {
+                    showNotification(response.message, 'success');
+                    // 重新載入 QR Code 顯示
+                    generateQRCode(participantId);
+                } else {
+                    showNotification(response.message || 'QR Code 生成失敗', 'error');
+                }
+            },
+            error: function (xhr) {
+                console.error('生成 QR Code 失敗:', xhr);
+                let errorMessage = 'QR Code 生成失敗';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMessage = xhr.responseJSON.message;
+                }
+                showNotification(errorMessage, 'error');
+            }
+        });
+    }
+
+    function regenerateQRCode(participantId) {
+        if (confirm('確定要重新生成 QR Code 嗎？舊的 QR Code 將會失效。')) {
+            generateNewQRCode(participantId);
+        }
+    }
+
+    function downloadQRCode(participantId) {
+        // 創建下載連結
+        const link = document.createElement('a');
+        link.href = `/api/admin/participants/${participantId}/qr-download`;
+        link.download = `participant-${participantId}-qr.png`;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function printQRCode() {
+        // 列印當前顯示的 QR Code
+        const printContent = document.querySelector('.modal-body').innerHTML;
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>QR Code 列印</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        .qr-code-display { text-align: center; margin: 20px 0; }
+                        .participant-info { margin-bottom: 20px; }
+                        .qr-actions { display: none; }
+                        @media print {
+                            .qr-actions { display: none !important; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${printContent}
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+        printWindow.close();
+    }
+
+    function closeModal() {
+        $('#modal-container').empty();
+        $('body').removeClass('modal-open');
+    }
+
+    // 確保在頁面載入時包含 QR Code 生成庫
+    if (!window.qrCodeLibraryLoaded) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+        script.onload = function() {
+            window.qrCodeLibraryLoaded = true;
+        };
+        document.head.appendChild(script);
+    }
+</script>

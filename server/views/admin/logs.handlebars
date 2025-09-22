@@ -1,0 +1,382 @@
+{{!-- 系統日誌頁面 --}}
+
+<div class="content-header">
+    <h1>系統日誌</h1>
+    <p>查看系統操作記錄和活動日誌</p>
+</div>
+
+<!-- 操作按鈕 -->
+<div class="action-bar">
+    <div class="search-box">
+        <input type="text" id="search-input" class="form-control" placeholder="搜尋操作內容或用戶...">
+        <button class="btn btn-primary">
+            <i class="fas fa-search"></i> 搜尋
+        </button>
+    </div>
+    <div class="action-buttons">
+        <button class="btn btn-success" onclick="exportLogs()">
+            <i class="fas fa-download"></i> 匯出日誌
+        </button>
+        <button class="btn btn-warning" onclick="clearOldLogs()">
+            <i class="fas fa-trash-alt"></i> 清理舊日誌
+        </button>
+        <button class="btn btn-secondary" onclick="refreshLogs()">
+            <i class="fas fa-sync-alt"></i> 重新整理
+        </button>
+    </div>
+</div>
+
+<!-- 篩選器 -->
+<div class="filter-bar">
+    <div class="filter-group">
+        <label for="level-filter">日誌等級：</label>
+        <select id="level-filter" name="level-filter" class="form-control">
+            <option value="">所有等級</option>
+            <option value="info">資訊</option>
+            <option value="warning">警告</option>
+            <option value="error">錯誤</option>
+            <option value="debug">除錯</option>
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="date-filter">日期範圍：</label>
+        <select id="date-filter" name="date-filter" class="form-control">
+            <option value="">所有時間</option>
+            <option value="today">今天</option>
+            <option value="yesterday">昨天</option>
+            <option value="week">本週</option>
+            <option value="month">本月</option>
+        </select>
+    </div>
+</div>
+
+<!-- 日誌列表 -->
+<div class="data-table-container">
+    <div class="table-header">
+        <h3>系統日誌記錄</h3>
+        <div class="table-stats">
+            <span class="stat-item">總記錄：<strong id="total-logs">-</strong></span>
+            <span class="stat-item">錯誤：<strong id="error-logs">-</strong></span>
+            <span class="stat-item">警告：<strong id="warning-logs">-</strong></span>
+        </div>
+    </div>
+
+    <div class="table-content">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th data-sortable="level">等級</th>
+                    <th data-sortable="timestamp">時間</th>
+                    <th data-sortable="user">用戶</th>
+                    <th data-sortable="action">操作</th>
+                    <th>詳細內容</th>
+                    <th data-sortable="ip_address">IP 地址</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="logs-table-body">
+                <tr>
+                    <td colspan="7" class="loading-cell">
+                        <div class="loading-spinner"></div>
+                        載入日誌數據中...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 分頁 -->
+    <div class="pagination-container" id="pagination-container">
+        <div class="pagination-info">
+            <span>載入分頁資訊中...</span>
+        </div>
+    </div>
+</div>
+
+<!-- 模態框容器 -->
+<div id="modal-container"></div>
+
+<style>
+    /* 系統日誌專用樣式 */
+    .log-level {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.5rem;
+        border-radius: var(--border-radius-sm);
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .log-level.info {
+        background-color: #dbeafe;
+        color: #1e40af;
+    }
+
+    .log-level.warning {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+
+    .log-level.error {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+
+    .log-level.debug {
+        background-color: #f3f4f6;
+        color: #374151;
+    }
+
+    .log-timestamp {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        color: var(--gray-600);
+    }
+
+    .log-user {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .log-user-avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: var(--primary-color);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    .log-action {
+        font-weight: 500;
+        color: var(--gray-900);
+    }
+
+    .log-details {
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.85rem;
+        color: var(--gray-600);
+        cursor: pointer;
+    }
+
+    .log-details:hover {
+        color: var(--primary-color);
+        text-decoration: underline;
+    }
+
+    .log-ip {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.8rem;
+        color: var(--gray-600);
+    }
+
+    .log-actions {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    @media (max-width: 768px) {
+        .log-details {
+            max-width: 150px;
+        }
+
+        .log-user {
+            flex-direction: column;
+            gap: 0.25rem;
+            align-items: flex-start;
+        }
+
+        .log-user-avatar {
+            width: 20px;
+            height: 20px;
+            font-size: 0.6rem;
+        }
+    }
+</style>
+
+<script>
+    // 系統日誌專用 JavaScript
+    $(document).ready(function () {
+        // 初始載入數據
+        loadLogStats();
+        loadLogs();
+        loadPagination();
+
+        // 搜尋輸入框事件
+        let searchTimeout;
+        $('#search-input').on('keyup', function () {
+            const searchTerm = $(this).val();
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchLogs();
+            }, 300);
+        });
+
+        // 篩選器變更事件
+        $('#level-filter, #date-filter').on('change', function () {
+            searchLogs();
+        });
+
+        // 自動重新整理（每30秒）
+        setInterval(function () {
+            loadLogs();
+            loadLogStats();
+        }, 30000);
+    });
+
+    function loadLogStats() {
+        $.ajax({
+            url: '/api/admin/logs/stats',
+            method: 'GET',
+            success: function (data) {
+                if (data.success) {
+                    const stats = data.data.stats;
+                    $('#total-logs').text(stats.total || 0);
+                    $('#error-logs').text(stats.errors || 0);
+                    $('#warning-logs').text(stats.warnings || 0);
+                }
+            },
+            error: function () {
+                console.error('載入統計數據失敗');
+            }
+        });
+    }
+
+    function loadLogs(queryParams = '') {
+        $.ajax({
+            url: '/api/admin/logs' + queryParams,
+            method: 'GET',
+            success: function (data) {
+                $('#logs-table-body').html(data);
+            },
+            error: function () {
+                $('#logs-table-body').html('<tr><td colspan="7" class="text-center text-danger">載入日誌數據失敗</td></tr>');
+            }
+        });
+    }
+
+    function loadPagination(queryParams = '') {
+        $.ajax({
+            url: '/api/admin/logs/pagination' + queryParams,
+            method: 'GET',
+            success: function (data) {
+                $('#pagination-container').html(data);
+            },
+            error: function () {
+                console.log('載入分頁失敗');
+            }
+        });
+    }
+
+    function searchLogs() {
+        const searchTerm = $('#search-input').val();
+        const levelFilter = $('#level-filter').val();
+        const dateFilter = $('#date-filter').val();
+
+        $.ajax({
+            url: '/api/admin/logs/search',
+            method: 'GET',
+            data: {
+                search: searchTerm,
+                level: levelFilter,
+                'date-filter': dateFilter
+            },
+            success: function (data) {
+                $('#logs-table-body').html(data);
+            },
+            error: function () {
+                $('#logs-table-body').html('<tr><td colspan="7" class="text-center text-danger">搜尋失敗</td></tr>');
+            }
+        });
+    }
+
+    function refreshLogs() {
+        loadLogs();
+        loadLogStats();
+        showNotification('日誌已更新', 'info');
+    }
+
+    function exportLogs() {
+        $.ajax({
+            url: '/api/admin/logs/export',
+            method: 'GET',
+            success: function (data) {
+                $('#modal-container').html(data);
+            },
+            error: function () {
+                showNotification('匯出失敗，請稍後再試', 'error');
+            }
+        });
+    }
+
+    // 日誌操作函數
+    function viewLogDetails(id) {
+        $.ajax({
+            url: `/admin/logs/${id}`,
+            method: 'GET',
+            success: function (data) {
+                $('#modal-container').html(data);
+            },
+            error: function () {
+                showNotification('載入日誌詳情失敗', 'error');
+            }
+        });
+    }
+
+    function deleteLog(id) {
+        if (confirm('確定要刪除此日誌記錄嗎？')) {
+            $.ajax({
+                url: `/api/admin/logs/${id}`,
+                method: 'DELETE',
+                success: function (response) {
+                    if (response.success) {
+                        showNotification('日誌已刪除', 'success');
+                        loadLogs();
+                        loadLogStats();
+                    } else {
+                        showNotification(response.message || '刪除失敗', 'error');
+                    }
+                },
+                error: function () {
+                    showNotification('刪除失敗，請稍後再試', 'error');
+                }
+            });
+        }
+    }
+
+    function clearOldLogs() {
+        const days = prompt('請輸入要保留的天數（將刪除更早的日誌）：', '30');
+        if (days && !isNaN(days) && parseInt(days) > 0) {
+            if (confirm(`確定要刪除 ${days} 天前的所有日誌嗎？此操作無法復原。`)) {
+                $.ajax({
+                    url: `/api/admin/logs/cleanup`,
+                    method: 'DELETE',
+                    data: { days: days },
+                    success: function (response) {
+                        if (response.success) {
+                            showNotification(`已清理 ${days} 天前的日誌`, 'success');
+                            loadLogs();
+                            loadLogStats();
+                        } else {
+                            showNotification(response.message || '清理失敗', 'error');
+                        }
+                    },
+                    error: function () {
+                        showNotification('清理失敗，請稍後再試', 'error');
+                    }
+                });
+            }
+        }
+    }
+</script>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{#if pageTitle}}{{pageTitle}} - {{/if}}MICE AI 管理系統</title>
+
+    <!-- 基礎樣式 -->
+    <link rel="stylesheet" href="/css/common/base.css">
+    <link rel="stylesheet" href="/css/admin/admin.css">
+    <link rel="stylesheet" href="/css/admin/modal.css">
+
+    <!-- 頁面特定樣式 -->
+    {{#if additionalCSS}}
+    {{#each additionalCSS}}
+    <link rel="stylesheet" href="{{this}}">
+    {{/each}}
+    {{/if}}
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+
+<body class="admin-layout">
+    <!-- 載入指示器 -->
+    <div id="loading-indicator" class="loading-indicator" style="display: none;">
+        <div class="loading-spinner"></div>
+        <span>載入中...</span>
+    </div>
+
+    <!-- 通知系統 -->
+    <div id="notification-container" class="notification-container"></div>
+
+    <!-- 管理後台佈局 -->
+    <div class="admin-container">
+        <!-- 側邊欄 -->
+        {{> admin/sidebar}}
+
+        <!-- 主要內容區 -->
+        <main class="main-content">
+            <!-- 頂部導航 -->
+            {{> admin/topnav}}
+
+            <!-- 頁面內容 -->
+            <div class="page-content">
+                {{{body}}}
+            </div>
+        </main>
+    </div>
+
+    <!-- 共用 JavaScript -->
+    <script src="/js/common/utils.js"></script>
+    <script src="/js/common/notifications.js"></script>
+    <script src="/js/admin/admin-common.js"></script>
+    <script src="/js/admin/modal.js"></script>
+
+    <!-- 頁面特定 JavaScript -->
+    {{#if additionalJS}}
+    {{#each additionalJS}}
+    <script src="{{this}}"></script>
+    {{/each}}
+    {{/if}}
+
+    <!-- 頁面初始化 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // 初始化管理系統
+            if (typeof AdminSystem !== 'undefined') {
+                AdminSystem.init();
+            }
+
+            // 初始化通知系統
+            if (typeof initNotifications === 'function') {
+                initNotifications();
+            }
+
+            // 頁面特定初始化
+            // {{#if pageInitScript}}
+            // {{{pageInitScript}}}
+            // {{/if}}
+        });
+    </script>
+</body>
+
+</html>
