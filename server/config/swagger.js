@@ -12,14 +12,6 @@ const swaggerDefinition = {
     title: '邀請函管理系統 API',
     version: '1.0.0',
     description: '邀請函管理系統的 RESTful API 文件，包含管理後台和前端 API',
-    contact: {
-      name: 'MICE-AI 開發團隊',
-      email: 'dev@mice-ai.com'
-    },
-    license: {
-      name: 'ISC',
-      url: 'https://opensource.org/licenses/ISC'
-    }
   },
   servers: [
     {

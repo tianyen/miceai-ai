@@ -11,9 +11,13 @@ class ProjectController {
             const userRole = req.user.role;
 
             let projectsQuery = `
-                SELECT p.*, u.full_name as creator_name
+                SELECT
+                    p.*,
+                    u.full_name as creator_name,
+                    COUNT(fs.id) as participant_count
                 FROM invitation_projects p
                 LEFT JOIN users u ON p.created_by = u.id
+                LEFT JOIN form_submissions fs ON p.id = fs.project_id
             `;
             let countQuery = 'SELECT COUNT(*) as count FROM invitation_projects p';
             let queryParams = [];
@@ -29,7 +33,7 @@ class ProjectController {
                 queryParams = [userId, userId];
             }
 
-            projectsQuery += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
+            projectsQuery += ' GROUP BY p.id ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
             const projects = await database.query(projectsQuery, [...queryParams, limit, offset]);
 
             const totalResult = await database.get(countQuery, queryParams);
@@ -81,7 +85,7 @@ class ProjectController {
                                 <td>${eventDate}</td>
                                 <td>${project.event_location || '-'}</td>
                                 <td>${statusBadge}</td>
-                                <td><span class="participant-count">0</span></td>
+                                <td><span class="participant-count">${project.participant_count || 0}</span></td>
                                 <td>${createdAt}</td>
                                 <td>
                                     <div class="action-buttons">
@@ -1015,9 +1019,13 @@ class ProjectController {
             const userRole = req.user.role;
 
             let searchQuery = `
-                SELECT p.*, u.full_name as creator_name
+                SELECT
+                    p.*,
+                    u.full_name as creator_name,
+                    COUNT(fs.id) as participant_count
                 FROM invitation_projects p
                 LEFT JOIN users u ON p.created_by = u.id
+                LEFT JOIN form_submissions fs ON p.id = fs.project_id
                 WHERE 1=1
             `;
             let queryParams = [];
@@ -1043,7 +1051,7 @@ class ProjectController {
                 queryParams.push(status.trim());
             }
 
-            searchQuery += ` ORDER BY p.created_at DESC LIMIT 50`;
+            searchQuery += ` GROUP BY p.id ORDER BY p.created_at DESC LIMIT 50`;
 
             const projects = await database.query(searchQuery, queryParams);
 
@@ -1089,7 +1097,7 @@ class ProjectController {
                             <td class="event-date">${eventDate}</td>
                             <td class="project-status">${statusBadge}</td>
                             <td class="participant-count">
-                                <span class="count-badge">0</span>
+                                <span class="count-badge">${project.participant_count || 0}</span>
                                 <small>位參加者</small>
                             </td>
                             <td class="created-date">${createdAt}</td>

@@ -1,0 +1,341 @@
+{
+	"info": {
+		"_postman_id": "12345678-1234-1234-1234-123456789abc",
+		"name": "活動報名系統 API v1 - 前端串接測試",
+		"description": "完整的前端串接 API 測試集合，包含報名流程、QR Code Base64 獲取等功能",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "12345678"
+	},
+	"item": [
+		{
+			"name": "1. API 健康檢查",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						""
+					]
+				},
+				"description": "檢查 API v1 服務狀態"
+			},
+			"response": []
+		},
+		{
+			"name": "2. 獲取活動列表",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/events",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"events"
+					]
+				},
+				"description": "獲取所有可報名的活動列表"
+			},
+			"response": []
+		},
+		{
+			"name": "3. 獲取特定活動詳情",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/events/{{eventId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"events",
+						"{{eventId}}"
+					]
+				},
+				"description": "根據活動 ID 獲取活動詳細資訊"
+			},
+			"response": []
+		},
+		{
+			"name": "4. 根據代碼獲取活動",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/events/code/{{eventCode}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"events",
+						"code",
+						"{{eventCode}}"
+					]
+				},
+				"description": "根據活動代碼獲取活動詳細資訊"
+			},
+			"response": []
+		},
+		{
+			"name": "5. 🎯 提交活動報名（核心功能）",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// 測試回應狀態",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"// 測試回應格式",
+							"pm.test(\"Response has success field\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('success');",
+							"    pm.expect(jsonData.success).to.be.true;",
+							"});",
+							"",
+							"// 保存 trace_id 供後續測試使用",
+							"pm.test(\"Save trace_id for subsequent tests\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    if (jsonData.success && jsonData.data && jsonData.data.trace_id) {",
+							"        pm.environment.set(\"traceId\", jsonData.data.trace_id);",
+							"        console.log(\"Saved trace_id: \" + jsonData.data.trace_id);",
+							"    }",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"{{participantName}}\",\n  \"email\": \"{{participantEmail}}\",\n  \"phone\": \"{{participantPhone}}\",\n  \"company\": \"{{participantCompany}}\",\n  \"position\": \"{{participantPosition}}\",\n  \"dietary_requirements\": \"素食\",\n  \"special_needs\": \"輪椅通道\",\n  \"data_consent\": true,\n  \"marketing_consent\": false\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/events/{{eventId}}/registrations",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"events",
+						"{{eventId}}",
+						"registrations"
+					]
+				},
+				"description": "提交活動報名，獲取 trace_id 和 QR Code 資訊"
+			},
+			"response": []
+		},
+		{
+			"name": "6. 🎯 獲取 QR Code Base64（核心功能）",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/qr-codes/{{traceId}}/data",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"qr-codes",
+						"{{traceId}}",
+						"data"
+					]
+				},
+				"description": "獲取 QR Code 的 Base64 數據，用於前端顯示"
+			},
+			"response": []
+		},
+		{
+			"name": "7. 獲取 QR Code 圖片",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/qr-codes/{{traceId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"qr-codes",
+						"{{traceId}}"
+					]
+				},
+				"description": "下載 QR Code PNG 圖片檔案"
+			},
+			"response": []
+		},
+		{
+			"name": "8. 查詢報名狀態",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/registrations/{{traceId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"registrations",
+						"{{traceId}}"
+					]
+				},
+				"description": "使用 trace_id 查詢報名狀態和詳細資訊"
+			},
+			"response": []
+		},
+		{
+			"name": "9. QR Code 報到",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"trace_id\": \"{{traceId}}\",\n  \"scanner_location\": \"主入口\",\n  \"scanner_user_id\": 1\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/check-in",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"check-in"
+					]
+				},
+				"description": "掃描 QR Code 進行報到"
+			},
+			"response": []
+		},
+		{
+			"name": "10. 查詢報到記錄",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/check-in/{{traceId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"check-in",
+						"{{traceId}}"
+					]
+				},
+				"description": "查詢特定 trace_id 的報到記錄"
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// 生成隨機測試數據",
+					"const timestamp = Date.now();",
+					"const randomNum = Math.floor(Math.random() * 1000);",
+					"",
+					"// 設置測試用的參與者資料",
+					"pm.environment.set(\"participantName\", `測試用戶${randomNum}`);",
+					"pm.environment.set(\"participantEmail\", `test${timestamp}@example.com`);",
+					"pm.environment.set(\"participantPhone\", `091234${randomNum.toString().padStart(4, '0')}`);",
+					"pm.environment.set(\"participantCompany\", `測試公司${randomNum}`);",
+					"pm.environment.set(\"participantPosition\", \"軟體工程師\");"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "eventId",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "eventCode",
+			"value": "TECH2024",
+			"type": "string"
+		}
+	]
+}

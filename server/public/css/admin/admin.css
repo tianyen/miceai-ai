@@ -99,6 +99,18 @@
     text-align: center;
 }
 
+/* 子項目樣式 */
+.nav-sub-item .nav-link {
+    padding-left: 3rem;
+    font-size: 0.9rem;
+}
+
+.nav-sub-item .nav-link i {
+    width: 16px;
+    font-size: 0.85rem;
+    opacity: 0.8;
+}
+
 /* 主內容區 */
 .main-content {
     flex: 1;

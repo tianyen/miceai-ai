@@ -10,6 +10,7 @@ const adminApiRoutes = require('./admin');
 const adminExtendedApiRoutes = require('./admin-extended');
 const trackingApiRoutes = require('./tracking');
 const questionnaireApiRoutes = require('./questionnaire');
+const v1ApiRoutes = require('./v1');
 
 // 註冊路由
 router.use('/frontend', frontendApiRoutes);
@@ -17,5 +18,6 @@ router.use('/admin', adminApiRoutes);
 router.use('/admin', adminExtendedApiRoutes);
 router.use('/admin/tracking', trackingApiRoutes);
 router.use('/questionnaire', questionnaireApiRoutes);
+router.use('/v1', v1ApiRoutes);
 
 module.exports = router;
