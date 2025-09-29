@@ -25,6 +25,9 @@ const express = require('express');
 const router = express.Router();
 const { authenticateSession } = require('../../middleware/auth');
 
+// 導入子路由
+const businessCardsRouter = require('./admin/business-cards');
+
 // 導入控制器
 const dashboardController = require('../../controllers/dashboardController');
 const projectController = require('../../controllers/projectController');
@@ -360,5 +363,8 @@ router.get('/logs', authenticateSession, async (req, res) => {
         });
     }
 });
+
+// 掛載子路由
+router.use('/business-cards', authenticateSession, businessCardsRouter);
 
 module.exports = router;

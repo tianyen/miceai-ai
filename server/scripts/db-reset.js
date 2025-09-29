@@ -9,7 +9,11 @@ const bcrypt = require('bcrypt');
 const path = require('path');
 const fs = require('fs');
 
-const dbPath = path.join(__dirname, '../data/invitation_system.db');
+// 載入環境變數
+require('dotenv').config();
+const config = require('../config');
+
+const dbPath = path.resolve(config.database.path);
 const schemaPath = path.join(__dirname, '../database/schema.sql');
 
 console.log('🔄 正在重置資料庫...');

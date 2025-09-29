@@ -1,9 +1,10 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const config = require('./index');
 
 class Database {
     constructor() {
-        this.dbPath = path.join(__dirname, '../data/invitation_system.db');
+        this.dbPath = path.resolve(config.database.path);
         this.db = null;
     }
 

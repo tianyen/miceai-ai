@@ -1,5 +1,278 @@
 /* 管理後台專用樣式 */
 
+/* QR Code 名片管理樣式 */
+.business-cards-container {
+    margin-top: 1rem;
+}
+
+.business-cards-container .table {
+    background: white;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.business-cards-container .table th {
+    background-color: var(--gray-50);
+    border-bottom: 2px solid var(--gray-200);
+    font-weight: 600;
+    color: var(--gray-700);
+    padding: 1rem 0.75rem;
+}
+
+.business-cards-container .table td {
+    padding: 1rem 0.75rem;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.contact-info {
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.contact-info i {
+    width: 16px;
+    color: var(--gray-500);
+}
+
+.empty-state {
+    padding: 3rem 1rem;
+    text-align: center;
+}
+
+.empty-state i {
+    color: var(--gray-300) !important;
+    margin-bottom: 1rem;
+}
+
+.filter-section {
+    background: white;
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.search-box {
+    display: flex;
+    gap: 0.5rem;
+    max-width: 400px;
+}
+
+.search-box .form-control {
+    flex: 1;
+}
+
+.loading-indicator {
+    text-align: center;
+    padding: 3rem;
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--gray-200);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+.badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.pagination-container {
+    margin-top: 1.5rem;
+    background: white;
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+}
+
+/* 名片詳情模態框樣式 */
+#businessCardModal .modal-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    border-bottom: none;
+}
+
+#businessCardModal .modal-header .close {
+    color: white;
+    opacity: 0.8;
+}
+
+#businessCardModal .modal-header .close:hover {
+    opacity: 1;
+}
+
+#businessCardModal .card-info h6 {
+    color: var(--primary-color);
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--gray-200);
+}
+
+#businessCardModal .card-info h6:first-child {
+    margin-top: 0;
+}
+
+#businessCardModal .table td {
+    padding: 0.5rem 0;
+    border: none;
+}
+
+#businessCardModal .table td:first-child {
+    width: 30%;
+    color: var(--gray-600);
+}
+
+#businessCardModal .social-links a {
+    display: inline-block;
+    margin-right: 1rem;
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+#businessCardModal .social-links a:hover {
+    color: var(--secondary-color);
+}
+
+#businessCardModal .social-links i {
+    margin-right: 0.5rem;
+}
+
+/* 基本模態框樣式 */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1050;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    outline: 0;
+    display: none;
+}
+
+.modal.show {
+    display: block !important;
+}
+
+.modal-dialog {
+    position: relative;
+    width: auto;
+    margin: 0.5rem;
+    pointer-events: none;
+}
+
+.modal-lg {
+    max-width: 800px;
+}
+
+.modal-content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    pointer-events: auto;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid rgba(0,0,0,.2);
+    border-radius: 0.3rem;
+    outline: 0;
+    margin: 1.75rem auto;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,.5);
+}
+
+.modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 1rem 1rem;
+    border-bottom: 1px solid #dee2e6;
+    border-top-left-radius: calc(0.3rem - 1px);
+    border-top-right-radius: calc(0.3rem - 1px);
+}
+
+.modal-title {
+    margin-bottom: 0;
+    line-height: 1.5;
+}
+
+.modal-body {
+    position: relative;
+    flex: 1 1 auto;
+    padding: 1rem;
+}
+
+.modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0.75rem;
+    border-top: 1px solid #dee2e6;
+    border-bottom-right-radius: calc(0.3rem - 1px);
+    border-bottom-left-radius: calc(0.3rem - 1px);
+}
+
+.close {
+    float: right;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #000;
+    text-shadow: 0 1px 0 #fff;
+    opacity: .5;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+}
+
+.close:hover {
+    opacity: .75;
+}
+
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1040;
+    width: 100vw;
+    height: 100vh;
+    background-color: #000;
+}
+
+.modal-backdrop.fade {
+    opacity: 0;
+}
+
+.modal-backdrop.show {
+    opacity: 0.5;
+}
+
+body.modal-open {
+    overflow: hidden;
+}
+
 /* 管理後台佈局 */
 .admin-container {
     display: flex;

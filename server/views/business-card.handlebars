@@ -1,0 +1,169 @@
+<!-- 名片展示頁面 -->
+<div class="business-card-container">
+    <div class="business-card">
+        <!-- 名片頭部 -->
+        <div class="card-header">
+            <div class="card-avatar">
+                <i class="fas fa-user-circle"></i>
+            </div>
+            <div class="card-info">
+                <h1 class="card-name">{{card.name}}</h1>
+                {{#if card.title}}
+                <p class="card-title">{{card.title}}</p>
+                {{/if}}
+                {{#if card.company}}
+                <p class="card-company">{{card.company}}</p>
+                {{/if}}
+            </div>
+        </div>
+
+        <!-- 聯絡資訊 -->
+        <div class="card-section">
+            <h3><i class="fas fa-address-book"></i> 聯絡資訊</h3>
+            <div class="contact-grid">
+                {{#if card.contact_info.phone}}
+                <div class="contact-item">
+                    <i class="fas fa-phone"></i>
+                    <a href="tel:{{card.contact_info.phone}}">{{card.contact_info.phone}}</a>
+                </div>
+                {{/if}}
+                
+                {{#if card.contact_info.email}}
+                <div class="contact-item">
+                    <i class="fas fa-envelope"></i>
+                    <a href="mailto:{{card.contact_info.email}}">{{card.contact_info.email}}</a>
+                </div>
+                {{/if}}
+                
+                {{#if card.contact_info.website}}
+                <div class="contact-item">
+                    <i class="fas fa-globe"></i>
+                    <a href="{{card.contact_info.website}}" target="_blank">網站</a>
+                </div>
+                {{/if}}
+                
+                {{#if card.contact_info.address}}
+                <div class="contact-item full-width">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span>{{card.contact_info.address}}</span>
+                </div>
+                {{/if}}
+            </div>
+        </div>
+
+        <!-- 社群媒體 -->
+        {{#if (or card.social_media.linkedin card.social_media.wechat card.social_media.facebook card.social_media.twitter card.social_media.instagram)}}
+        <div class="card-section">
+            <h3><i class="fas fa-share-alt"></i> 社群媒體</h3>
+            <div class="social-grid">
+                {{#if card.social_media.linkedin}}
+                <a href="{{card.social_media.linkedin}}" target="_blank" class="social-link linkedin">
+                    <i class="fab fa-linkedin"></i>
+                    <span>LinkedIn</span>
+                </a>
+                {{/if}}
+                
+                {{#if card.social_media.wechat}}
+                <div class="social-link wechat">
+                    <i class="fab fa-weixin"></i>
+                    <span>{{card.social_media.wechat}}</span>
+                </div>
+                {{/if}}
+                
+                {{#if card.social_media.facebook}}
+                <a href="{{card.social_media.facebook}}" target="_blank" class="social-link facebook">
+                    <i class="fab fa-facebook"></i>
+                    <span>Facebook</span>
+                </a>
+                {{/if}}
+                
+                {{#if card.social_media.twitter}}
+                <a href="{{card.social_media.twitter}}" target="_blank" class="social-link twitter">
+                    <i class="fab fa-twitter"></i>
+                    <span>Twitter</span>
+                </a>
+                {{/if}}
+                
+                {{#if card.social_media.instagram}}
+                <a href="{{card.social_media.instagram}}" target="_blank" class="social-link instagram">
+                    <i class="fab fa-instagram"></i>
+                    <span>Instagram</span>
+                </a>
+                {{/if}}
+            </div>
+        </div>
+        {{/if}}
+
+        <!-- 活動資訊 -->
+        {{#if card.project.name}}
+        <div class="card-section">
+            <h3><i class="fas fa-calendar-alt"></i> 活動資訊</h3>
+            <div class="event-info">
+                <p><strong>{{card.project.name}}</strong></p>
+                {{#if card.project.event_date}}
+                <p><i class="fas fa-calendar"></i> {{card.project.event_date}}</p>
+                {{/if}}
+                {{#if card.project.location}}
+                <p><i class="fas fa-map-marker-alt"></i> {{card.project.location}}</p>
+                {{/if}}
+            </div>
+        </div>
+        {{/if}}
+
+        <!-- 操作按鈕 -->
+        <div class="card-actions">
+            <button class="btn btn-primary" onclick="shareCard()">
+                <i class="fas fa-share"></i>
+                分享名片
+            </button>
+        </div>
+
+        <!-- 統計資訊 -->
+        <div class="card-footer">
+            <p class="scan-count">
+                <i class="fas fa-eye"></i>
+                已被瀏覽 {{card.scan_count}} 次
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+// 分享名片
+function shareCard() {
+    if (navigator.share) {
+        navigator.share({
+            title: '{{card.name}} - 數位名片',
+            text: '查看 {{card.name}} 的數位名片',
+            url: window.location.href
+        }).catch(console.error);
+    } else {
+        // 複製連結到剪貼板
+        navigator.clipboard.writeText(window.location.href).then(() => {
+            alert('名片連結已複製到剪貼板！');
+        }).catch(() => {
+            // 備用方案
+            const textArea = document.createElement('textarea');
+            textArea.value = window.location.href;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert('名片連結已複製到剪貼板！');
+        });
+    }
+}
+
+// 頁面載入完成後的動畫
+document.addEventListener('DOMContentLoaded', function() {
+    const card = document.querySelector('.business-card');
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(20px)';
+    
+    setTimeout(() => {
+        card.style.transition = 'all 0.5s ease';
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+    }, 100);
+});
+</script>

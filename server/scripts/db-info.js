@@ -7,7 +7,11 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-const dbPath = path.join(__dirname, '../data/invitation_system.db');
+// 載入環境變數
+require('dotenv').config();
+const config = require('../config');
+
+const dbPath = path.resolve(config.database.path);
 
 console.log('📊 資料庫資訊查看');
 console.log('================');

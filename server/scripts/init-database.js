@@ -9,6 +9,10 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
+// 載入環境變數
+require('dotenv').config();
+const config = require('../config');
+
 console.log('🚀 開始初始化資料庫系統...\n');
 
 // 確保數據目錄存在
@@ -19,7 +23,7 @@ if (!fs.existsSync(dataDir)) {
 }
 
 // 檢查是否已存在資料庫
-const dbPath = path.join(dataDir, 'invitation_system.db');
+const dbPath = path.resolve(config.database.path);
 const dbExists = fs.existsSync(dbPath);
 
 if (dbExists) {

@@ -10,6 +10,7 @@ const router = express.Router();
 const eventsRouter = require('./events');
 const registrationsRouter = require('./registrations');
 const checkinRouter = require('./checkin');
+const businessCardsRouter = require('./business-cards');
 
 // API 版本信息
 router.get('/', (req, res) => {
@@ -23,7 +24,8 @@ router.get('/', (req, res) => {
                 events: '/api/v1/events',
                 registrations: '/api/v1/events/:eventId/registrations',
                 qr_codes: '/api/v1/qr-codes/:traceId',
-                check_in: '/api/v1/check-in'
+                check_in: '/api/v1/check-in',
+                business_cards: '/api/v1/business-cards'
             },
             documentation: '/api-docs',
             status: 'active'
@@ -49,6 +51,7 @@ router.get('/health', (req, res) => {
 router.use('/events', eventsRouter);
 router.use('/', registrationsRouter);
 router.use('/check-in', checkinRouter);
+router.use('/business-cards', businessCardsRouter);
 
 // 404 處理
 router.use('*', (req, res) => {
@@ -68,7 +71,10 @@ router.use('*', (req, res) => {
                 'GET /api/v1/qr-codes/:traceId',
                 'GET /api/v1/qr-codes/:traceId/data',
                 'POST /api/v1/check-in',
-                'GET /api/v1/check-in/:traceId'
+                'GET /api/v1/check-in/:traceId',
+                'POST /api/v1/business-cards',
+                'GET /api/v1/business-cards/:cardId',
+                'GET /api/v1/business-cards/project/:projectId'
             ]
         }
     });

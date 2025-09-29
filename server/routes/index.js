@@ -11,10 +11,12 @@ const { apiLogger, adminLogger } = require('../middleware/requestLogger');
 const frontendRoutes = require('./frontend');
 const adminRoutes = require('./admin');
 const apiRoutes = require('./api');
+const businessCardRoutes = require('./business-card');
 
 // 註冊路由
 router.use('/', frontendRoutes);
 router.use('/admin', adminLogger, adminRoutes);
 router.use('/api', apiLogger, apiRoutes);
+router.use('/business-card', businessCardRoutes);
 
 module.exports = router;

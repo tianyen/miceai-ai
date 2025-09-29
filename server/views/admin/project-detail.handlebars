@@ -74,6 +74,7 @@
         <button class="tab-btn" data-tab="questionnaires">問卷狀況</button>
         <button class="tab-btn" data-tab="checkin">簽到管理</button>
         <button class="tab-btn" data-tab="tracking">參加者追蹤</button>
+        <button class="tab-btn" data-tab="business-cards">QR Code 名片</button>
         <button class="tab-btn" data-tab="qr-scanner">QR掃描</button>
     </nav>
 
@@ -172,6 +173,65 @@
                 <i class="fas fa-search"></i>
                 <p>請搜尋參加者以查看追蹤資訊</p>
             </div>
+        </div>
+    </div>
+
+    <!-- QR Code 名片 -->
+    <div class="tab-content" id="business-cards-tab">
+        <div class="section-header">
+            <h3>QR Code 名片管理</h3>
+            <div class="section-actions">
+                <button class="btn btn-success" onclick="exportBusinessCards()">
+                    <i class="fas fa-download"></i> 匯出名片
+                </button>
+                <button class="btn btn-secondary" onclick="refreshBusinessCards()">
+                    <i class="fas fa-sync-alt"></i> 重新整理
+                </button>
+            </div>
+        </div>
+
+        <!-- 搜尋和篩選 -->
+        <div class="filter-section">
+            <div class="search-box">
+                <input type="text" id="business-card-search" placeholder="搜尋姓名、公司或電子郵件..." class="form-control">
+                <button class="btn btn-primary" onclick="searchBusinessCards()">
+                    <i class="fas fa-search"></i> 搜尋
+                </button>
+            </div>
+        </div>
+
+        <!-- 名片列表 -->
+        <div class="business-cards-container">
+            <div class="table-responsive">
+                <table class="table table-striped" id="business-cards-table">
+                    <thead>
+                        <tr>
+                            <th>姓名</th>
+                            <th>職稱</th>
+                            <th>公司</th>
+                            <th>聯絡方式</th>
+                            <th>掃描次數</th>
+                            <th>建立時間</th>
+                            <th>狀態</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="business-cards-tbody">
+                        <!-- 動態載入名片資料 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分頁 -->
+            <div class="pagination-container" id="business-cards-pagination">
+                <!-- 動態載入分頁 -->
+            </div>
+        </div>
+
+        <!-- 載入中指示器 -->
+        <div class="loading-indicator" id="business-cards-loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>載入中...</p>
         </div>
     </div>
 
@@ -615,6 +675,9 @@ function switchTab(tabName) {
         case 'tracking':
             // 追蹤頁面不需要自動載入
             break;
+        case 'business-cards':
+            loadBusinessCards();
+            break;
         case 'qr-scanner':
             // QR掃描頁面不需要自動載入
             break;
@@ -848,5 +911,424 @@ function bulkCheckin() {
 // 創建問卷
 function createQuestionnaire() {
     window.location.href = `/admin/questionnaire/new?project_id=${projectId}`;
+}
+
+// 格式化日期時間
+function formatDateTime(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleString('zh-TW', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// QR Code 名片管理功能
+let currentBusinessCardsPage = 1;
+let businessCardsSearch = '';
+
+// 載入名片列表
+function loadBusinessCards(page = 1, search = '') {
+    currentBusinessCardsPage = page;
+    businessCardsSearch = search;
+
+    $('#business-cards-loading').show();
+    $('#business-cards-table tbody').empty();
+
+    $.ajax({
+        url: `/api/admin/business-cards/project/${projectId}`,
+        method: 'GET',
+        data: {
+            page: page,
+            limit: 20,
+            search: search
+        },
+        success: function(response) {
+            $('#business-cards-loading').hide();
+
+            if (response.success) {
+                renderBusinessCards(response.data.cards);
+                renderBusinessCardsPagination(response.data.pagination);
+            } else {
+                showNotification(response.message || '載入名片失敗', 'error');
+            }
+        },
+        error: function() {
+            $('#business-cards-loading').hide();
+            showNotification('載入名片失敗，請稍後再試', 'error');
+        }
+    });
+}
+
+// 渲染名片列表
+function renderBusinessCards(cards) {
+    const tbody = $('#business-cards-tbody');
+    tbody.empty();
+
+    if (cards.length === 0) {
+        tbody.append(`
+            <tr>
+                <td colspan="8" class="text-center">
+                    <div class="empty-state">
+                        <i class="fas fa-address-card fa-3x text-muted"></i>
+                        <p class="mt-3 text-muted">尚無名片資料</p>
+                    </div>
+                </td>
+            </tr>
+        `);
+        return;
+    }
+
+    cards.forEach(card => {
+        const statusBadge = card.is_active ?
+            '<span class="badge badge-success">啟用</span>' :
+            '<span class="badge badge-secondary">停用</span>';
+
+        const contactInfo = [
+            card.email ? `<div><i class="fas fa-envelope"></i> ${card.email}</div>` : '',
+            card.phone ? `<div><i class="fas fa-phone"></i> ${card.phone}</div>` : ''
+        ].filter(info => info).join('');
+
+        const row = `
+            <tr>
+                <td>
+                    <strong>${card.name}</strong>
+                    ${card.social_media.linkedin ? '<i class="fab fa-linkedin text-primary ml-2"></i>' : ''}
+                    ${card.social_media.wechat ? '<i class="fab fa-weixin text-success ml-1"></i>' : ''}
+                </td>
+                <td>${card.title || '-'}</td>
+                <td>${card.company || '-'}</td>
+                <td class="contact-info">${contactInfo || '-'}</td>
+                <td>
+                    <span class="badge badge-info">${card.scan_count}</span>
+                    ${card.last_scanned_at ? `<small class="text-muted d-block">最後掃描: ${formatDateTime(card.last_scanned_at)}</small>` : ''}
+                </td>
+                <td>${formatDateTime(card.created_at)}</td>
+                <td>${statusBadge}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="viewBusinessCard('${card.card_id}')" title="查看詳情">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-outline-info" onclick="downloadQRCode('${card.card_id}')" title="下載 QR Code">
+                            <i class="fas fa-qrcode"></i>
+                        </button>
+                        <button class="btn btn-outline-${card.is_active ? 'warning' : 'success'}"
+                                onclick="toggleBusinessCardStatus('${card.card_id}', ${card.is_active})"
+                                title="${card.is_active ? '停用' : '啟用'}">
+                            <i class="fas fa-${card.is_active ? 'pause' : 'play'}"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="deleteBusinessCard('${card.card_id}', '${card.name}')" title="刪除">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    });
+}
+
+// 渲染分頁
+function renderBusinessCardsPagination(pagination) {
+    const container = $('#business-cards-pagination');
+    container.empty();
+
+    if (pagination.total_pages <= 1) return;
+
+    let paginationHtml = '<nav><ul class="pagination justify-content-center">';
+
+    // 上一頁
+    if (pagination.has_prev) {
+        paginationHtml += `<li class="page-item">
+            <a class="page-link" href="#" onclick="loadBusinessCards(${pagination.current_page - 1}, '${businessCardsSearch}')">上一頁</a>
+        </li>`;
+    }
+
+    // 頁碼
+    for (let i = 1; i <= pagination.total_pages; i++) {
+        const active = i === pagination.current_page ? 'active' : '';
+        paginationHtml += `<li class="page-item ${active}">
+            <a class="page-link" href="#" onclick="loadBusinessCards(${i}, '${businessCardsSearch}')">${i}</a>
+        </li>`;
+    }
+
+    // 下一頁
+    if (pagination.has_next) {
+        paginationHtml += `<li class="page-item">
+            <a class="page-link" href="#" onclick="loadBusinessCards(${pagination.current_page + 1}, '${businessCardsSearch}')">下一頁</a>
+        </li>`;
+    }
+
+    paginationHtml += '</ul></nav>';
+    container.html(paginationHtml);
+}
+
+// 搜尋名片
+function searchBusinessCards() {
+    const search = $('#business-card-search').val().trim();
+    loadBusinessCards(1, search);
+}
+
+// 重新整理名片
+function refreshBusinessCards() {
+    loadBusinessCards(currentBusinessCardsPage, businessCardsSearch);
+    showNotification('名片資料已更新', 'info');
+}
+
+// 匯出名片
+function exportBusinessCards() {
+    window.open(`/api/admin/business-cards/project/${projectId}/export`, '_blank');
+}
+
+// 查看名片詳情
+function viewBusinessCard(cardId) {
+    // 使用 API 獲取名片詳情並顯示在模態框中
+    $.ajax({
+        url: `/api/v1/business-cards/${cardId}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                showBusinessCardModal(response.data);
+            } else {
+                showNotification(response.message || '獲取名片詳情失敗', 'error');
+            }
+        },
+        error: function() {
+            showNotification('獲取名片詳情失敗，請稍後再試', 'error');
+        }
+    });
+}
+
+// 顯示名片詳情模態框
+function showBusinessCardModal(card) {
+    const socialMediaLinks = [];
+    if (card.social_media.website) {
+        socialMediaLinks.push(`<a href="${card.social_media.website}" target="_blank"><i class="fas fa-globe"></i> 網站</a>`);
+    }
+    if (card.social_media.linkedin) {
+        socialMediaLinks.push(`<a href="${card.social_media.linkedin}" target="_blank"><i class="fab fa-linkedin"></i> LinkedIn</a>`);
+    }
+    if (card.social_media.wechat) {
+        socialMediaLinks.push(`<span><i class="fab fa-weixin"></i> 微信: ${card.social_media.wechat}</span>`);
+    }
+
+    const modalContent = `
+        <div class="modal fade" id="businessCardModal" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-address-card"></i> 名片詳情 - ${card.name}
+                        </h5>
+                        <button type="button" class="close" data-dismiss="modal">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="card-info">
+                                    <h6><i class="fas fa-user"></i> 基本資訊</h6>
+                                    <table class="table table-borderless">
+                                        <tr>
+                                            <td><strong>姓名:</strong></td>
+                                            <td>${card.name}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>職稱:</strong></td>
+                                            <td>${card.title || '-'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>公司:</strong></td>
+                                            <td>${card.company || '-'}</td>
+                                        </tr>
+                                    </table>
+
+                                    <h6><i class="fas fa-phone"></i> 聯絡資訊</h6>
+                                    <table class="table table-borderless">
+                                        <tr>
+                                            <td><strong>電話:</strong></td>
+                                            <td>${card.contact_info.phone || '-'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Email:</strong></td>
+                                            <td>${card.contact_info.email || '-'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>地址:</strong></td>
+                                            <td>${card.contact_info.address || '-'}</td>
+                                        </tr>
+                                    </table>
+
+                                    ${socialMediaLinks.length > 0 ? `
+                                    <h6><i class="fas fa-share-alt"></i> 社群媒體</h6>
+                                    <div class="social-links">
+                                        ${socialMediaLinks.join('<br>')}
+                                    </div>
+                                    ` : ''}
+
+                                    <h6><i class="fas fa-chart-bar"></i> 統計資訊</h6>
+                                    <table class="table table-borderless">
+                                        <tr>
+                                            <td><strong>掃描次數:</strong></td>
+                                            <td><span class="badge badge-info">${card.statistics.scan_count}</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>最後掃描:</strong></td>
+                                            <td>${card.statistics.last_scanned_at ? formatDateTime(card.statistics.last_scanned_at) : '尚未掃描'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>建立時間:</strong></td>
+                                            <td>${formatDateTime(card.created_at)}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <h6><i class="fas fa-qrcode"></i> QR Code</h6>
+                                <img src="${card.qr_code.base64}" alt="QR Code" class="img-fluid" style="max-width: 200px;">
+                                <div class="mt-3">
+                                    <button class="btn btn-primary btn-sm" onclick="downloadQRCodeFromModal('${card.card_id}')">
+                                        <i class="fas fa-download"></i> 下載 QR Code
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">關閉</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 移除現有的模態框
+    $('#businessCardModal').remove();
+
+    // 添加新的模態框
+    $('body').append(modalContent);
+
+    // 顯示模態框
+    const modal = document.getElementById('businessCardModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        document.body.classList.add('modal-open');
+
+        // 添加背景遮罩
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop fade show';
+        backdrop.id = 'businessCardBackdrop';
+        document.body.appendChild(backdrop);
+
+        // 綁定關閉事件
+        const closeButtons = modal.querySelectorAll('[data-dismiss="modal"], .close');
+        closeButtons.forEach(button => {
+            button.addEventListener('click', closeBusinessCardModal);
+        });
+
+        // 點擊背景關閉
+        backdrop.addEventListener('click', closeBusinessCardModal);
+    }
+}
+
+// 關閉名片詳情模態框
+function closeBusinessCardModal() {
+    const modal = document.getElementById('businessCardModal');
+    const backdrop = document.getElementById('businessCardBackdrop');
+
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        modal.remove();
+    }
+
+    if (backdrop) {
+        backdrop.remove();
+    }
+
+    document.body.classList.remove('modal-open');
+}
+
+// 從模態框下載 QR Code
+function downloadQRCodeFromModal(cardId) {
+    downloadQRCode(cardId);
+}
+
+// 下載 QR Code
+function downloadQRCode(cardId) {
+    // 獲取名片資料並下載 QR Code
+    $.ajax({
+        url: `/api/v1/business-cards/${cardId}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success && response.data.qr_code.base64) {
+                // 創建下載連結
+                const link = document.createElement('a');
+                link.href = response.data.qr_code.base64;
+                link.download = `${response.data.name}_QRCode.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                showNotification('QR Code 下載成功', 'success');
+            } else {
+                showNotification('獲取 QR Code 失敗', 'error');
+            }
+        },
+        error: function() {
+            showNotification('下載 QR Code 失敗，請稍後再試', 'error');
+        }
+    });
+}
+
+// 切換名片狀態
+function toggleBusinessCardStatus(cardId, currentStatus) {
+    const action = currentStatus ? '停用' : '啟用';
+
+    if (confirm(`確定要${action}這張名片嗎？`)) {
+        $.ajax({
+            url: `/api/admin/business-cards/${cardId}/status`,
+            method: 'PATCH',
+            data: { is_active: !currentStatus },
+            success: function(response) {
+                if (response.success) {
+                    showNotification(response.message, 'success');
+                    loadBusinessCards(currentBusinessCardsPage, businessCardsSearch);
+                } else {
+                    showNotification(response.message || '操作失敗', 'error');
+                }
+            },
+            error: function() {
+                showNotification('操作失敗，請稍後再試', 'error');
+            }
+        });
+    }
+}
+
+// 刪除名片
+function deleteBusinessCard(cardId, cardName) {
+    if (confirm(`確定要刪除「${cardName}」的名片嗎？此操作無法復原。`)) {
+        $.ajax({
+            url: `/api/admin/business-cards/${cardId}`,
+            method: 'DELETE',
+            success: function(response) {
+                if (response.success) {
+                    showNotification(response.message, 'success');
+                    loadBusinessCards(currentBusinessCardsPage, businessCardsSearch);
+                } else {
+                    showNotification(response.message || '刪除失敗', 'error');
+                }
+            },
+            error: function() {
+                showNotification('刪除失敗，請稍後再試', 'error');
+            }
+        });
+    }
 }
 </script>
