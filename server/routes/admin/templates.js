@@ -6,16 +6,16 @@ const router = express.Router();
 const database = require('../../config/database');
 const responses = require('../../utils/responses');
 
-// 模板管理頁面
+// 活動模板頁面
 router.get('/', (req, res) => {
     res.render('admin/templates', {
         layout: 'admin',
-        pageTitle: '模板管理',
+        pageTitle: '活動模板',
         currentPage: 'templates',
         user: req.user,
         breadcrumbs: [
             { name: '儀表板', url: '/admin/dashboard' },
-            { name: '模板管理' }
+            { name: '活動模板' }
         ]
     });
 });

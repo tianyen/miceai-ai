@@ -168,6 +168,7 @@ router.get('/code/:code', [
                 p.contact_email,
                 p.contact_phone,
                 p.agenda,
+                p.template_id,
                 p.created_at,
                 p.updated_at,
                 COUNT(fs.id) as current_participants
@@ -182,18 +183,56 @@ router.get('/code/:code', [
             return responses.error(res, '活動不存在', 404);
         }
 
+        // 獲取活動模板資料
+        let eventTemplate = null;
+        if (event.template_id) {
+            try {
+                eventTemplate = await database.get(`
+                    SELECT
+                        id,
+                        template_name,
+                        template_type,
+                        template_content
+                    FROM invitation_templates
+                    WHERE id = ? AND template_type = 'event'
+                `, [event.template_id]);
+
+                if (eventTemplate && eventTemplate.template_content) {
+                    try {
+                        eventTemplate.template_content = JSON.parse(eventTemplate.template_content);
+                    } catch (e) {
+                        console.error('解析活動模板內容失敗:', e);
+                        eventTemplate.template_content = null;
+                    }
+                }
+            } catch (error) {
+                console.error('獲取活動模板失敗:', error);
+                // 不影響主要活動資料的返回
+            }
+        }
+
         // 格式化回應數據
         const responseData = {
             ...event,
             contact_info: {
                 email: event.contact_email,
                 phone: event.contact_phone
-            }
+            },
+            template: eventTemplate ? {
+                id: eventTemplate.id,
+                name: eventTemplate.template_name,
+                schedule: eventTemplate.template_content?.schedule || null,
+                introduction: eventTemplate.template_content?.introduction || '',
+                process: eventTemplate.template_content?.process || [],
+                special_guests: eventTemplate.template_content?.special_guests || [],
+                additional_info: eventTemplate.template_content?.additional_info || {}
+            } : null
         };
 
         // 移除重複的聯絡資訊欄位
         delete responseData.contact_email;
         delete responseData.contact_phone;
+        delete responseData.template_id;
 
         return responses.success(res, responseData);
 
@@ -219,7 +258,7 @@ router.get('/:id', [
         const eventId = req.params.id;
 
         const event = await database.get(`
-            SELECT 
+            SELECT
                 p.id,
                 p.project_name as name,
                 p.project_code as code,
@@ -233,11 +272,12 @@ router.get('/:id', [
                 p.contact_email,
                 p.contact_phone,
                 p.agenda,
+                p.template_id,
                 p.created_at,
                 p.updated_at,
                 COUNT(fs.id) as current_participants
             FROM invitation_projects p
-            LEFT JOIN form_submissions fs ON p.id = fs.project_id 
+            LEFT JOIN form_submissions fs ON p.id = fs.project_id
                 AND fs.status IN ('pending', 'approved', 'confirmed')
             WHERE p.id = ?
             GROUP BY p.id
@@ -247,18 +287,56 @@ router.get('/:id', [
             return responses.error(res, '活動不存在', 404);
         }
 
+        // 獲取活動模板資料
+        let eventTemplate = null;
+        if (event.template_id) {
+            try {
+                eventTemplate = await database.get(`
+                    SELECT
+                        id,
+                        template_name,
+                        template_type,
+                        template_content
+                    FROM invitation_templates
+                    WHERE id = ? AND template_type = 'event'
+                `, [event.template_id]);
+
+                if (eventTemplate && eventTemplate.template_content) {
+                    try {
+                        eventTemplate.template_content = JSON.parse(eventTemplate.template_content);
+                    } catch (e) {
+                        console.error('解析活動模板內容失敗:', e);
+                        eventTemplate.template_content = null;
+                    }
+                }
+            } catch (error) {
+                console.error('獲取活動模板失敗:', error);
+                // 不影響主要活動資料的返回
+            }
+        }
+
         // 格式化回應數據
         const responseData = {
             ...event,
             contact_info: {
                 email: event.contact_email,
                 phone: event.contact_phone
-            }
+            },
+            template: eventTemplate ? {
+                id: eventTemplate.id,
+                name: eventTemplate.template_name,
+                schedule: eventTemplate.template_content?.schedule || null,
+                introduction: eventTemplate.template_content?.introduction || '',
+                process: eventTemplate.template_content?.process || [],
+                special_guests: eventTemplate.template_content?.special_guests || [],
+                additional_info: eventTemplate.template_content?.additional_info || {}
+            } : null
         };
 
         // 移除重複的聯絡資訊欄位
         delete responseData.contact_email;
         delete responseData.contact_phone;
+        delete responseData.template_id;
 
         return responses.success(res, responseData);
 

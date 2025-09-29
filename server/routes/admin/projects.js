@@ -25,11 +25,12 @@ router.get('/:id/detail', async (req, res) => {
     try {
         const projectId = req.params.id;
 
-        // 獲取專案基本信息
+        // 獲取專案基本信息（包含模板資訊）
         const project = await database.get(`
-            SELECT p.*, u.full_name as creator_name
+            SELECT p.*, u.full_name as creator_name, t.template_name, t.id as template_id
             FROM invitation_projects p
             LEFT JOIN users u ON p.created_by = u.id
+            LEFT JOIN invitation_templates t ON p.template_id = t.id
             WHERE p.id = ?
         `, [projectId]);
 

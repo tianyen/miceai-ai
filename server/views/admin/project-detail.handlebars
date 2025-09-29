@@ -38,6 +38,18 @@
                         {{#eq project.status 'draft'}}草稿{{/eq}}
                     </span>
                 </div>
+                <div class="info-item">
+                    <label>關聯模板：</label>
+                    <span>
+                        {{#if project.template_name}}
+                            <a href="/admin/templates/{{project.template_id}}/preview" class="template-link" target="_blank">
+                                <i class="fas fa-file-alt"></i> {{project.template_name}}
+                            </a>
+                        {{else}}
+                            <span class="text-muted">未設定模板</span>
+                        {{/if}}
+                    </span>
+                </div>
             </div>
         </div>
 

@@ -1,8 +1,8 @@
-{{!-- 模板管理頁面 --}}
+{{!-- 活動模板頁面 --}}
 
 <div class="content-header">
-    <h1>模板管理</h1>
-    <p>管理邀請函模板、樣式設定和內容配置</p>
+    <h1>活動模板</h1>
+    <p>管理活動模板、時刻表、流程設定和相關資訊</p>
 </div>
 
 <!-- 操作按鈕 -->
@@ -15,7 +15,7 @@
     </div>
     <div class="action-buttons">
         <button class="btn btn-success" onclick="openNewTemplateModal()">
-            <i class="fas fa-plus"></i> 新增模板
+            <i class="fas fa-plus"></i> 新增活動模板
         </button>
         <button class="btn btn-info" onclick="openImportTemplateModal()">
             <i class="fas fa-upload"></i> 匯入模板
@@ -29,10 +29,11 @@
 <!-- 模板列表 -->
 <div class="data-table-container">
     <div class="table-header">
-        <h3>模板列表</h3>
+        <h3>活動模板列表</h3>
         <div class="table-controls">
             <select id="category-filter" class="form-control" onchange="searchTemplates()">
                 <option value="">所有分類</option>
+                <option value="event">活動模板</option>
                 <option value="invitation">邀請函</option>
                 <option value="notification">通知</option>
                 <option value="email">電子郵件</option>

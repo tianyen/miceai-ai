@@ -14,9 +14,11 @@ class ProjectController {
                 SELECT
                     p.*,
                     u.full_name as creator_name,
+                    t.template_name as template_name,
                     COUNT(fs.id) as participant_count
                 FROM invitation_projects p
                 LEFT JOIN users u ON p.created_by = u.id
+                LEFT JOIN invitation_templates t ON p.template_id = t.id
                 LEFT JOIN form_submissions fs ON p.id = fs.project_id
             `;
             let countQuery = 'SELECT COUNT(*) as count FROM invitation_projects p';

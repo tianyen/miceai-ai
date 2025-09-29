@@ -50,6 +50,7 @@ class TemplateController {
                     // Define getTemplateBadge function locally
                     const getTemplateBadge = (type) => {
                         const typeMap = {
+                            'event': '<span class="template-category event">活動模板</span>',
                             'invitation': '<span class="template-category invitation">邀請函</span>',
                             'notification': '<span class="template-category notification">通知</span>',
                             'email': '<span class="template-category email">電子郵件</span>',
@@ -168,6 +169,11 @@ class TemplateController {
                 } catch (e) {
                     // 如果解析失敗，保留原始字符串
                 }
+            }
+
+            // 如果是活動模板，格式化內容結構
+            if (template.template_type === 'event' && template.template_content) {
+                template.formatted_content = this.formatEventTemplate(template.template_content);
             }
 
             res.json({
@@ -687,6 +693,7 @@ class TemplateController {
                     // Define getTemplateBadge function locally
                     const getTemplateBadge = (type) => {
                         const typeMap = {
+                            'event': '<span class="template-category event">活動模板</span>',
                             'invitation': '<span class="template-category invitation">邀請函</span>',
                             'notification': '<span class="template-category notification">通知</span>',
                             'email': '<span class="template-category email">電子郵件</span>',
@@ -774,12 +781,71 @@ class TemplateController {
     // 模板類型徽章映射
     getTemplateBadge(type) {
         const typeMap = {
+            'event': '<span class="template-category event">活動模板</span>',
             'invitation': '<span class="template-category invitation">邀請函</span>',
             'notification': '<span class="template-category notification">通知</span>',
             'email': '<span class="template-category email">電子郵件</span>',
             'form': '<span class="template-category form">表單</span>'
         };
         return typeMap[type] || '<span class="template-category">其他</span>';
+    }
+
+    // 格式化活動模板內容
+    formatEventTemplate(content) {
+        if (!content || typeof content !== 'object') {
+            return null;
+        }
+
+        return {
+            schedule: content.schedule || null,
+            introduction: content.introduction || '',
+            process: content.process || [],
+            special_guests: content.special_guests || [],
+            additional_info: content.additional_info || {}
+        };
+    }
+
+    // 獲取活動模板與專案的關聯
+    async getEventTemplateWithProject(templateId, projectId = null) {
+        try {
+            const template = await database.get(`
+                SELECT t.*, u.full_name as creator_name
+                FROM invitation_templates t
+                LEFT JOIN users u ON t.created_by = u.id
+                WHERE t.id = ? AND t.template_type = 'event'
+            `, [templateId]);
+
+            if (!template) {
+                return null;
+            }
+
+            // 解析模板內容
+            if (template.template_content) {
+                try {
+                    template.template_content = JSON.parse(template.template_content);
+                    template.formatted_content = this.formatEventTemplate(template.template_content);
+                } catch (e) {
+                    console.error('解析活動模板內容失敗:', e);
+                }
+            }
+
+            // 如果提供了專案 ID，獲取專案資訊
+            if (projectId) {
+                const project = await database.get(`
+                    SELECT * FROM invitation_projects WHERE id = ?
+                `, [projectId]);
+
+                if (project) {
+                    template.associated_project = project;
+                }
+            }
+
+            return template;
+
+        } catch (error) {
+            console.error('獲取活動模板失敗:', error);
+            throw error;
+        }
     }
 }
 
