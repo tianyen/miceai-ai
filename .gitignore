@@ -1,13 +1,25 @@
+# Project specific
 .env
 .hcl
 assets
 components
 invitation-website
-server/node_modules/
 .claude
+claude
 .cunzhi-memory
-database
 
+# Database files
+server/data/*.db
+server/data/*.db-shm
+server/data/*.db-wal
+server/data/*.sqlite
+server/data/*.sqlite-shm
+server/data/*.sqlite-wal
+*.db
+*.sqlite
+
+# Node modules
+server/node_modules/
 
 # Logs
 logs
