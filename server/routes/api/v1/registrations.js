@@ -1,6 +1,10 @@
 /**
  * API v1 - 活動報名路由
  * 路徑: /api/v1/events/:eventId/registrations 和 /api/v1/registrations
+ * @swagger
+ * tags:
+ *   name: Registrations (活動報名)
+ *   description: 活動報名和 QR Code 管理 API - 前端串接使用
  */
 
 const express = require('express');
@@ -22,8 +26,138 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRegex = /^[0-9\-\+\s\(\)]{8,20}$/;
 
 /**
- * 提交活動報名
- * POST /api/v1/events/:eventId/registrations
+ * @swagger
+ * /api/v1/events/{eventId}/registrations:
+ *   post:
+ *     tags: [Registrations (活動報名)]
+ *     summary: 提交活動報名
+ *     description: 提交活動報名資料，系統會自動生成 QR Code Base64 並返回 trace_id
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 活動 ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - phone
+ *               - data_consent
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 minLength: 2
+ *                 maxLength: 50
+ *                 description: 姓名
+ *                 example: "王小明"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: 電子郵件
+ *                 example: "wang@example.com"
+ *               phone:
+ *                 type: string
+ *                 pattern: '^[0-9\-\+\s\(\)]{8,20}$'
+ *                 description: 手機號碼
+ *                 example: "0912345678"
+ *               company:
+ *                 type: string
+ *                 maxLength: 100
+ *                 description: 公司名稱
+ *                 example: "科技公司"
+ *               position:
+ *                 type: string
+ *                 maxLength: 50
+ *                 description: 職位
+ *                 example: "工程師"
+ *               dietary_requirements:
+ *                 type: string
+ *                 maxLength: 200
+ *                 description: 飲食需求
+ *                 example: "素食"
+ *               special_needs:
+ *                 type: string
+ *                 maxLength: 200
+ *                 description: 特殊需求
+ *                 example: "輪椅使用者"
+ *               data_consent:
+ *                 type: boolean
+ *                 description: 資料使用同意（必須為 true）
+ *                 example: true
+ *               marketing_consent:
+ *                 type: boolean
+ *                 description: 行銷同意
+ *                 example: false
+ *     responses:
+ *       201:
+ *         description: 報名成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "報名成功！確認信已發送至您的電子郵件。"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     registration_id:
+ *                       type: integer
+ *                       example: 123
+ *                     trace_id:
+ *                       type: string
+ *                       description: 追蹤 ID，用於查詢報名狀態和 QR Code
+ *                       example: "TRACE123456789ABC"
+ *                     event:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                           example: "2024 科技研討會"
+ *                         date:
+ *                           type: string
+ *                           example: "2024-12-15"
+ *                         location:
+ *                           type: string
+ *                           example: "台北國際會議中心"
+ *                     participant:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                           example: "王小明"
+ *                         email:
+ *                           type: string
+ *                           example: "wang@example.com"
+ *                     qr_code:
+ *                       type: object
+ *                       properties:
+ *                         data:
+ *                           type: string
+ *                           example: "TRACE123456789ABC"
+ *                         url:
+ *                           type: string
+ *                           description: QR Code 查詢 URL
+ *                           example: "/api/v1/qr-codes/TRACE123456789ABC"
+ *       400:
+ *         description: 請求參數錯誤或活動已滿額
+ *       404:
+ *         description: 活動不存在
+ *       409:
+ *         description: 重複報名
+ *       500:
+ *         description: 服務器錯誤
  */
 router.post('/events/:eventId/registrations', [
     param('eventId').isInt({ min: 1 }).withMessage('活動 ID 必須是正整數'),
@@ -231,8 +365,112 @@ router.post('/events/:eventId/registrations', [
 });
 
 /**
- * 查詢報名狀態
- * GET /api/v1/registrations/:traceId
+ * @swagger
+ * /api/v1/registrations/{traceId}:
+ *   get:
+ *     tags: [Registrations (活動報名)]
+ *     summary: 查詢報名狀態
+ *     description: |
+ *       根據 trace_id 查詢報名狀態和詳細資訊
+ *
+ *       **用途**：
+ *       - 前端顯示報名確認頁面
+ *       - 查詢報到狀態
+ *       - 獲取 QR Code 掃描次數
+ *     parameters:
+ *       - in: path
+ *         name: traceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 報名追蹤 ID（報名時返回）
+ *         example: "TRACE123456789ABC"
+ *     responses:
+ *       200:
+ *         description: 成功獲取報名資訊
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     registration_id:
+ *                       type: integer
+ *                       example: 123
+ *                     trace_id:
+ *                       type: string
+ *                       example: "TRACE123456789ABC"
+ *                     status:
+ *                       type: string
+ *                       enum: [pending, approved, confirmed, rejected, cancelled]
+ *                       example: "pending"
+ *                     event:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                           example: "2024 科技研討會"
+ *                         date:
+ *                           type: string
+ *                           example: "2024-12-15"
+ *                         location:
+ *                           type: string
+ *                           example: "台北國際會議中心"
+ *                     participant:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                           example: "王小明"
+ *                         email:
+ *                           type: string
+ *                           example: "wang@example.com"
+ *                         phone:
+ *                           type: string
+ *                           example: "0912345678"
+ *                         company:
+ *                           type: string
+ *                           example: "科技公司"
+ *                         position:
+ *                           type: string
+ *                           example: "工程師"
+ *                         dietary_requirements:
+ *                           type: string
+ *                           example: "素食"
+ *                         special_needs:
+ *                           type: string
+ *                           example: "輪椅使用者"
+ *                     qr_code:
+ *                       type: object
+ *                       properties:
+ *                         data:
+ *                           type: string
+ *                           example: "TRACE123456789ABC"
+ *                         scan_count:
+ *                           type: integer
+ *                           example: 0
+ *                         last_scanned:
+ *                           type: string
+ *                           format: date-time
+ *                           nullable: true
+ *                           example: null
+ *                     check_in_status:
+ *                       type: string
+ *                       nullable: true
+ *                       example: null
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-12-01T10:30:00Z"
+ *       404:
+ *         description: 找不到報名記錄
+ *       500:
+ *         description: 服務器錯誤
  */
 router.get('/registrations/:traceId', [
     param('traceId').isLength({ min: 1, max: 50 }).withMessage('追蹤 ID 格式不正確')
@@ -364,8 +602,66 @@ router.get('/qr-codes/:traceId', [
 });
 
 /**
- * QR Code 數據查詢
- * GET /api/v1/qr-codes/:traceId/data
+ * @swagger
+ * /api/v1/qr-codes/{traceId}/data:
+ *   get:
+ *     tags: [Registrations (活動報名)]
+ *     summary: 獲取 QR Code Base64 數據
+ *     description: 根據 trace_id 獲取 QR Code 的 Base64 編碼，可直接用於前端顯示
+ *     parameters:
+ *       - in: path
+ *         name: traceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 報名追蹤 ID
+ *         example: "TRACE123456789ABC"
+ *     responses:
+ *       200:
+ *         description: 成功獲取 QR Code 數據
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     trace_id:
+ *                       type: string
+ *                       example: "TRACE123456789ABC"
+ *                     qr_data:
+ *                       type: string
+ *                       example: "TRACE123456789ABC"
+ *                     qr_base64:
+ *                       type: string
+ *                       description: QR Code Base64 編碼，可直接用於 <img src="">
+ *                       example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+ *                     participant_name:
+ *                       type: string
+ *                       example: "王小明"
+ *                     event_name:
+ *                       type: string
+ *                       example: "2024 科技研討會"
+ *                     scan_count:
+ *                       type: integer
+ *                       example: 0
+ *                     last_scanned:
+ *                       type: string
+ *                       format: date-time
+ *                       nullable: true
+ *                       example: null
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-12-01T10:30:00Z"
+ *       404:
+ *         description: 找不到 QR Code 記錄
+ *       500:
+ *         description: 服務器錯誤
  */
 router.get('/qr-codes/:traceId/data', [
     param('traceId').isLength({ min: 1, max: 50 }).withMessage('追蹤 ID 格式不正確')

@@ -32,14 +32,21 @@ CREATE TABLE IF NOT EXISTS invitation_projects (
     event_location VARCHAR(200),
     event_type VARCHAR(50),
     status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'completed', 'cancelled')),
+    max_participants INTEGER DEFAULT 0,
+    registration_deadline TIMESTAMP,
+    contact_email VARCHAR(100),
+    contact_phone VARCHAR(20),
+    agenda TEXT,
     created_by INTEGER NOT NULL,
     assigned_to INTEGER,
+    template_id INTEGER,
     template_config TEXT,
     brand_config TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (created_by) REFERENCES users(id),
-    FOREIGN KEY (assigned_to) REFERENCES users(id)
+    FOREIGN KEY (assigned_to) REFERENCES users(id),
+    FOREIGN KEY (template_id) REFERENCES invitation_templates(id)
 );
 
 -- 用戶項目權限表
@@ -60,8 +67,10 @@ CREATE TABLE IF NOT EXISTS user_project_permissions (
 CREATE TABLE IF NOT EXISTS invitation_templates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     template_name VARCHAR(100) NOT NULL,
+    category VARCHAR(50),
     template_type VARCHAR(50) NOT NULL,
     template_content TEXT NOT NULL,
+    special_guests TEXT,
     css_styles TEXT,
     js_scripts TEXT,
     is_default BOOLEAN DEFAULT 0,
@@ -127,6 +136,7 @@ CREATE TABLE IF NOT EXISTS qr_codes (
     submission_id INTEGER,
     qr_code VARCHAR(500) NOT NULL,
     qr_data TEXT,
+    qr_base64 TEXT,
     scan_count INTEGER DEFAULT 0,
     last_scanned TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -295,6 +305,62 @@ SELECT
     updated_at
 FROM form_submissions;
 
+-- API 訪問日誌表
+CREATE TABLE IF NOT EXISTS api_access_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    endpoint VARCHAR(255) NOT NULL,
+    method VARCHAR(10) NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    request_body TEXT,
+    response_status INTEGER,
+    response_time INTEGER,
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- QR Code 名片表
+CREATE TABLE IF NOT EXISTS business_cards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    card_id VARCHAR(50) UNIQUE NOT NULL,
+    project_id INTEGER NOT NULL,
+
+    -- 基本資訊
+    name VARCHAR(100) NOT NULL,
+    title VARCHAR(100),
+    company VARCHAR(200),
+
+    -- 聯絡資訊
+    phone VARCHAR(20),
+    email VARCHAR(100),
+    address TEXT,
+    website VARCHAR(255),
+
+    -- 社群媒體
+    linkedin VARCHAR(255),
+    wechat VARCHAR(100),
+    facebook VARCHAR(255),
+    twitter VARCHAR(255),
+    instagram VARCHAR(255),
+
+    -- QR Code 資訊
+    qr_code_base64 TEXT NOT NULL,
+    qr_code_data TEXT NOT NULL,
+
+    -- 統計資訊
+    scan_count INTEGER DEFAULT 0,
+    last_scanned_at TIMESTAMP,
+
+    -- 狀態
+    is_active BOOLEAN DEFAULT 1,
+
+    -- 時間戳記
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (project_id) REFERENCES invitation_projects(id) ON DELETE CASCADE
+);
+
 -- 創建索引以提高查詢性能
 CREATE INDEX IF NOT EXISTS idx_form_submissions_checked_in_at ON form_submissions(checked_in_at);
 CREATE INDEX IF NOT EXISTS idx_scan_history_participant_id ON scan_history(participant_id);
@@ -303,3 +369,9 @@ CREATE INDEX IF NOT EXISTS idx_qr_codes_submission_id ON qr_codes(submission_id)
 CREATE INDEX IF NOT EXISTS idx_checkin_records_project_id ON checkin_records(project_id);
 CREATE INDEX IF NOT EXISTS idx_checkin_records_submission_id ON checkin_records(submission_id);
 CREATE INDEX IF NOT EXISTS idx_checkin_records_checkin_time ON checkin_records(checkin_time);
+CREATE INDEX IF NOT EXISTS idx_api_access_logs_endpoint ON api_access_logs(endpoint);
+CREATE INDEX IF NOT EXISTS idx_api_access_logs_created_at ON api_access_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_business_cards_project_id ON business_cards(project_id);
+CREATE INDEX IF NOT EXISTS idx_business_cards_card_id ON business_cards(card_id);
+CREATE INDEX IF NOT EXISTS idx_business_cards_email ON business_cards(email);
+CREATE INDEX IF NOT EXISTS idx_business_cards_created_at ON business_cards(created_at);

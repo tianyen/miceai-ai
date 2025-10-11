@@ -1,17 +1,112 @@
 /**
  * API v1 - 報到管理路由
  * 路徑: /api/v1/check-in
+ * @swagger
+ * tags:
+ *   name: Check-in (報到管理)
+ *   description: 活動報到管理 API - 前端串接使用
  */
 
 const express = require('express');
 const router = express.Router();
 const database = require('../../../config/database');
 const responses = require('../../../utils/responses');
-const { body, validationResult } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 
 /**
- * 掃描 QR Code 報到
- * POST /api/v1/check-in
+ * @swagger
+ * /api/v1/check-in:
+ *   post:
+ *     tags: [Check-in (報到管理)]
+ *     summary: 掃描 QR Code 報到
+ *     description: 使用 trace_id 進行活動報到，支援 QR Code 掃描報到
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - trace_id
+ *             properties:
+ *               trace_id:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 50
+ *                 description: 報名追蹤 ID（報名時返回）
+ *                 example: "TRACE1728567890ABCD1234"
+ *               scanner_location:
+ *                 type: string
+ *                 maxLength: 100
+ *                 description: 掃描位置（選填）
+ *                 example: "會場入口A"
+ *               scanner_user_id:
+ *                 type: integer
+ *                 minimum: 1
+ *                 description: 掃描員用戶 ID（選填）
+ *                 example: 1
+ *     responses:
+ *       200:
+ *         description: 報到成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "報到成功"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     checkin_id:
+ *                       type: integer
+ *                       description: 報到記錄 ID
+ *                       example: 123
+ *                     trace_id:
+ *                       type: string
+ *                       description: 追蹤 ID
+ *                       example: "TRACE1728567890ABCD1234"
+ *                     participant_name:
+ *                       type: string
+ *                       description: 參與者姓名
+ *                       example: "王小明"
+ *                     project_name:
+ *                       type: string
+ *                       description: 活動名稱
+ *                       example: "2024 科技論壇"
+ *                     checkin_time:
+ *                       type: string
+ *                       format: date-time
+ *                       description: 報到時間
+ *                       example: "2025-10-10T16:30:00.000Z"
+ *       400:
+ *         description: 請求錯誤（活動未開放、報名狀態不允許等）
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: 找不到報名記錄
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       409:
+ *         description: 已經完成報到
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: 服務器錯誤
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.post('/', [
     body('trace_id').trim().isLength({ min: 1, max: 50 }).withMessage('追蹤 ID 不能為空'),
@@ -188,8 +283,108 @@ router.post('/', [
 });
 
 /**
- * 查詢報到記錄
- * GET /api/v1/check-in/:traceId
+ * @swagger
+ * /api/v1/check-in/{traceId}:
+ *   get:
+ *     tags: [Check-in (報到管理)]
+ *     summary: 查詢報到記錄
+ *     description: 根據 trace_id 查詢報到記錄詳情
+ *     parameters:
+ *       - in: path
+ *         name: traceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 50
+ *         description: 報名追蹤 ID
+ *         example: "TRACE1728567890ABCD1234"
+ *     responses:
+ *       200:
+ *         description: 成功獲取報到記錄
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     check_in_id:
+ *                       type: integer
+ *                       description: 報到記錄 ID
+ *                       example: 123
+ *                     trace_id:
+ *                       type: string
+ *                       description: 追蹤 ID
+ *                       example: "TRACE1728567890ABCD1234"
+ *                     participant:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                           description: 參與者姓名
+ *                           example: "王小明"
+ *                         email:
+ *                           type: string
+ *                           description: 電子郵件
+ *                           example: "wang@example.com"
+ *                         company:
+ *                           type: string
+ *                           description: 公司名稱
+ *                           example: "科技公司"
+ *                     event:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                           description: 活動名稱
+ *                           example: "2024 科技論壇"
+ *                         location:
+ *                           type: string
+ *                           description: 活動地點
+ *                           example: "台北國際會議中心"
+ *                     check_in_time:
+ *                       type: string
+ *                       format: date-time
+ *                       description: 報到時間
+ *                       example: "2025-10-10T16:30:00.000Z"
+ *                     scanner_location:
+ *                       type: string
+ *                       description: 掃描位置
+ *                       example: "會場入口A"
+ *                     check_in_method:
+ *                       type: string
+ *                       description: 報到方式
+ *                       example: "qr_scanner"
+ *                     scanner_name:
+ *                       type: string
+ *                       description: 掃描員姓名
+ *                       example: "管理員"
+ *                     notes:
+ *                       type: string
+ *                       description: 備註
+ *                       example: ""
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                       description: 記錄創建時間
+ *                       example: "2025-10-10T16:30:00.000Z"
+ *       404:
+ *         description: 找不到報到記錄
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: 服務器錯誤
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get('/:traceId', async (req, res) => {
     try {

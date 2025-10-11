@@ -88,8 +88,47 @@ if [ "$TRACE_ID" != "null" ] && [ "$TRACE_ID" != "" ]; then
   curl -s -X GET "$BASE_URL/check-in/$TRACE_ID" -H "Content-Type: application/json" | jq '.'
   echo ""
 
+  # 10. 創建 QR Code 名片
+  echo "🔟 測試創建 QR Code 名片..."
+  CARD_DATA='{
+    "project_id": 1,
+    "name": "測試名片用戶",
+    "title": "技術總監",
+    "company": "測試腳本公司",
+    "phone": "0912345678",
+    "email": "'$TEST_EMAIL'",
+    "website": "https://example.com",
+    "linkedin": "https://linkedin.com/in/test"
+  }'
+
+  CARD_RESPONSE=$(curl -s -X POST "$BASE_URL/business-cards" \
+    -H "Content-Type: application/json" \
+    -d "$CARD_DATA")
+
+  echo "$CARD_RESPONSE" | jq '. | del(.data.qr_code.base64)' # 隱藏 Base64 數據
+
+  # 提取 card_id
+  CARD_ID=$(echo "$CARD_RESPONSE" | jq -r '.data.card_id')
+  echo "📇 獲得 Card ID: $CARD_ID"
+  echo ""
+
+  if [ "$CARD_ID" != "null" ] && [ "$CARD_ID" != "" ]; then
+    # 11. 獲取名片詳情
+    echo "1️⃣1️⃣ 測試獲取名片詳情..."
+    CARD_DETAIL=$(curl -s -X GET "$BASE_URL/business-cards/$CARD_ID" -H "Content-Type: application/json")
+    echo "$CARD_DETAIL" | jq '. | del(.data.qr_code.base64)' # 隱藏 Base64 數據
+    echo "✅ 名片 QR Code Base64 長度: $(echo "$CARD_DETAIL" | jq -r '.data.qr_code.base64' | wc -c) 字符"
+    echo ""
+
+    # 12. 獲取專案名片列表
+    echo "1️⃣2️⃣ 測試獲取專案名片列表..."
+    curl -s -X GET "$BASE_URL/business-cards/project/1?page=1&limit=5" -H "Content-Type: application/json" | jq '.'
+    echo ""
+  fi
+
   echo "✅ 所有測試完成！"
   echo "📋 測試用 Trace ID: $TRACE_ID"
+  echo "📇 測試用 Card ID: $CARD_ID"
   echo "📧 測試用電子郵件: $TEST_EMAIL"
 else
   echo "❌ 報名失敗，無法繼續後續測試"

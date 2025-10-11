@@ -161,7 +161,8 @@ async function resetDatabase() {
                 // 更智能的 SQL 語句分割
                 const statements = [];
                 let currentStatement = '';
-                let inCreateStatement = false;
+                let inCreateTable = false;
+                let inCreateView = false;
 
                 const lines = schemaSQL.split('\n');
                 for (const line of lines) {
@@ -174,23 +175,37 @@ async function resetDatabase() {
 
                     currentStatement += line + '\n';
 
-                    // 檢查是否是 CREATE 語句的開始
-                    if (trimmedLine.toUpperCase().startsWith('CREATE')) {
-                        inCreateStatement = true;
+                    // 檢查是否是 CREATE TABLE 語句的開始
+                    if (trimmedLine.toUpperCase().startsWith('CREATE TABLE')) {
+                        inCreateTable = true;
+                        inCreateView = false;
                     }
 
-                    // 如果遇到分號且不在 CREATE 語句中，或者是 CREATE 語句的結束
+                    // 檢查是否是 CREATE VIEW 語句的開始
+                    if (trimmedLine.toUpperCase().startsWith('CREATE VIEW')) {
+                        inCreateView = true;
+                        inCreateTable = false;
+                    }
+
+                    // 檢查是否是 CREATE INDEX 語句
+                    const isCreateIndex = trimmedLine.toUpperCase().startsWith('CREATE INDEX');
+
+                    // 如果遇到分號
                     if (trimmedLine.endsWith(';')) {
-                        if (inCreateStatement && (
-                            trimmedLine.includes(');') ||
-                            trimmedLine === ');' ||
-                            trimmedLine.toUpperCase().includes('CREATE INDEX') ||
-                            trimmedLine.toUpperCase().includes('CREATE VIEW')
-                        )) {
+                        // CREATE TABLE 結束條件：遇到 );
+                        if (inCreateTable && (trimmedLine.includes(');') || trimmedLine === ');')) {
                             statements.push(currentStatement.trim());
                             currentStatement = '';
-                            inCreateStatement = false;
-                        } else if (!inCreateStatement) {
+                            inCreateTable = false;
+                        }
+                        // CREATE VIEW 結束條件：遇到 ; 且不是在 SELECT 子句中
+                        else if (inCreateView) {
+                            statements.push(currentStatement.trim());
+                            currentStatement = '';
+                            inCreateView = false;
+                        }
+                        // CREATE INDEX 或其他單行語句
+                        else if (isCreateIndex || (!inCreateTable && !inCreateView)) {
                             statements.push(currentStatement.trim());
                             currentStatement = '';
                         }

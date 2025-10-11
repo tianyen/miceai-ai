@@ -1,6 +1,10 @@
 /**
  * API v1 - 活動管理路由
  * 路徑: /api/v1/events
+ * @swagger
+ * tags:
+ *   name: Events (活動管理)
+ *   description: 活動查詢和管理 API - 前端串接使用
  */
 
 const express = require('express');
@@ -50,8 +54,113 @@ router.use((req, res, next) => {
 });
 
 /**
- * 獲取活動列表
- * GET /api/v1/events
+ * @swagger
+ * /api/v1/events:
+ *   get:
+ *     tags: [Events (活動管理)]
+ *     summary: 獲取活動列表
+ *     description: 獲取所有可報名的活動列表，支援分頁和篩選
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: 頁碼
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: 每頁筆數
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [draft, active, completed, cancelled]
+ *         description: 活動狀態
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [conference, seminar, workshop, exhibition, party, other]
+ *         description: 活動類型
+ *     responses:
+ *       200:
+ *         description: 成功獲取活動列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     events:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                             example: 1
+ *                           name:
+ *                             type: string
+ *                             example: "2024 科技研討會"
+ *                           code:
+ *                             type: string
+ *                             example: "TECH2024"
+ *                           description:
+ *                             type: string
+ *                             example: "探討最新科技趨勢"
+ *                           date:
+ *                             type: string
+ *                             format: date
+ *                             example: "2024-12-15"
+ *                           location:
+ *                             type: string
+ *                             example: "台北國際會議中心"
+ *                           type:
+ *                             type: string
+ *                             example: "conference"
+ *                           status:
+ *                             type: string
+ *                             example: "active"
+ *                           max_participants:
+ *                             type: integer
+ *                             example: 200
+ *                           current_participants:
+ *                             type: integer
+ *                             example: 45
+ *                           registration_deadline:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-12-10T23:59:59Z"
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                           example: 10
+ *                         page:
+ *                           type: integer
+ *                           example: 1
+ *                         limit:
+ *                           type: integer
+ *                           example: 20
+ *                         pages:
+ *                           type: integer
+ *                           example: 1
+ *       400:
+ *         description: 請求參數錯誤
+ *       500:
+ *         description: 服務器錯誤
  */
 router.get('/', [
     query('page').optional().isInt({ min: 1 }).withMessage('頁碼必須是正整數'),
@@ -139,8 +248,112 @@ router.get('/', [
 });
 
 /**
- * 根據代碼獲取特定活動
- * GET /api/v1/events/code/:code
+ * @swagger
+ * /api/v1/events/code/{code}:
+ *   get:
+ *     tags: [Events (活動管理)]
+ *     summary: 根據代碼獲取活動資訊
+ *     description: |
+ *       根據活動代碼獲取完整的活動資訊，包含活動模板資料
+ *
+ *       **用途**：前端報名頁面顯示活動詳情
+ *
+ *       **取代舊端點**：`/api/project-info/{projectCode}`
+ *     parameters:
+ *       - in: path
+ *         name: code
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 活動代碼
+ *         example: "TECH2024"
+ *     responses:
+ *       200:
+ *         description: 成功獲取活動資訊
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     name:
+ *                       type: string
+ *                       example: "2024 科技研討會"
+ *                     code:
+ *                       type: string
+ *                       example: "TECH2024"
+ *                     description:
+ *                       type: string
+ *                       example: "探討最新科技趨勢"
+ *                     date:
+ *                       type: string
+ *                       format: date
+ *                       example: "2024-12-15"
+ *                     location:
+ *                       type: string
+ *                       example: "台北國際會議中心"
+ *                     type:
+ *                       type: string
+ *                       example: "conference"
+ *                     status:
+ *                       type: string
+ *                       example: "active"
+ *                     max_participants:
+ *                       type: integer
+ *                       example: 200
+ *                     current_participants:
+ *                       type: integer
+ *                       example: 45
+ *                     registration_deadline:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-12-10T23:59:59Z"
+ *                     agenda:
+ *                       type: string
+ *                       example: "09:00 報到\n10:00 開幕..."
+ *                     contact_info:
+ *                       type: object
+ *                       properties:
+ *                         email:
+ *                           type: string
+ *                           example: "contact@event.com"
+ *                         phone:
+ *                           type: string
+ *                           example: "02-1234-5678"
+ *                     template:
+ *                       type: object
+ *                       description: 活動模板資料（時刻表、流程、特別嘉賓等）
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                           example: 1
+ *                         name:
+ *                           type: string
+ *                           example: "科技論壇活動模板"
+ *                         schedule:
+ *                           type: object
+ *                           description: 活動時刻表
+ *                         introduction:
+ *                           type: string
+ *                           description: 活動簡介
+ *                         process:
+ *                           type: array
+ *                           description: 活動流程步驟
+ *                         special_guests:
+ *                           type: array
+ *                           description: 特別嘉賓資訊
+ *       404:
+ *         description: 找不到活動
+ *       500:
+ *         description: 服務器錯誤
  */
 router.get('/code/:code', [
     param('code').isLength({ min: 1, max: 50 }).withMessage('活動代碼長度必須在 1-50 字符之間')

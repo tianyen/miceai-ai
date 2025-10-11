@@ -299,6 +299,116 @@
 				"description": "查詢特定 trace_id 的報到記錄"
 			},
 			"response": []
+		},
+		{
+			"name": "11. 🎯 創建 QR Code 名片",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// 儲存 card_id 供後續請求使用",
+							"if (pm.response.code === 200) {",
+							"    const jsonData = pm.response.json();",
+							"    if (jsonData.success && jsonData.data.card_id) {",
+							"        pm.environment.set(\"cardId\", jsonData.data.card_id);",
+							"        console.log(\"Card ID saved:\", jsonData.data.card_id);",
+							"    }",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"project_id\": {{eventId}},\n  \"name\": \"{{participantName}}\",\n  \"title\": \"技術總監\",\n  \"company\": \"{{participantCompany}}\",\n  \"phone\": \"{{participantPhone}}\",\n  \"email\": \"{{participantEmail}}\",\n  \"website\": \"https://example.com\",\n  \"linkedin\": \"https://linkedin.com/in/example\",\n  \"wechat\": \"wechat_id_123\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/business-cards",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"business-cards"
+					]
+				},
+				"description": "創建新的 QR Code 名片，系統會自動生成名片 QR Code"
+			},
+			"response": []
+		},
+		{
+			"name": "12. 獲取名片詳情（JSON）",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/business-cards/{{cardId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"business-cards",
+						"{{cardId}}"
+					]
+				},
+				"description": "根據名片 ID 獲取完整的名片資訊（JSON 格式），包含 QR Code Base64"
+			},
+			"response": []
+		},
+		{
+			"name": "13. 獲取專案名片列表",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/business-cards/project/{{eventId}}?page=1&limit=20",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"business-cards",
+						"project",
+						"{{eventId}}"
+					],
+					"query": [
+						{
+							"key": "page",
+							"value": "1"
+						},
+						{
+							"key": "limit",
+							"value": "20"
+						}
+					]
+				},
+				"description": "獲取指定專案下的所有名片列表，支援分頁"
+			},
+			"response": []
 		}
 	],
 	"event": [

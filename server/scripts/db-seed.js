@@ -19,25 +19,147 @@ const db = new sqlite3.Database(dbPath);
 
 // 種子資料
 const seedData = {
+    // 活動模板資料
+    templates: [
+        {
+            template_name: '科技論壇活動模板',
+            category: '論壇',
+            template_type: 'event',
+            template_content: JSON.stringify({
+                schedule: {
+                    type: 'single_day',
+                    date: '2025-09-15',
+                    sessions: [
+                        { time: '09:00-09:30', title: '報到與茶點', speaker: '', location: '大廳' },
+                        { time: '09:30-10:30', title: '開幕致詞', speaker: '主辦單位', location: '主會場' },
+                        { time: '10:30-12:00', title: '主題演講：科技趨勢展望', speaker: '專業講師', location: '主會場' },
+                        { time: '12:00-13:30', title: '午餐時間', speaker: '', location: '餐廳' },
+                        { time: '13:30-15:00', title: '分組討論', speaker: '各組主持人', location: '分會場' },
+                        { time: '15:00-15:30', title: '茶點時間', speaker: '', location: '大廳' },
+                        { time: '15:30-17:00', title: '綜合座談', speaker: '全體與會者', location: '主會場' },
+                        { time: '17:00-17:30', title: '閉幕與合影', speaker: '', location: '主會場' }
+                    ]
+                },
+                introduction: '本次科技論壇旨在探討最新的科技趨勢，邀請業界專家分享經驗，促進產學交流與合作。',
+                process: [
+                    { step: 1, title: '線上報名', description: '填寫報名表單，提供基本資料', duration: '即日起至活動前一週' },
+                    { step: 2, title: '報名確認', description: '收到確認信件及 QR Code', duration: '報名後 24 小時內' },
+                    { step: 3, title: '活動當日報到', description: '出示 QR Code 完成報到手續', duration: '活動當日 09:00-09:30' },
+                    { step: 4, title: '參與活動', description: '依照時程表參與各項議程', duration: '09:30-17:30' },
+                    { step: 5, title: '問卷填寫', description: '活動結束後填寫滿意度問卷', duration: '活動結束後一週內' }
+                ],
+                additional_info: {
+                    dress_code: '商務休閒',
+                    parking: '會場提供免費停車位，數量有限',
+                    materials: '會場提供筆記本、筆及相關資料',
+                    networking: '活動期間安排茶點時間，歡迎與會者交流'
+                }
+            }),
+            special_guests: JSON.stringify([
+                { name: '張教授', title: 'AI 研究專家', company: '台灣大學', bio: '專注於人工智慧研究 20 年', photo_url: '' },
+                { name: '李總經理', title: '科技產業領袖', company: '科技創新公司', bio: '帶領公司成為業界標竿', photo_url: '' },
+                { name: '王博士', title: '區塊鏈專家', company: '區塊鏈研究院', bio: '區塊鏈技術先驅', photo_url: '' }
+            ])
+        },
+        {
+            template_name: '研討會活動模板',
+            category: '研討會',
+            template_type: 'event',
+            template_content: JSON.stringify({
+                schedule: {
+                    type: 'single_day',
+                    date: '2025-10-20',
+                    sessions: [
+                        { time: '08:30-09:00', title: '報到', speaker: '', location: '接待處' },
+                        { time: '09:00-09:15', title: '開場致詞', speaker: '主辦單位', location: '會議室 A' },
+                        { time: '09:15-10:45', title: '專題演講', speaker: '主講人', location: '會議室 A' },
+                        { time: '10:45-11:00', title: '休息時間', speaker: '', location: '休息區' },
+                        { time: '11:00-12:30', title: '小組討論', speaker: '各組主持人', location: '分組會議室' },
+                        { time: '12:30-13:30', title: '午餐', speaker: '', location: '餐廳' },
+                        { time: '13:30-15:00', title: '案例分享', speaker: '業界專家', location: '會議室 A' },
+                        { time: '15:00-15:15', title: '茶點時間', speaker: '', location: '休息區' },
+                        { time: '15:15-16:30', title: '綜合討論', speaker: '全體參與者', location: '會議室 A' },
+                        { time: '16:30-17:00', title: '總結與閉幕', speaker: '主辦單位', location: '會議室 A' }
+                    ]
+                },
+                introduction: '本研討會專注於特定領域的深度探討，邀請專家學者分享最新研究成果與實務經驗。',
+                process: [
+                    { step: 1, title: '報名申請', description: '線上填寫報名資料', duration: '開放報名期間' },
+                    { step: 2, title: '資格審核', description: '主辦單位審核報名資格', duration: '報名截止後 3 個工作日' },
+                    { step: 3, title: '錄取通知', description: '發送錄取通知及相關資訊', duration: '審核完成後 2 個工作日' },
+                    { step: 4, title: '活動參與', description: '按時出席並積極參與討論', duration: '活動當日' },
+                    { step: 5, title: '後續追蹤', description: '填寫回饋問卷及後續聯繫', duration: '活動結束後' }
+                ],
+                additional_info: {
+                    target_audience: '相關領域專業人士、研究人員、學生',
+                    prerequisites: '具備基礎專業知識',
+                    materials: '會前提供相關資料，請事先閱讀',
+                    interaction: '鼓勵提問與討論'
+                }
+            }),
+            special_guests: JSON.stringify([])
+        },
+        {
+            template_name: '工作坊活動模板',
+            category: '工作坊',
+            template_type: 'event',
+            template_content: JSON.stringify({
+                schedule: {
+                    type: 'single_day',
+                    date: '2025-11-10',
+                    sessions: [
+                        { time: '09:00-09:30', title: '報到與歡迎', speaker: '', location: '工作坊教室' },
+                        { time: '09:30-10:00', title: '開場與介紹', speaker: '講師', location: '工作坊教室' },
+                        { time: '10:00-11:30', title: '理論講解', speaker: '主講師', location: '工作坊教室' },
+                        { time: '11:30-11:45', title: '休息時間', speaker: '', location: '休息區' },
+                        { time: '11:45-12:30', title: '實作練習 (第一部分)', speaker: '講師團隊', location: '工作坊教室' },
+                        { time: '12:30-13:30', title: '午餐時間', speaker: '', location: '餐廳' },
+                        { time: '13:30-15:00', title: '實作練習 (第二部分)', speaker: '講師團隊', location: '工作坊教室' },
+                        { time: '15:00-15:15', title: '茶點時間', speaker: '', location: '休息區' },
+                        { time: '15:15-16:30', title: '成果展示與討論', speaker: '全體學員', location: '工作坊教室' },
+                        { time: '16:30-17:00', title: '總結與回饋', speaker: '講師', location: '工作坊教室' }
+                    ]
+                },
+                introduction: '本工作坊採用理論與實作並重的方式，讓參與者透過動手操作深入理解相關技能。',
+                process: [
+                    { step: 1, title: '報名登記', description: '填寫報名表並繳交費用', duration: '報名開放期間' },
+                    { step: 2, title: '行前準備', description: '收到行前通知及準備事項', duration: '活動前一週' },
+                    { step: 3, title: '工作坊參與', description: '全程參與理論講解與實作練習', duration: '活動當日' },
+                    { step: 4, title: '作品完成', description: '完成指定作品或練習', duration: '活動期間' },
+                    { step: 5, title: '證書頒發', description: '獲得完成證書', duration: '活動結束時' }
+                ],
+                additional_info: {
+                    class_size: '限額 20 人，小班教學',
+                    equipment: '會場提供電腦及相關設備',
+                    bring_items: '請攜帶筆記本及個人用品',
+                    skill_level: '適合初學者至中級程度'
+                }
+            }),
+            special_guests: JSON.stringify([])
+        }
+    ],
+
     // 額外專案資料
     projects: [
         {
             project_name: '企業數位轉型研討會',
             project_code: 'DIGITAL2024',
             description: '探討企業數位轉型策略與實務',
-            event_date: '2024-10-30',
+            event_date: '2025-10-30',
             event_location: '台北世貿中心',
             event_type: 'seminar',
-            status: 'active'
+            status: 'active',
+            template_id: null  // 將在插入模板後更新
         },
         {
             project_name: '綠能科技展示會',
             project_code: 'GREEN2024',
             description: '展示最新綠能科技與解決方案',
-            event_date: '2024-09-25',
+            event_date: '2025-09-25',
             event_location: '高雄展覽館',
             event_type: 'exhibition',
-            status: 'completed'
+            status: 'completed',
+            template_id: null
         }
     ],
 
@@ -279,16 +401,53 @@ async function addSeedData() {
     return new Promise((resolve, reject) => {
         db.serialize(async () => {
             try {
+                // 添加活動模板資料
+                console.log('📄 添加活動模板資料...');
+                const templateStmt = db.prepare(`
+                    INSERT INTO invitation_templates (
+                        template_name, category, template_type, template_content,
+                        special_guests, is_default, created_by
+                    ) VALUES (?, ?, ?, ?, ?, 0, 1)
+                `);
+
+                const templateIds = [];
+                for (const template of seedData.templates) {
+                    await new Promise((resolve, reject) => {
+                        templateStmt.run([
+                            template.template_name,
+                            template.category,
+                            template.template_type,
+                            template.template_content,
+                            template.special_guests
+                        ], function (err) {
+                            if (err && !err.message.includes('UNIQUE constraint')) {
+                                reject(err);
+                            } else {
+                                if (this.lastID) {
+                                    templateIds.push(this.lastID);
+                                }
+                                console.log(`   ✅ ${template.template_name}`);
+                                resolve();
+                            }
+                        });
+                    });
+                }
+                templateStmt.finalize();
+
                 // 檢查並添加專案資料
                 console.log('📋 添加專案資料...');
                 const projectStmt = db.prepare(`
                     INSERT INTO invitation_projects (
                         project_name, project_code, description, event_date,
-                        event_location, event_type, status, created_by
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 2)
+                        event_location, event_type, status, template_id, created_by
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 2)
                 `);
 
-                for (const project of seedData.projects) {
+                for (let i = 0; i < seedData.projects.length; i++) {
+                    const project = seedData.projects[i];
+                    // 為前兩個專案分配模板 ID
+                    const templateId = i < templateIds.length ? templateIds[i] : null;
+
                     await new Promise((resolve, reject) => {
                         projectStmt.run([
                             project.project_name,
@@ -297,18 +456,47 @@ async function addSeedData() {
                             project.event_date,
                             project.event_location,
                             project.event_type,
-                            project.status
+                            project.status,
+                            templateId
                         ], function (err) {
                             if (err && !err.message.includes('UNIQUE constraint')) {
                                 reject(err);
                             } else {
-                                console.log(`   ✅ ${project.project_name}`);
+                                console.log(`   ✅ ${project.project_name}${templateId ? ' (使用模板 ID: ' + templateId + ')' : ''}`);
                                 resolve();
                             }
                         });
                     });
                 }
                 projectStmt.finalize();
+
+                // 更新現有專案的 template_id（如果存在）
+                console.log('🔄 更新現有專案的模板關聯...');
+                if (templateIds.length > 0) {
+                    // 更新第一個專案（TECH2024）使用第一個模板
+                    await new Promise((resolve) => {
+                        db.run(`UPDATE invitation_projects SET template_id = ? WHERE project_code = 'TECH2024'`,
+                            [templateIds[0]],
+                            (err) => {
+                                if (!err) console.log(`   ✅ 更新 TECH2024 使用模板 ID: ${templateIds[0]}`);
+                                resolve();
+                            }
+                        );
+                    });
+
+                    // 更新第二個專案（AI2024）使用第三個模板（如果存在）
+                    if (templateIds.length >= 3) {
+                        await new Promise((resolve) => {
+                            db.run(`UPDATE invitation_projects SET template_id = ? WHERE project_code = 'AI2024'`,
+                                [templateIds[2]],
+                                (err) => {
+                                    if (!err) console.log(`   ✅ 更新 AI2024 使用模板 ID: ${templateIds[2]}`);
+                                    resolve();
+                                }
+                            );
+                        });
+                    }
+                }
 
                 // 添加表單提交資料
                 console.log('📝 添加表單提交資料...');
