@@ -11,7 +11,7 @@ const express = require('express');
 const router = express.Router();
 const database = require('../../../config/database');
 const responses = require('../../../utils/responses');
-const { body, param, query, validationResult } = require('express-validator');
+const { param, query, validationResult } = require('express-validator');
 
 // 記錄 API 訪問日誌
 const logApiAccess = async (req, endpoint, responseStatus, responseTime) => {
@@ -297,6 +297,31 @@ router.get('/', [
  *                       type: string
  *                       format: date
  *                       example: "2024-12-15"
+ *                     event_start_date:
+ *                       type: string
+ *                       format: date
+ *                       example: "2025-10-10"
+ *                       description: 活動開始日期
+ *                     event_end_date:
+ *                       type: string
+ *                       format: date
+ *                       example: "2025-10-13"
+ *                       description: 活動結束日期
+ *                     event_highlights:
+ *                       type: array
+ *                       description: 活動亮點
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           order:
+ *                             type: integer
+ *                             example: 1
+ *                           title:
+ *                             type: string
+ *                             example: "大咖雲集"
+ *                           content:
+ *                             type: string
+ *                             example: "200+ 知識學者和企業的行銷資訊，討論業界動態"
  *                     location:
  *                       type: string
  *                       example: "台北國際會議中心"
@@ -341,12 +366,21 @@ router.get('/', [
  *                         schedule:
  *                           type: object
  *                           description: 活動時刻表
- *                         introduction:
- *                           type: string
- *                           description: 活動簡介
- *                         process:
+ *                         agenda:
  *                           type: array
- *                           description: 活動流程步驟
+ *                           description: 活動議程
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               order:
+ *                                 type: string
+ *                                 example: "1"
+ *                               title:
+ *                                 type: string
+ *                                 example: "大咖雲集"
+ *                               content:
+ *                                 type: string
+ *                                 example: "200+ 知識學者和企業的行銷資訊，討論業界動態"
  *                         special_guests:
  *                           type: array
  *                           description: 特別嘉賓資訊
@@ -373,6 +407,9 @@ router.get('/code/:code', [
                 p.project_code as code,
                 p.description,
                 p.event_date as date,
+                p.event_start_date,
+                p.event_end_date,
+                p.event_highlights,
                 p.event_location as location,
                 p.event_type as type,
                 p.status,
@@ -424,9 +461,21 @@ router.get('/code/:code', [
             }
         }
 
+        // 解析 event_highlights JSON
+        let highlights = null;
+        if (event.event_highlights) {
+            try {
+                highlights = JSON.parse(event.event_highlights);
+            } catch (e) {
+                console.error('解析活動亮點失敗:', e);
+                highlights = null;
+            }
+        }
+
         // 格式化回應數據
         const responseData = {
             ...event,
+            event_highlights: highlights,
             contact_info: {
                 email: event.contact_email,
                 phone: event.contact_phone
@@ -435,10 +484,8 @@ router.get('/code/:code', [
                 id: eventTemplate.id,
                 name: eventTemplate.template_name,
                 schedule: eventTemplate.template_content?.schedule || null,
-                introduction: eventTemplate.template_content?.introduction || '',
-                process: eventTemplate.template_content?.process || [],
-                special_guests: eventTemplate.template_content?.special_guests || [],
-                additional_info: eventTemplate.template_content?.additional_info || {}
+                agenda: eventTemplate.template_content?.agenda || [],
+                special_guests: eventTemplate.template_content?.special_guests || []
             } : null
         };
 
@@ -477,6 +524,9 @@ router.get('/:id', [
                 p.project_code as code,
                 p.description,
                 p.event_date as date,
+                p.event_start_date,
+                p.event_end_date,
+                p.event_highlights,
                 p.event_location as location,
                 p.event_type as type,
                 p.status,
@@ -528,9 +578,21 @@ router.get('/:id', [
             }
         }
 
+        // 解析 event_highlights JSON
+        let highlights = null;
+        if (event.event_highlights) {
+            try {
+                highlights = JSON.parse(event.event_highlights);
+            } catch (e) {
+                console.error('解析活動亮點失敗:', e);
+                highlights = null;
+            }
+        }
+
         // 格式化回應數據
         const responseData = {
             ...event,
+            event_highlights: highlights,
             contact_info: {
                 email: event.contact_email,
                 phone: event.contact_phone
@@ -539,10 +601,8 @@ router.get('/:id', [
                 id: eventTemplate.id,
                 name: eventTemplate.template_name,
                 schedule: eventTemplate.template_content?.schedule || null,
-                introduction: eventTemplate.template_content?.introduction || '',
-                process: eventTemplate.template_content?.process || [],
-                special_guests: eventTemplate.template_content?.special_guests || [],
-                additional_info: eventTemplate.template_content?.additional_info || {}
+                agenda: eventTemplate.template_content?.agenda || [],
+                special_guests: eventTemplate.template_content?.special_guests || []
             } : null
         };
 

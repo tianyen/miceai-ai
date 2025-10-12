@@ -51,7 +51,7 @@ class TemplateController {
                     const getTemplateBadge = (type) => {
                         const typeMap = {
                             'event': '<span class="template-category event">活動模板</span>',
-                            'invitation': '<span class="template-category invitation">邀請函</span>',
+                            'invitation': '<span class="template-category invitation">MICE-AI </span>',
                             'notification': '<span class="template-category notification">通知</span>',
                             'email': '<span class="template-category email">電子郵件</span>',
                             'form': '<span class="template-category form">表單</span>'
@@ -694,7 +694,7 @@ class TemplateController {
                     const getTemplateBadge = (type) => {
                         const typeMap = {
                             'event': '<span class="template-category event">活動模板</span>',
-                            'invitation': '<span class="template-category invitation">邀請函</span>',
+                            'invitation': '<span class="template-category invitation">MICE-AI </span>',
                             'notification': '<span class="template-category notification">通知</span>',
                             'email': '<span class="template-category email">電子郵件</span>',
                             'form': '<span class="template-category form">表單</span>'
@@ -782,7 +782,7 @@ class TemplateController {
     getTemplateBadge(type) {
         const typeMap = {
             'event': '<span class="template-category event">活動模板</span>',
-            'invitation': '<span class="template-category invitation">邀請函</span>',
+            'invitation': '<span class="template-category invitation">MICE-AI </span>',
             'notification': '<span class="template-category notification">通知</span>',
             'email': '<span class="template-category email">電子郵件</span>',
             'form': '<span class="template-category form">表單</span>'

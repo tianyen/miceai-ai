@@ -40,8 +40,6 @@ REGISTRATION_DATA='{
   "phone": "0912345678",
   "company": "測試腳本公司",
   "position": "自動化測試工程師",
-  "dietary_requirements": "無特殊需求",
-  "special_needs": "",
   "data_consent": true,
   "marketing_consent": false
 }'

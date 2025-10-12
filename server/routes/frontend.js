@@ -1,5 +1,5 @@
 /**
- * 前端邀請函路由
+ * 前端MICE-AI 路由
  * 已遷移至 server/views/frontend 目錄統一管理
  */
 const express = require('express');

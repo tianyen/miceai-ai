@@ -41,15 +41,18 @@ router.get('/new', async (req, res) => {
                             <label for="template_type">模板類型 <span class="text-danger">*</span></label>
                             <select id="template_type" name="template_type" class="form-control" required>
                                 <option value="">請選擇</option>
-                                <option value="email">電子郵件邀請函</option>
-                                <option value="webpage">網頁邀請函</option>
-                                <option value="pdf">PDF 邀請函</option>
+                                <option value="email">電子郵件MICE-AI </option>
+                                <option value="webpage">網頁MICE-AI </option>
+                                <option value="pdf">PDF MICE-AI </option>
                             </select>
                         </div>
                         
                         <div class="form-group">
                             <label for="template_content">模板內容 <span class="text-danger">*</span></label>
-                            <textarea id="template_content" name="template_content" class="form-control" rows="8" required placeholder="請輸入模板的 HTML 內容..."></textarea>
+                            <small class="form-text text-muted">
+                                JSON 格式。活動模板應包含：schedule（時刻表）、agenda（議程）、special_guests（特別嘉賓）
+                            </small>
+                            <textarea id="template_content" name="template_content" class="form-control" rows="12" required placeholder='{"schedule": {...}, "agenda": [...], "special_guests": [...]}'></textarea>
                         </div>
                         
                         <div class="form-group">
@@ -250,15 +253,18 @@ router.get('/:id/edit', async (req, res) => {
                             <div class="form-group">
                                 <label for="edit_template_type">模板類型 <span class="text-danger">*</span></label>
                                 <select id="edit_template_type" name="template_type" class="form-control" required>
-                                    <option value="email" ${template.template_type === 'email' ? 'selected' : ''}>電子郵件邀請函</option>
-                                    <option value="webpage" ${template.template_type === 'webpage' ? 'selected' : ''}>網頁邀請函</option>
-                                    <option value="pdf" ${template.template_type === 'pdf' ? 'selected' : ''}>PDF 邀請函</option>
+                                    <option value="email" ${template.template_type === 'email' ? 'selected' : ''}>電子郵件MICE-AI </option>
+                                    <option value="webpage" ${template.template_type === 'webpage' ? 'selected' : ''}>網頁MICE-AI </option>
+                                    <option value="pdf" ${template.template_type === 'pdf' ? 'selected' : ''}>PDF MICE-AI </option>
                                 </select>
                             </div>
                             
                             <div class="form-group">
                                 <label for="edit_template_content">模板內容 <span class="text-danger">*</span></label>
-                                <textarea id="edit_template_content" name="template_content" class="form-control" rows="8" required>${template.template_content || ''}</textarea>
+                                <small class="form-text text-muted">
+                                    JSON 格式。活動模板應包含：schedule（時刻表）、agenda（議程）、special_guests（特別嘉賓）
+                                </small>
+                                <textarea id="edit_template_content" name="template_content" class="form-control" rows="12" required>${template.template_content || ''}</textarea>
                             </div>
                             
                             <div class="form-group">
@@ -363,7 +369,7 @@ router.get('/new', async (req, res) => {
                                         <label for="category">分類 *</label>
                                         <select id="category" name="category" class="form-control" required>
                                             <option value="">請選擇分類</option>
-                                            <option value="invitation">邀請函</option>
+                                            <option value="invitation">MICE-AI </option>
                                             <option value="notification">通知</option>
                                             <option value="email">電子郵件</option>
                                             <option value="form">表單</option>

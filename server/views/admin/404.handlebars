@@ -1,0 +1,60 @@
+{{!-- 404 錯誤頁面 --}}
+<div class="container-fluid">
+    <div class="row justify-content-center align-items-center" style="min-height: 60vh;">
+        <div class="col-md-6 text-center">
+            <div class="error-page">
+                <div class="error-icon mb-4">
+                    <i class="fas fa-search" style="font-size: 5rem; color: #6c757d;"></i>
+                </div>
+                <h1 class="display-1 fw-bold text-secondary">404</h1>
+                <h2 class="mb-4">頁面不存在</h2>
+                <p class="lead text-muted mb-4">
+                    抱歉，您訪問的頁面不存在或已被移除。
+                </p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="/admin/dashboard" class="btn btn-primary">
+                        <i class="fas fa-home me-2"></i>返回儀表板
+                    </a>
+                    <button onclick="window.history.back()" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>返回上一頁
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .error-page {
+        padding: 2rem;
+    }
+
+    .error-icon {
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-20px);
+        }
+    }
+
+    .display-1 {
+        font-size: 6rem;
+        font-weight: 700;
+    }
+
+    @media (max-width: 768px) {
+        .display-1 {
+            font-size: 4rem;
+        }
+        
+        .error-icon i {
+            font-size: 3rem !important;
+        }
+    }
+</style>
+

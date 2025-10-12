@@ -68,51 +68,6 @@ const swaggerDefinition = {
           }
         }
       },
-      User: {
-        type: 'object',
-        properties: {
-          id: { type: 'integer', example: 1 },
-          username: { type: 'string', example: 'admin' },
-          full_name: { type: 'string', example: '管理員' },
-          email: { type: 'string', example: 'admin@example.com' },
-          role: { type: 'string', example: 'admin', enum: ['admin', 'user', 'super_admin'] },
-          status: { type: 'string', example: 'active', enum: ['active', 'inactive'] },
-          created_at: { type: 'string', format: 'date-time', example: '2024-01-01T00:00:00.000Z' }
-        }
-      },
-      Project: {
-        type: 'object',
-        properties: {
-          id: { type: 'integer', example: 1 },
-          project_name: { type: 'string', example: '2024 年度研討會' },
-          project_code: { type: 'string', example: 'CONF2024' },
-          description: { type: 'string', example: '年度技術研討會邀請函' },
-          event_date: { type: 'string', format: 'date-time', example: '2024-06-15T09:00:00.000Z' },
-          event_location: { type: 'string', example: '台北國際會議中心' },
-          event_type: { type: 'string', example: 'conference', enum: ['conference', 'seminar', 'workshop', 'exhibition', 'party', 'other'] },
-          status: { type: 'string', example: 'active', enum: ['draft', 'active', 'completed', 'cancelled'] },
-          max_participants: { type: 'integer', example: 200 },
-          registration_deadline: { type: 'string', format: 'date-time', example: '2024-06-01T23:59:59.000Z' },
-          created_by: { type: 'integer', example: 1 },
-          created_at: { type: 'string', format: 'date-time', example: '2024-01-01T00:00:00.000Z' }
-        }
-      },
-      Submission: {
-        type: 'object',
-        properties: {
-          id: { type: 'integer', example: 1 },
-          trace_id: { type: 'string', example: 'TRACE123456' },
-          project_id: { type: 'integer', example: 1 },
-          submitter_name: { type: 'string', example: '王小明' },
-          submitter_email: { type: 'string', example: 'wang@example.com' },
-          submitter_phone: { type: 'string', example: '0912345678' },
-          company_name: { type: 'string', example: '範例公司' },
-          position: { type: 'string', example: '工程師' },
-          status: { type: 'string', example: 'pending', enum: ['pending', 'approved', 'rejected', 'confirmed', 'cancelled'] },
-          checked_in_at: { type: 'string', format: 'date-time', nullable: true, example: null },
-          created_at: { type: 'string', format: 'date-time', example: '2024-01-01T00:00:00.000Z' }
-        }
-      },
       BusinessCard: {
         type: 'object',
         properties: {
@@ -210,12 +165,9 @@ const swaggerDefinition = {
 // Swagger 選項配置
 const options = {
   swaggerDefinition,
-  // 掃描包含 Swagger 註解的路由文件
+  // 掃描包含 Swagger 註解的路由文件（僅前端 API v1）
   apis: [
-    './routes/api/*.js',      // API 路由
-    './routes/api/v1/*.js',   // API v1 路由
-    './routes/admin/*.js',    // 管理路由
-    './controllers/*.js'      // 控制器
+    './routes/api/v1/*.js'   // API v1 路由（前端串接使用）
   ]
 };
 
@@ -229,14 +181,62 @@ function setupSwaggerUI(app) {
   // Swagger UI 基本配置
   const swaggerUiOptions = {
     explorer: true,
-    customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: '邀請函管理系統 API 文件',
+    customCss: `
+      .swagger-ui .topbar { display: none }
+    `,
+    customSiteTitle: 'MICE-AI  API 文件',
     swaggerOptions: {
       persistAuthorization: true,
       displayRequestDuration: true,
       tryItOutEnabled: true
-    }
+    },
+    customJs: '/swagger-custom.js'
   };
+
+  // 提供自訂 JavaScript
+  app.get('/swagger-custom.js', (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.send(`
+      // 添加快速登入按鈕點擊事件
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          const titleElement = document.querySelector('.swagger-ui .info .title');
+          if (titleElement) {
+            // 創建登入按鈕
+            const loginBtn = document.createElement('a');
+            loginBtn.href = '/swagger-login';
+            loginBtn.target = '_blank';
+            loginBtn.style.cssText = \`
+              display: block;
+              margin-top: 20px;
+              padding: 15px;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              border-radius: 8px;
+              font-size: 14px;
+              font-weight: normal;
+              text-align: center;
+              cursor: pointer;
+              transition: all 0.3s;
+              text-decoration: none;
+            \`;
+            loginBtn.textContent = '🔐 需要測試認證 API？點擊這裡快速登入';
+            loginBtn.onmouseover = function() {
+              this.style.transform = 'translateY(-2px)';
+              this.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+            };
+            loginBtn.onmouseout = function() {
+              this.style.transform = 'translateY(0)';
+              this.style.boxShadow = 'none';
+            };
+
+            // 插入到標題後面
+            titleElement.parentNode.insertBefore(loginBtn, titleElement.nextSibling);
+          }
+        }, 500);
+      });
+    `);
+  });
 
   // 設置 Swagger UI 路由
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerUiOptions));
@@ -249,6 +249,7 @@ function setupSwaggerUI(app) {
 
   console.log('✅ Swagger UI 已設置完成');
   console.log(`📚 API 文件網址: ${config.app.baseUrl}/api-docs`);
+  console.log(`🔐 快速登入頁面: ${config.app.baseUrl}/swagger-login`);
   console.log(`📄 API JSON 規格: ${config.app.baseUrl}/api-docs.json`);
 }
 

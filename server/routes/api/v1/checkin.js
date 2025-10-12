@@ -11,7 +11,7 @@ const express = require('express');
 const router = express.Router();
 const database = require('../../../config/database');
 const responses = require('../../../utils/responses');
-const { body, param, validationResult } = require('express-validator');
+const { body, validationResult } = require('express-validator');
 
 /**
  * @swagger

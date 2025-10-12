@@ -16,7 +16,7 @@ module.exports = {
 
     // 應用程式配置
     app: {
-        name: process.env.APP_NAME || '邀請函管理系統',
+        name: process.env.APP_NAME || 'MICE-AI ',
         baseUrl: process.env.BASE_URL || 'http://localhost:3000',
         productionDomain: process.env.PRODUCTION_DOMAIN || 'https://your-production-domain.com'
     },
@@ -76,8 +76,8 @@ module.exports = {
 
     // Swagger 配置
     swagger: {
-        title: process.env.SWAGGER_TITLE || '邀請函管理系統 API',
-        description: process.env.SWAGGER_DESCRIPTION || '邀請函管理系統的 RESTful API 文件，包含管理後台和前端 API',
+        title: process.env.SWAGGER_TITLE || 'MICE-AI  API',
+        description: process.env.SWAGGER_DESCRIPTION || 'MICE-AI 的 RESTful API 文件，包含管理後台和前端 API',
         version: process.env.SWAGGER_VERSION || '1.0.0'
     }
 };

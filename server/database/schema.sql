@@ -22,15 +22,18 @@ CREATE TABLE IF NOT EXISTS users (
     FOREIGN KEY (managed_by) REFERENCES users(id)
 );
 
--- 邀請函項目表
+-- MICE-AI 項目表
 CREATE TABLE IF NOT EXISTS invitation_projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_name VARCHAR(200) NOT NULL,
     project_code VARCHAR(50) UNIQUE NOT NULL,
     description TEXT,
     event_date DATE,
+    event_start_date DATE,
+    event_end_date DATE,
     event_location VARCHAR(200),
     event_type VARCHAR(50),
+    event_highlights TEXT,
     status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'completed', 'cancelled')),
     max_participants INTEGER DEFAULT 0,
     registration_deadline TIMESTAMP,
@@ -63,7 +66,7 @@ CREATE TABLE IF NOT EXISTS user_project_permissions (
     UNIQUE(user_id, project_id)
 );
 
--- 邀請函模板表
+-- MICE-AI 模板表
 CREATE TABLE IF NOT EXISTS invitation_templates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     template_name VARCHAR(100) NOT NULL,
@@ -312,9 +315,10 @@ CREATE TABLE IF NOT EXISTS api_access_logs (
     method VARCHAR(10) NOT NULL,
     ip_address VARCHAR(45),
     user_agent TEXT,
-    request_body TEXT,
+    request_data TEXT,
     response_status INTEGER,
-    response_time INTEGER,
+    response_time_ms INTEGER,
+    trace_id VARCHAR(100),
     error_message TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

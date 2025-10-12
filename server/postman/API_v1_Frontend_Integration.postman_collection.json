@@ -152,7 +152,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"name\": \"{{participantName}}\",\n  \"email\": \"{{participantEmail}}\",\n  \"phone\": \"{{participantPhone}}\",\n  \"company\": \"{{participantCompany}}\",\n  \"position\": \"{{participantPosition}}\",\n  \"dietary_requirements\": \"素食\",\n  \"special_needs\": \"輪椅通道\",\n  \"data_consent\": true,\n  \"marketing_consent\": false\n}"
+					"raw": "{\n  \"name\": \"{{participantName}}\",\n  \"email\": \"{{participantEmail}}\",\n  \"phone\": \"{{participantPhone}}\",\n  \"company\": \"{{participantCompany}}\",\n  \"position\": \"{{participantPosition}}\",\n  \"data_consent\": true,\n  \"marketing_consent\": false\n}"
 				},
 				"url": {
 					"raw": "{{baseUrl}}/api/v1/events/{{eventId}}/registrations",

@@ -1,0 +1,34 @@
+{
+  "unusedImports": [
+    {
+      "file": "routes/admin/profile.js",
+      "unused": [
+        {
+          "line": 6,
+          "variable": "database",
+          "module": "../../config/database",
+          "fullLine": "const database = require('../../config/database');"
+        },
+        {
+          "line": 7,
+          "variable": "bcrypt",
+          "module": "bcrypt",
+          "fullLine": "const bcrypt = require('bcrypt');"
+        }
+      ]
+    },
+    {
+      "file": "routes/api/v1/checkin.js",
+      "unused": [
+        {
+          "line": 14,
+          "variable": "param",
+          "module": "express-validator",
+          "fullLine": "const { body, param, validationResult } = require('express-validator');"
+        }
+      ]
+    }
+  ],
+  "potentiallyUnusedFiles": [],
+  "summary": {}
+}

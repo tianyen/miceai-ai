@@ -1,5 +1,5 @@
 /**
- * 邀請函管理系統 - 主服務器文件
+ * MICE-AI  - 主服務器文件
  * 重構版本，採用模組化架構
  */
 const express = require('express');
@@ -20,6 +20,7 @@ const { requestLogger, errorCatcher, devLogger, apiLogger, adminLogger } = requi
 
 // 導入路由
 const mainRoutes = require('./routes');
+const swaggerAuthRoutes = require('./routes/swagger-auth');
 
 const app = express();
 
@@ -53,6 +54,8 @@ app.use(express.static(path.join(config.paths.frontend, 'public')));
 
 // ===== Swagger API 文件 =====
 if (config.server.env !== 'production') {
+  // Swagger 登入路由（必須在 setupSwaggerUI 之前註冊）
+  app.use('/', swaggerAuthRoutes);
   setupSwaggerUI(app);
 }
 
@@ -68,7 +71,7 @@ app.use(errorHandler);
 function startServer() {
     // HTTP 服務器
     app.listen(config.server.port, () => {
-        console.log(`🚀 邀請函管理系統已啟動`);
+        console.log(`🚀 MICE-AI 已啟動`);
         console.log(`📍 HTTP: http://localhost:${config.server.port}`);
         console.log(`🌍 環境: ${config.server.env}`);
         console.log(`⏰ 時間: ${new Date().toLocaleString('zh-TW')}`);

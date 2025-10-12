@@ -77,16 +77,6 @@ const phoneRegex = /^[0-9\-\+\s\(\)]{8,20}$/;
  *                 maxLength: 50
  *                 description: 職位
  *                 example: "工程師"
- *               dietary_requirements:
- *                 type: string
- *                 maxLength: 200
- *                 description: 飲食需求
- *                 example: "素食"
- *               special_needs:
- *                 type: string
- *                 maxLength: 200
- *                 description: 特殊需求
- *                 example: "輪椅使用者"
  *               data_consent:
  *                 type: boolean
  *                 description: 資料使用同意（必須為 true）
@@ -166,8 +156,6 @@ router.post('/events/:eventId/registrations', [
     body('phone').matches(phoneRegex).withMessage('手機號碼格式不正確'),
     body('company').optional().trim().isLength({ max: 100 }).withMessage('公司名稱不能超過 100 字符'),
     body('position').optional().trim().isLength({ max: 50 }).withMessage('職位不能超過 50 字符'),
-    body('dietary_requirements').optional().trim().isLength({ max: 200 }).withMessage('飲食需求不能超過 200 字符'),
-    body('special_needs').optional().trim().isLength({ max: 200 }).withMessage('特殊需求不能超過 200 字符'),
     body('data_consent').isBoolean().custom(value => {
         if (value !== true) {
             throw new Error('必須同意資料使用條款');
@@ -195,8 +183,6 @@ router.post('/events/:eventId/registrations', [
             phone,
             company = '',
             position = '',
-            dietary_requirements = '',
-            special_needs = '',
             data_consent,
             marketing_consent = false
         } = req.body;
@@ -261,10 +247,10 @@ router.post('/events/:eventId/registrations', [
         const result = await database.run(`
             INSERT INTO form_submissions (
                 trace_id, project_id, submitter_name, submitter_email, submitter_phone,
-                company_name, position, dietary_restrictions, special_needs,
+                company_name, position,
                 data_consent, marketing_consent, activity_notifications, product_updates,
                 ip_address, user_agent, status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         `, [
             traceId,
             eventId,
@@ -273,8 +259,6 @@ router.post('/events/:eventId/registrations', [
             phone,
             company,
             position,
-            dietary_requirements,
-            special_needs,
             data_consent,
             marketing_consent,
             marketing_consent, // activity_notifications
@@ -439,12 +423,6 @@ router.post('/events/:eventId/registrations', [
  *                         position:
  *                           type: string
  *                           example: "工程師"
- *                         dietary_requirements:
- *                           type: string
- *                           example: "素食"
- *                         special_needs:
- *                           type: string
- *                           example: "輪椅使用者"
  *                     qr_code:
  *                       type: object
  *                       properties:
@@ -484,7 +462,7 @@ router.get('/registrations/:traceId', [
         const traceId = req.params.traceId;
 
         const registration = await database.get(`
-            SELECT 
+            SELECT
                 fs.id as registration_id,
                 fs.trace_id,
                 fs.status,
@@ -493,8 +471,6 @@ router.get('/registrations/:traceId', [
                 fs.submitter_phone,
                 fs.company_name,
                 fs.position,
-                fs.dietary_restrictions,
-                fs.special_needs,
                 fs.checked_in_at,
                 fs.created_at,
                 p.project_name as event_name,
@@ -527,9 +503,7 @@ router.get('/registrations/:traceId', [
                 email: registration.submitter_email,
                 phone: registration.submitter_phone,
                 company: registration.company_name,
-                position: registration.position,
-                dietary_requirements: registration.dietary_restrictions,
-                special_needs: registration.special_needs
+                position: registration.position
             },
             qr_code: {
                 data: registration.qr_data,

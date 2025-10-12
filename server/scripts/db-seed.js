@@ -40,20 +40,11 @@ const seedData = {
                         { time: '17:00-17:30', title: '閉幕與合影', speaker: '', location: '主會場' }
                     ]
                 },
-                introduction: '本次科技論壇旨在探討最新的科技趨勢，邀請業界專家分享經驗，促進產學交流與合作。',
-                process: [
-                    { step: 1, title: '線上報名', description: '填寫報名表單，提供基本資料', duration: '即日起至活動前一週' },
-                    { step: 2, title: '報名確認', description: '收到確認信件及 QR Code', duration: '報名後 24 小時內' },
-                    { step: 3, title: '活動當日報到', description: '出示 QR Code 完成報到手續', duration: '活動當日 09:00-09:30' },
-                    { step: 4, title: '參與活動', description: '依照時程表參與各項議程', duration: '09:30-17:30' },
-                    { step: 5, title: '問卷填寫', description: '活動結束後填寫滿意度問卷', duration: '活動結束後一週內' }
-                ],
-                additional_info: {
-                    dress_code: '商務休閒',
-                    parking: '會場提供免費停車位，數量有限',
-                    materials: '會場提供筆記本、筆及相關資料',
-                    networking: '活動期間安排茶點時間，歡迎與會者交流'
-                }
+                agenda: [
+                    { order: '1', title: '大咖雲集', content: '200+ 知識學者和企業的行銷資訊，討論業界動態' },
+                    { order: '2', title: '專家分享', content: '業界專家分享最新科技趨勢與實務經驗' },
+                    { order: '3', title: '互動交流', content: '提供充分的交流與合作機會' }
+                ]
             }),
             special_guests: JSON.stringify([
                 { name: '張教授', title: 'AI 研究專家', company: '台灣大學', bio: '專注於人工智慧研究 20 年', photo_url: '' },
@@ -82,20 +73,10 @@ const seedData = {
                         { time: '16:30-17:00', title: '總結與閉幕', speaker: '主辦單位', location: '會議室 A' }
                     ]
                 },
-                introduction: '本研討會專注於特定領域的深度探討，邀請專家學者分享最新研究成果與實務經驗。',
-                process: [
-                    { step: 1, title: '報名申請', description: '線上填寫報名資料', duration: '開放報名期間' },
-                    { step: 2, title: '資格審核', description: '主辦單位審核報名資格', duration: '報名截止後 3 個工作日' },
-                    { step: 3, title: '錄取通知', description: '發送錄取通知及相關資訊', duration: '審核完成後 2 個工作日' },
-                    { step: 4, title: '活動參與', description: '按時出席並積極參與討論', duration: '活動當日' },
-                    { step: 5, title: '後續追蹤', description: '填寫回饋問卷及後續聯繫', duration: '活動結束後' }
-                ],
-                additional_info: {
-                    target_audience: '相關領域專業人士、研究人員、學生',
-                    prerequisites: '具備基礎專業知識',
-                    materials: '會前提供相關資料，請事先閱讀',
-                    interaction: '鼓勵提問與討論'
-                }
+                agenda: [
+                    { order: '1', title: '深度探討', content: '專注於特定領域的深度探討' },
+                    { order: '2', title: '案例分享', content: '分享最新研究成果與實務經驗' }
+                ]
             }),
             special_guests: JSON.stringify([])
         },
@@ -120,20 +101,10 @@ const seedData = {
                         { time: '16:30-17:00', title: '總結與回饋', speaker: '講師', location: '工作坊教室' }
                     ]
                 },
-                introduction: '本工作坊採用理論與實作並重的方式，讓參與者透過動手操作深入理解相關技能。',
-                process: [
-                    { step: 1, title: '報名登記', description: '填寫報名表並繳交費用', duration: '報名開放期間' },
-                    { step: 2, title: '行前準備', description: '收到行前通知及準備事項', duration: '活動前一週' },
-                    { step: 3, title: '工作坊參與', description: '全程參與理論講解與實作練習', duration: '活動當日' },
-                    { step: 4, title: '作品完成', description: '完成指定作品或練習', duration: '活動期間' },
-                    { step: 5, title: '證書頒發', description: '獲得完成證書', duration: '活動結束時' }
-                ],
-                additional_info: {
-                    class_size: '限額 20 人，小班教學',
-                    equipment: '會場提供電腦及相關設備',
-                    bring_items: '請攜帶筆記本及個人用品',
-                    skill_level: '適合初學者至中級程度'
-                }
+                agenda: [
+                    { order: '1', title: '實作練習', content: '理論與實作並重，動手操作深入理解' },
+                    { order: '2', title: '市集營業時間無限開放', content: '市集營業時間無限開放' }
+                ]
             }),
             special_guests: JSON.stringify([])
         }
@@ -146,6 +117,13 @@ const seedData = {
             project_code: 'DIGITAL2024',
             description: '探討企業數位轉型策略與實務',
             event_date: '2025-10-30',
+            event_start_date: '2025-10-10',
+            event_end_date: '2025-10-13',
+            event_highlights: JSON.stringify([
+                { order: 1, title: '大咖雲集', content: '200+ 知識學者和企業的行銷資訊，討論業界動態' },
+                { order: 2, title: '實戰案例', content: '分享成功數位轉型案例與經驗' },
+                { order: 3, title: '互動交流', content: '提供充分的交流與合作機會' }
+            ]),
             event_location: '台北世貿中心',
             event_type: 'seminar',
             status: 'active',
@@ -156,6 +134,12 @@ const seedData = {
             project_code: 'GREEN2024',
             description: '展示最新綠能科技與解決方案',
             event_date: '2025-09-25',
+            event_start_date: '2025-09-25',
+            event_end_date: '2025-09-27',
+            event_highlights: JSON.stringify([
+                { order: 1, title: '創新技術', content: '展示最新綠能科技成果' },
+                { order: 2, title: '產業交流', content: '促進綠能產業合作與發展' }
+            ]),
             event_location: '高雄展覽館',
             event_type: 'exhibition',
             status: 'completed',
@@ -439,8 +423,9 @@ async function addSeedData() {
                 const projectStmt = db.prepare(`
                     INSERT INTO invitation_projects (
                         project_name, project_code, description, event_date,
+                        event_start_date, event_end_date, event_highlights,
                         event_location, event_type, status, template_id, created_by
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 2)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 2)
                 `);
 
                 for (let i = 0; i < seedData.projects.length; i++) {
@@ -454,6 +439,9 @@ async function addSeedData() {
                             project.project_code,
                             project.description,
                             project.event_date,
+                            project.event_start_date,
+                            project.event_end_date,
+                            project.event_highlights,
                             project.event_location,
                             project.event_type,
                             project.status,

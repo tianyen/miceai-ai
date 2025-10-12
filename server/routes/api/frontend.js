@@ -1,9 +1,3 @@
-/**
- * 前端 API 路由
- * 
- * 提供前端頁面使用的 API 端點
- * 建議新專案使用 API v1: /api/v1/*
- */
 const express = require('express');
 const router = express.Router();
 const database = require('../../config/database');

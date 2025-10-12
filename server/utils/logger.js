@@ -42,12 +42,25 @@ class Logger {
      * 記錄 4xx 錯誤 (客戶端錯誤)
      */
     log4xx(req, res, statusCode, message = '') {
+        // 忽略瀏覽器自動請求的路徑
+        const ignoredPaths = [
+            '/.well-known/appspecific/com.chrome.devtools.json',
+            '/favicon.ico',
+            '/.well-known/apple-app-site-association',
+            '/.well-known/assetlinks.json'
+        ];
+
+        const requestUrl = req.originalUrl || req.url;
+        if (ignoredPaths.includes(requestUrl)) {
+            return; // 不記錄這些請求
+        }
+
         const logData = {
             timestamp: this.formatTimestamp(),
             type: '4xx_CLIENT_ERROR',
             statusCode,
             method: req.method,
-            url: req.originalUrl || req.url,
+            url: requestUrl,
             userAgent: req.get('User-Agent') || 'unknown',
             ip: this.getClientIP(req),
             referer: req.get('Referer') || 'direct',
@@ -68,7 +81,7 @@ class Logger {
         };
 
         this.writeLog('4xx_errors', logData);
-        
+
         // 開發環境下同時輸出到控制台
         if (process.env.NODE_ENV !== 'production') {
             console.warn(`🟡 4xx Error [${statusCode}]:`, {

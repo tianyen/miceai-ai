@@ -13,6 +13,7 @@
     "db:seed": "node scripts/db-seed.js",
     "db:info": "node scripts/db-info.js",
     "db:check": "node scripts/check-database.js",
+    "db:migrate": "node scripts/migrate-api-logs.js",
     "setup": "npm run db:init && npm run db:seed",
     "logs": "node scripts/view-logs.js",
     "logs:4xx": "node scripts/view-logs.js 4xx_errors_$(date +%Y-%m-%d).log",

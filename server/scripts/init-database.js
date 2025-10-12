@@ -147,7 +147,7 @@ function showCompletionInfo() {
     console.log('   • 廠商用戶: vendor / vendor123\n');
     
     console.log('📋 示例數據:');
-    console.log('   • 1 個預設邀請函項目');
+    console.log('   • 1 個預設MICE-AI 項目');
     console.log('   • 1 個示例問卷（活動滿意度調查）');
     console.log('   • 3 個示例參加者');
     console.log('   • 2 個問卷回答記錄\n');

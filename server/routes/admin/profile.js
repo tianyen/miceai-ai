@@ -3,8 +3,6 @@
  */
 const express = require('express');
 const router = express.Router();
-const database = require('../../config/database');
-const bcrypt = require('bcrypt');
 const responses = require('../../utils/responses');
 
 // 個人資料頁面

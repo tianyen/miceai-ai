@@ -55,8 +55,6 @@ REGISTRATION_DATA='{
   "phone": "0912345678",
   "company": "測試公司",
   "position": "測試工程師",
-  "dietary_requirements": "無",
-  "special_needs": "無",
   "data_consent": true,
   "marketing_consent": true
 }'

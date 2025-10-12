@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "MICE AI 邀請函管理系統 - QR Code 名片 API",
+    "name": "MICE AI MICE-AI  - QR Code 名片 API",
     "description": "QR Code 名片管理系統的完整 API 集合，包含創建名片、獲取名片資訊、專案名片列表、HTML 展示頁面等功能。\\n\\n## 使用說明\\n\\n### 環境變數設定\\n- baseUrl: API 基礎網址 (預設: http://localhost:3000，可在 .env 中設定 BASE_URL)\\n- apiVersion: API 版本 (例如: v1)\\n- cardId: 名片 ID (例如: BCMG4XIRW2551924)\\n- projectId: 專案 ID (例如: 1)\\n\\n### 環境配置\\n請複製 .env.example 為 .env 並設定相應的環境變數：\\n- BASE_URL: 應用程式基礎網址\\n- PORT: 服務器端口\\n- 其他配置請參考 .env.example\\n\\n### API 端點說明\\n1. JSON API: /api/v1/business-cards/* - 供前端串接使用\\n2. HTML 頁面: /business-card/* - 供 QR Code 掃描瀏覽\\n\\n### QR Code 掃描流程\\n1. 創建名片 → 獲得 QR Code (包含展示頁面 URL)\\n2. 掃描 QR Code → 開啟 HTML 名片頁面\\n3. 查看名片資訊或分享",
     "version": "1.3.0",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"

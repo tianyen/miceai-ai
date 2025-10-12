@@ -83,7 +83,7 @@ const initialProjects = [
 // 初始模板資料
 const initialTemplates = [
     {
-        template_name: '預設邀請函模板',
+        template_name: '預設MICE-AI 模板',
         template_type: 'email',
         template_content: JSON.stringify({
             subject: '誠摯邀請您參與 {{event_name}}',
@@ -106,7 +106,7 @@ const initialTemplates = [
         is_default: 1
     },
     {
-        template_name: '簡約網頁邀請函',
+        template_name: '簡約網頁MICE-AI ',
         template_type: 'webpage',
         template_content: JSON.stringify({
             html: `

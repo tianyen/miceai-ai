@@ -1110,7 +1110,7 @@ class ProjectController {
                                 <button class="btn btn-sm btn-outline-success" onclick="editProject(${project.id})" title="編輯">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="btn btn-sm btn-outline-info" onclick="manageInvitations(${project.id})" title="管理邀請函">
+                                <button class="btn btn-sm btn-outline-info" onclick="manageInvitations(${project.id})" title="管理MICE-AI ">
                                     <i class="fas fa-envelope"></i>
                                 </button>
                                 <button class="btn btn-sm btn-outline-danger" onclick="deleteProject(${project.id})" title="刪除">

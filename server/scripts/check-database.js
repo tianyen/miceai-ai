@@ -34,7 +34,7 @@ const checks = [
         query: 'SELECT COUNT(*) as count, role FROM users GROUP BY role'
     },
     {
-        name: '邀請函項目',
+        name: 'MICE-AI 項目',
         table: 'invitation_projects',
         query: 'SELECT COUNT(*) as count, status FROM invitation_projects GROUP BY status'
     },
