@@ -34,7 +34,7 @@ const { body, validationResult } = require('express-validator');
  *                 minLength: 1
  *                 maxLength: 50
  *                 description: 報名追蹤 ID（報名時返回）
- *                 example: "TRACE1728567890ABCD1234"
+ *                 example: "TRACED074DD3EE3E27B6B"
  *               scanner_location:
  *                 type: string
  *                 maxLength: 100
@@ -69,7 +69,7 @@ const { body, validationResult } = require('express-validator');
  *                     trace_id:
  *                       type: string
  *                       description: 追蹤 ID
- *                       example: "TRACE1728567890ABCD1234"
+ *                       example: "TRACED074DD3EE3E27B6B"
  *                     participant_name:
  *                       type: string
  *                       description: 參與者姓名
@@ -298,7 +298,7 @@ router.post('/', [
  *           minLength: 1
  *           maxLength: 50
  *         description: 報名追蹤 ID
- *         example: "TRACE1728567890ABCD1234"
+ *         example: "TRACED074DD3EE3E27B6B"
  *     responses:
  *       200:
  *         description: 成功獲取報到記錄
@@ -320,7 +320,7 @@ router.post('/', [
  *                     trace_id:
  *                       type: string
  *                       description: 追蹤 ID
- *                       example: "TRACE1728567890ABCD1234"
+ *                       example: "TRACED074DD3EE3E27B6B"
  *                     participant:
  *                       type: object
  *                       properties:

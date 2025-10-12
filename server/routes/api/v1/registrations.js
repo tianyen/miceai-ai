@@ -108,7 +108,7 @@ const phoneRegex = /^[0-9\-\+\s\(\)]{8,20}$/;
  *                     trace_id:
  *                       type: string
  *                       description: 追蹤 ID，用於查詢報名狀態和 QR Code
- *                       example: "TRACE123456789ABC"
+ *                       example: "TRACED074DD3EE3E27B6B"
  *                     event:
  *                       type: object
  *                       properties:
@@ -135,11 +135,11 @@ const phoneRegex = /^[0-9\-\+\s\(\)]{8,20}$/;
  *                       properties:
  *                         data:
  *                           type: string
- *                           example: "TRACE123456789ABC"
+ *                           example: "TRACED074DD3EE3E27B6B"
  *                         url:
  *                           type: string
  *                           description: QR Code 查詢 URL
- *                           example: "/api/v1/qr-codes/TRACE123456789ABC"
+ *                           example: "/api/v1/qr-codes/TRACED074DD3EE3E27B6B"
  *       400:
  *         description: 請求參數錯誤或活動已滿額
  *       404:
@@ -368,7 +368,7 @@ router.post('/events/:eventId/registrations', [
  *         schema:
  *           type: string
  *         description: 報名追蹤 ID（報名時返回）
- *         example: "TRACE123456789ABC"
+ *         example: "TRACED074DD3EE3E27B6B"
  *     responses:
  *       200:
  *         description: 成功獲取報名資訊
@@ -388,11 +388,11 @@ router.post('/events/:eventId/registrations', [
  *                       example: 123
  *                     trace_id:
  *                       type: string
- *                       example: "TRACE123456789ABC"
+ *                       example: "TRACED074DD3EE3E27B6B"
  *                     status:
  *                       type: string
  *                       enum: [pending, approved, confirmed, rejected, cancelled]
- *                       example: "pending"
+ *                       example: "confirmed"
  *                     event:
  *                       type: object
  *                       properties:
@@ -428,7 +428,7 @@ router.post('/events/:eventId/registrations', [
  *                       properties:
  *                         data:
  *                           type: string
- *                           example: "TRACE123456789ABC"
+ *                           example: "TRACED074DD3EE3E27B6B"
  *                         scan_count:
  *                           type: integer
  *                           example: 0
@@ -589,7 +589,7 @@ router.get('/qr-codes/:traceId', [
  *         schema:
  *           type: string
  *         description: 報名追蹤 ID
- *         example: "TRACE123456789ABC"
+ *         example: "TRACED074DD3EE3E27B6B"
  *     responses:
  *       200:
  *         description: 成功獲取 QR Code 數據
@@ -606,10 +606,10 @@ router.get('/qr-codes/:traceId', [
  *                   properties:
  *                     trace_id:
  *                       type: string
- *                       example: "TRACE123456789ABC"
+ *                       example: "TRACED074DD3EE3E27B6B"
  *                     qr_data:
  *                       type: string
- *                       example: "TRACE123456789ABC"
+ *                       example: "TRACED074DD3EE3E27B6B"
  *                     qr_base64:
  *                       type: string
  *                       description: QR Code Base64 編碼，可直接用於 <img src="">

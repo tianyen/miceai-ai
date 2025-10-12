@@ -2,10 +2,16 @@
 /**
  * 資料庫種子資料腳本
  * 在現有資料庫中添加測試資料
+ *
+ * 特性：
+ * - 使用確定性 ID 生成（每次重啟產生相同的測試資料）
+ * - 前端可以依賴固定的 trace_id 進行開發
+ * - 支援完整的測試場景
  */
 
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const crypto = require('crypto');
 
 // 載入環境變數
 require('dotenv').config();
@@ -13,7 +19,36 @@ const config = require('../config');
 
 const dbPath = path.resolve(config.database.path);
 
-console.log('🌱 正在添加種子資料...');
+console.log('🌱 正在添加確定性種子資料...');
+console.log('📝 每次重啟將產生相同的測試資料（ID、trace_id 等）\n');
+
+// ===== 確定性 ID 生成器 =====
+class DeterministicIdGenerator {
+    constructor(seed = 'mice-ai-2025') {
+        this.seed = seed;
+    }
+
+    // 生成確定性的 trace_id
+    generateTraceId(index) {
+        const hash = crypto.createHash('sha256')
+            .update(`${this.seed}-trace-${index}`)
+            .digest('hex')
+            .substring(0, 16)
+            .toUpperCase();
+        return `TRACE${hash}`;
+    }
+
+    // 生成確定性的時間戳（相對於基準日期）
+    generateTimestamp(daysOffset = 0, hoursOffset = 0, minutesOffset = 0) {
+        const baseDate = new Date('2025-10-01T00:00:00Z');
+        baseDate.setDate(baseDate.getDate() + daysOffset);
+        baseDate.setHours(baseDate.getHours() + hoursOffset);
+        baseDate.setMinutes(baseDate.getMinutes() + minutesOffset);
+        return baseDate.toISOString().replace('T', ' ').substring(0, 19);
+    }
+}
+
+const idGen = new DeterministicIdGenerator();
 
 const db = new sqlite3.Database(dbPath);
 
@@ -147,10 +182,10 @@ const seedData = {
         }
     ],
 
-    // 表單提交資料
+    // 表單提交資料（使用確定性 trace_id）
     submissions: [
         {
-            trace_id: 'TRC' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+            trace_id: idGen.generateTraceId(1),  // 固定的 trace_id
             project_id: 1,
             submitter_name: '張志明',
             submitter_email: 'chang@example.com',
@@ -160,12 +195,11 @@ const seedData = {
             participation_level: 85,
             activity_notifications: 1,
             product_updates: 1,
-            dietary_restrictions: '素食',
-            special_needs: null,
-            status: 'approved'
+            status: 'confirmed',
+            created_at: idGen.generateTimestamp(-5, 10)  // 5天前 10:00
         },
         {
-            trace_id: 'TRC' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+            trace_id: idGen.generateTraceId(2),  // 固定的 trace_id
             project_id: 1,
             submitter_name: '李美玲',
             submitter_email: 'li@example.com',
@@ -175,12 +209,11 @@ const seedData = {
             participation_level: 70,
             activity_notifications: 1,
             product_updates: 0,
-            dietary_restrictions: null,
-            special_needs: '輪椅使用者',
-            status: 'approved'
+            status: 'confirmed',
+            created_at: idGen.generateTimestamp(-4, 14)  // 4天前 14:00
         },
         {
-            trace_id: 'TRC' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+            trace_id: idGen.generateTraceId(3),  // 固定的 trace_id
             project_id: 2,
             submitter_name: '王大明',
             submitter_email: 'wang@example.com',
@@ -190,31 +223,32 @@ const seedData = {
             participation_level: 95,
             activity_notifications: 1,
             product_updates: 1,
-            dietary_restrictions: null,
-            special_needs: null,
-            status: 'pending'
+            status: 'pending',
+            created_at: idGen.generateTimestamp(-3, 9)  // 3天前 09:00
         }
     ],
 
-    // 報到記錄
+    // 報到記錄（使用確定性 trace_id）
     checkins: [
         {
             project_id: 1,
             submission_id: 1,
-            trace_id: 'TRC001',
+            trace_id: idGen.generateTraceId(1),  // 與 submission 1 相同
             attendee_name: '張志明',
             company_name: '科技創新公司',
             phone_number: '0912345678',
-            scanned_by: 2
+            scanned_by: 2,
+            checkin_time: idGen.generateTimestamp(-1, 9)  // 1天前 09:00
         },
         {
             project_id: 1,
             submission_id: 2,
-            trace_id: 'TRC002',
+            trace_id: idGen.generateTraceId(2),  // 與 submission 2 相同
             attendee_name: '李美玲',
             company_name: '數位行銷公司',
             phone_number: '0923456789',
-            scanned_by: 2
+            scanned_by: 2,
+            checkin_time: idGen.generateTimestamp(-1, 9, 15)  // 1天前 09:15
         }
     ],
 
@@ -487,13 +521,13 @@ async function addSeedData() {
                 }
 
                 // 添加表單提交資料
-                console.log('📝 添加表單提交資料...');
+                console.log('📝 添加表單提交資料（使用確定性 trace_id）...');
                 const submissionStmt = db.prepare(`
                     INSERT INTO form_submissions (
                         trace_id, project_id, submitter_name, submitter_email, submitter_phone,
                         company_name, position, participation_level, activity_notifications, product_updates,
-                        dietary_restrictions, special_needs, status, ip_address
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '127.0.0.1')
+                        status, ip_address, data_consent, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '127.0.0.1', 1, ?)
                 `);
 
                 for (const submission of seedData.submissions) {
@@ -509,14 +543,13 @@ async function addSeedData() {
                             submission.participation_level,
                             submission.activity_notifications,
                             submission.product_updates,
-                            submission.dietary_restrictions,
-                            submission.special_needs,
-                            submission.status
+                            submission.status,
+                            submission.created_at
                         ], function (err) {
                             if (err && !err.message.includes('UNIQUE constraint')) {
                                 reject(err);
                             } else {
-                                console.log(`   ✅ ${submission.submitter_name} - ${submission.company_name}`);
+                                console.log(`   ✅ ${submission.submitter_name} - ${submission.trace_id}`);
                                 resolve();
                             }
                         });
@@ -525,12 +558,12 @@ async function addSeedData() {
                 submissionStmt.finalize();
 
                 // 添加報到記錄
-                console.log('✅ 添加報到記錄...');
+                console.log('✅ 添加報到記錄（使用確定性 trace_id）...');
                 const checkinStmt = db.prepare(`
                     INSERT INTO checkin_records (
                         project_id, submission_id, trace_id, attendee_name,
-                        company_name, phone_number, scanned_by
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        company_name, phone_number, scanned_by, checkin_time
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 `);
 
                 for (const checkin of seedData.checkins) {
@@ -542,12 +575,13 @@ async function addSeedData() {
                             checkin.attendee_name,
                             checkin.company_name,
                             checkin.phone_number,
-                            checkin.scanned_by
+                            checkin.scanned_by,
+                            checkin.checkin_time
                         ], function (err) {
                             if (err && !err.message.includes('UNIQUE constraint')) {
                                 reject(err);
                             } else {
-                                console.log(`   ✅ ${checkin.attendee_name} 已報到`);
+                                console.log(`   ✅ ${checkin.attendee_name} - ${checkin.trace_id}`);
                                 resolve();
                             }
                         });
@@ -659,6 +693,29 @@ async function addSeedData() {
 // 執行種子資料添加
 addSeedData()
     .then(() => {
+        console.log('\n' + '='.repeat(80));
+        console.log('📋 固定的測試資料（前端可以依賴這些值）');
+        console.log('='.repeat(80));
+        console.log('\n🎯 專案 Codes:');
+        console.log('   - TECH2024 (ID: 1) - 2024年度科技論壇');
+        console.log('   - DIGITAL2024 (ID: 2) - 企業數位轉型研討會');
+        console.log('   - GREEN2024 (ID: 3) - 綠能科技展示會');
+
+        console.log('\n🎫 固定的 Trace IDs:');
+        console.log(`   - User 1 (張志明): ${idGen.generateTraceId(1)}`);
+        console.log(`   - User 2 (李美玲): ${idGen.generateTraceId(2)}`);
+        console.log(`   - User 3 (王大明): ${idGen.generateTraceId(3)}`);
+
+        console.log('\n📅 時間戳範例:');
+        console.log(`   - 5天前 10:00: ${idGen.generateTimestamp(-5, 10)}`);
+        console.log(`   - 4天前 14:00: ${idGen.generateTimestamp(-4, 14)}`);
+        console.log(`   - 1天前 09:00: ${idGen.generateTimestamp(-1, 9)}`);
+
+        console.log('\n💡 使用方式:');
+        console.log('   前端可以在測試時使用這些固定值');
+        console.log('   每次重啟專案，這些值都保持不變');
+        console.log('='.repeat(80));
+
         db.close();
         console.log('\n🚀 資料庫準備完成！');
         process.exit(0);
