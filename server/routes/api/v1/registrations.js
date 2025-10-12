@@ -31,14 +31,34 @@ const phoneRegex = /^[0-9\-\+\s\(\)]{8,20}$/;
  *   post:
  *     tags: [Registrations (活動報名)]
  *     summary: 提交活動報名
- *     description: 提交活動報名資料，系統會自動生成 QR Code Base64 並返回 trace_id
+ *     description: |
+ *       提交活動報名資料，系統會自動生成 QR Code Base64 並返回 trace_id
+ *
+ *       **前端串接流程**：
+ *       1. 先調用 `GET /api/v1/events/code/{code}` 查詢活動詳情
+ *       2. 從回應中獲取 `data.id` 作為 `eventId`
+ *       3. 使用該 `eventId` 調用此端點提交報名
+ *
+ *       **範例**：
+ *       ```javascript
+ *       // 步驟 1: 查詢活動
+ *       const event = await fetch('/api/v1/events/code/TECH2024').then(r => r.json());
+ *       const eventId = event.data.id;  // 1
+ *
+ *       // 步驟 2: 提交報名
+ *       const registration = await fetch(`/api/v1/events/${eventId}/registrations`, {
+ *         method: 'POST',
+ *         body: JSON.stringify({ name: '王小明', ... })
+ *       });
+ *       ```
  *     parameters:
  *       - in: path
  *         name: eventId
  *         required: true
  *         schema:
  *           type: integer
- *         description: 活動 ID
+ *         description: 活動 ID（從 `GET /api/v1/events/code/{code}` 的回應中獲取 `data.id`）
+ *         example: 1
  *     requestBody:
  *       required: true
  *       content:

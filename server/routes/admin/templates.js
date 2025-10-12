@@ -50,9 +50,17 @@ router.get('/new', async (req, res) => {
                         <div class="form-group">
                             <label for="template_content">模板內容 <span class="text-danger">*</span></label>
                             <small class="form-text text-muted">
-                                JSON 格式。活動模板應包含：schedule（時刻表）、agenda（議程）、special_guests（特別嘉賓）
+                                JSON 格式。活動模板應包含：schedule（活動流程時刻表）、agenda（活動詳情/亮點）
                             </small>
-                            <textarea id="template_content" name="template_content" class="form-control" rows="12" required placeholder='{"schedule": {...}, "agenda": [...], "special_guests": [...]}'></textarea>
+                            <textarea id="template_content" name="template_content" class="form-control" rows="12" required placeholder='{"schedule": {"type": "single_day", "date": "2025-09-15", "sessions": [...]}, "agenda": [...]}'></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="special_guests">特別嘉賓</label>
+                            <small class="form-text text-muted">
+                                JSON 格式陣列。例如：[{"name": "張教授", "title": "AI 研究專家", "company": "台灣大學", "bio": "...", "photo_url": ""}]
+                            </small>
+                            <textarea id="special_guests" name="special_guests" class="form-control" rows="6" placeholder='[{"name": "張教授", "title": "AI 研究專家", "company": "台灣大學", "bio": "專注於人工智慧研究 20 年", "photo_url": ""}]'></textarea>
                         </div>
                         
                         <div class="form-group">
@@ -262,9 +270,17 @@ router.get('/:id/edit', async (req, res) => {
                             <div class="form-group">
                                 <label for="edit_template_content">模板內容 <span class="text-danger">*</span></label>
                                 <small class="form-text text-muted">
-                                    JSON 格式。活動模板應包含：schedule（時刻表）、agenda（議程）、special_guests（特別嘉賓）
+                                    JSON 格式。活動模板應包含：schedule（活動流程時刻表）、agenda（活動詳情/亮點）
                                 </small>
                                 <textarea id="edit_template_content" name="template_content" class="form-control" rows="12" required>${template.template_content || ''}</textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="edit_special_guests">特別嘉賓</label>
+                                <small class="form-text text-muted">
+                                    JSON 格式陣列。例如：[{"name": "張教授", "title": "AI 研究專家", "company": "台灣大學", "bio": "...", "photo_url": ""}]
+                                </small>
+                                <textarea id="edit_special_guests" name="special_guests" class="form-control" rows="6">${template.special_guests || ''}</textarea>
                             </div>
                             
                             <div class="form-group">

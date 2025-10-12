@@ -12,6 +12,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const crypto = require('crypto');
+const QRCode = require('qrcode');
 
 // 載入環境變數
 require('dotenv').config();
@@ -530,6 +531,7 @@ async function addSeedData() {
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '127.0.0.1', 1, ?)
                 `);
 
+                const submissionIds = [];
                 for (const submission of seedData.submissions) {
                     await new Promise((resolve, reject) => {
                         submissionStmt.run([
@@ -549,6 +551,9 @@ async function addSeedData() {
                             if (err && !err.message.includes('UNIQUE constraint')) {
                                 reject(err);
                             } else {
+                                if (this.lastID) {
+                                    submissionIds.push({ id: this.lastID, ...submission });
+                                }
                                 console.log(`   ✅ ${submission.submitter_name} - ${submission.trace_id}`);
                                 resolve();
                             }
@@ -556,6 +561,49 @@ async function addSeedData() {
                     });
                 }
                 submissionStmt.finalize();
+
+                // 為每個報名記錄生成 QR Code
+                console.log('🔲 生成 QR Code Base64...');
+                const qrCodeStmt = db.prepare(`
+                    INSERT INTO qr_codes (
+                        project_id, submission_id, qr_code, qr_data, qr_base64, created_at
+                    ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                `);
+
+                for (const submission of submissionIds) {
+                    try {
+                        const qrData = submission.trace_id;
+                        const qrBase64 = await QRCode.toDataURL(qrData, {
+                            type: 'image/png',
+                            width: 300,
+                            margin: 2,
+                            color: {
+                                dark: '#000000',
+                                light: '#FFFFFF'
+                            }
+                        });
+
+                        await new Promise((resolve, reject) => {
+                            qrCodeStmt.run([
+                                submission.project_id,
+                                submission.id,
+                                qrData,
+                                qrData,
+                                qrBase64
+                            ], function (err) {
+                                if (err && !err.message.includes('UNIQUE constraint')) {
+                                    reject(err);
+                                } else {
+                                    console.log(`   ✅ QR Code for ${submission.submitter_name}`);
+                                    resolve();
+                                }
+                            });
+                        });
+                    } catch (error) {
+                        console.error(`   ❌ 生成 QR Code 失敗: ${submission.submitter_name}`, error);
+                    }
+                }
+                qrCodeStmt.finalize();
 
                 // 添加報到記錄
                 console.log('✅ 添加報到記錄（使用確定性 trace_id）...');

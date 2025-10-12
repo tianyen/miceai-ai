@@ -257,8 +257,6 @@ router.get('/', [
  *       根據活動代碼獲取完整的活動資訊，包含活動模板資料
  *
  *       **用途**：前端報名頁面顯示活動詳情
- *
- *       **取代舊端點**：`/api/project-info/{projectCode}`
  *     parameters:
  *       - in: path
  *         name: code
@@ -365,10 +363,37 @@ router.get('/', [
  *                           example: "科技論壇活動模板"
  *                         schedule:
  *                           type: object
- *                           description: 活動時刻表
+ *                           description: 活動流程時刻表
+ *                           properties:
+ *                             type:
+ *                               type: string
+ *                               example: "single_day"
+ *                               description: 活動類型（single_day 或 multi_day）
+ *                             date:
+ *                               type: string
+ *                               example: "2025-09-15"
+ *                               description: 活動日期
+ *                             sessions:
+ *                               type: array
+ *                               description: 活動流程（時間表）
+ *                               items:
+ *                                 type: object
+ *                                 properties:
+ *                                   time:
+ *                                     type: string
+ *                                     example: "09:00-09:30"
+ *                                   title:
+ *                                     type: string
+ *                                     example: "報到與茶點"
+ *                                   speaker:
+ *                                     type: string
+ *                                     example: "主辦單位"
+ *                                   location:
+ *                                     type: string
+ *                                     example: "大廳"
  *                         agenda:
  *                           type: array
- *                           description: 活動議程
+ *                           description: 活動詳情/亮點（介紹整個活動的特色）
  *                           items:
  *                             type: object
  *                             properties:
@@ -384,6 +409,24 @@ router.get('/', [
  *                         special_guests:
  *                           type: array
  *                           description: 特別嘉賓資訊
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                                 example: "張教授"
+ *                               title:
+ *                                 type: string
+ *                                 example: "AI 研究專家"
+ *                               company:
+ *                                 type: string
+ *                                 example: "台灣大學"
+ *                               bio:
+ *                                 type: string
+ *                                 example: "專注於人工智慧研究 20 年"
+ *                               photo_url:
+ *                                 type: string
+ *                                 example: ""
  *       404:
  *         description: 找不到活動
  *       500:
@@ -442,17 +485,33 @@ router.get('/code/:code', [
                         id,
                         template_name,
                         template_type,
-                        template_content
+                        template_content,
+                        special_guests
                     FROM invitation_templates
                     WHERE id = ? AND template_type = 'event'
                 `, [event.template_id]);
 
-                if (eventTemplate && eventTemplate.template_content) {
-                    try {
-                        eventTemplate.template_content = JSON.parse(eventTemplate.template_content);
-                    } catch (e) {
-                        console.error('解析活動模板內容失敗:', e);
-                        eventTemplate.template_content = null;
+                if (eventTemplate) {
+                    // 解析 template_content JSON
+                    if (eventTemplate.template_content) {
+                        try {
+                            eventTemplate.template_content = JSON.parse(eventTemplate.template_content);
+                        } catch (e) {
+                            console.error('解析活動模板內容失敗:', e);
+                            eventTemplate.template_content = null;
+                        }
+                    }
+
+                    // 解析 special_guests JSON
+                    if (eventTemplate.special_guests) {
+                        try {
+                            eventTemplate.special_guests = JSON.parse(eventTemplate.special_guests);
+                        } catch (e) {
+                            console.error('解析特別嘉賓失敗:', e);
+                            eventTemplate.special_guests = [];
+                        }
+                    } else {
+                        eventTemplate.special_guests = [];
                     }
                 }
             } catch (error) {
@@ -483,9 +542,8 @@ router.get('/code/:code', [
             template: eventTemplate ? {
                 id: eventTemplate.id,
                 name: eventTemplate.template_name,
-                schedule: eventTemplate.template_content?.schedule || null,
-                agenda: eventTemplate.template_content?.agenda || [],
-                special_guests: eventTemplate.template_content?.special_guests || []
+                ...eventTemplate.template_content,  // 返回完整的模板內容（schedule, agenda 等）
+                special_guests: eventTemplate.special_guests || []  // special_guests 是獨立欄位
             } : null
         };
 
@@ -559,17 +617,33 @@ router.get('/:id', [
                         id,
                         template_name,
                         template_type,
-                        template_content
+                        template_content,
+                        special_guests
                     FROM invitation_templates
                     WHERE id = ? AND template_type = 'event'
                 `, [event.template_id]);
 
-                if (eventTemplate && eventTemplate.template_content) {
-                    try {
-                        eventTemplate.template_content = JSON.parse(eventTemplate.template_content);
-                    } catch (e) {
-                        console.error('解析活動模板內容失敗:', e);
-                        eventTemplate.template_content = null;
+                if (eventTemplate) {
+                    // 解析 template_content JSON
+                    if (eventTemplate.template_content) {
+                        try {
+                            eventTemplate.template_content = JSON.parse(eventTemplate.template_content);
+                        } catch (e) {
+                            console.error('解析活動模板內容失敗:', e);
+                            eventTemplate.template_content = null;
+                        }
+                    }
+
+                    // 解析 special_guests JSON
+                    if (eventTemplate.special_guests) {
+                        try {
+                            eventTemplate.special_guests = JSON.parse(eventTemplate.special_guests);
+                        } catch (e) {
+                            console.error('解析特別嘉賓失敗:', e);
+                            eventTemplate.special_guests = [];
+                        }
+                    } else {
+                        eventTemplate.special_guests = [];
                     }
                 }
             } catch (error) {
@@ -600,9 +674,8 @@ router.get('/:id', [
             template: eventTemplate ? {
                 id: eventTemplate.id,
                 name: eventTemplate.template_name,
-                schedule: eventTemplate.template_content?.schedule || null,
-                agenda: eventTemplate.template_content?.agenda || [],
-                special_guests: eventTemplate.template_content?.special_guests || []
+                ...eventTemplate.template_content,  // 返回完整的模板內容（schedule, agenda 等）
+                special_guests: eventTemplate.special_guests || []  // special_guests 是獨立欄位
             } : null
         };
 
