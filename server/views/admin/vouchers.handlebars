@@ -1,0 +1,518 @@
+{{!-- 兌換券管理頁面 --}}
+
+<div class="content-header">
+    <h1>兌換券管理</h1>
+    <p>管理兌換券、兌換條件和庫存</p>
+</div>
+
+<!-- 操作按鈕 -->
+<div class="action-bar">
+    <div class="search-box">
+        <input type="text" id="search-input" name="search" class="form-control" placeholder="搜尋兌換券名稱、廠商或贊助商...">
+        <button class="btn btn-primary" type="button" id="search-btn">
+            <i class="fas fa-search"></i> 搜尋
+        </button>
+    </div>
+    <div class="action-buttons">
+        <button class="btn btn-success" id="new-voucher-btn">
+            <i class="fas fa-plus"></i> 新增兌換券
+        </button>
+        <button class="btn btn-secondary" id="refresh-btn">
+            <i class="fas fa-sync-alt"></i> 重新整理
+        </button>
+    </div>
+</div>
+
+<!-- 篩選器 -->
+<div class="filter-bar">
+    <div class="filter-group">
+        <label for="category-filter">類別篩選：</label>
+        <select id="category-filter" name="category-filter" class="form-control">
+            <option value="">所有類別</option>
+            <option value="餐飲">餐飲</option>
+            <option value="購物">購物</option>
+            <option value="娛樂">娛樂</option>
+            <option value="其他">其他</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label for="status-filter">狀態篩選：</label>
+        <select id="status-filter" name="status-filter" class="form-control">
+            <option value="">所有狀態</option>
+            <option value="1">啟用</option>
+            <option value="0">停用</option>
+        </select>
+    </div>
+</div>
+
+<!-- 兌換券列表 -->
+<div class="data-table-container">
+    <div class="table-header">
+        <h3>兌換券列表</h3>
+        <div class="table-stats">
+            <span class="stat-item">總兌換券：<strong id="total-vouchers">-</strong></span>
+            <span class="stat-item">啟用：<strong id="active-vouchers">-</strong></span>
+            <span class="stat-item">停用：<strong id="inactive-vouchers">-</strong></span>
+        </div>
+    </div>
+
+    <div class="table-content">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>兌換券名稱</th>
+                    <th>廠商</th>
+                    <th>類別</th>
+                    <th>價值</th>
+                    <th>庫存</th>
+                    <th>兌換條件</th>
+                    <th>狀態</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="vouchers-table-body">
+                <tr>
+                    <td colspan="9" class="loading-cell">
+                        <div class="loading-spinner"></div>
+                        載入兌換券數據中...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 分頁 -->
+    <div class="pagination-container" id="pagination-container">
+        <div class="pagination-info">
+            <span>載入分頁資訊中...</span>
+        </div>
+    </div>
+</div>
+
+<!-- 模態框容器 -->
+<div id="modal-container"></div>
+
+<style>
+.voucher-status {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.voucher-status.active {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.voucher-status.inactive {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.voucher-category {
+    background-color: #e7f3ff;
+    color: #0056b3;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.voucher-stock {
+    font-weight: bold;
+}
+
+.voucher-stock.low {
+    color: #dc3545;
+}
+
+.voucher-stock.medium {
+    color: #ffc107;
+}
+
+.voucher-stock.high {
+    color: #28a745;
+}
+
+.voucher-value {
+    color: #28a745;
+    font-weight: 500;
+}
+
+.voucher-conditions {
+    font-size: 12px;
+    color: #6c757d;
+}
+</style>
+
+<script>
+let currentPage = 1;
+let currentLimit = 20;
+let currentSearch = '';
+let currentCategory = '';
+let currentStatus = '';
+
+// 頁面載入時執行
+document.addEventListener('DOMContentLoaded', function() {
+    loadVouchers();
+    
+    // 搜尋按鈕
+    document.getElementById('search-btn').addEventListener('click', function() {
+        currentSearch = document.getElementById('search-input').value;
+        currentPage = 1;
+        loadVouchers();
+    });
+    
+    // Enter 鍵搜尋
+    document.getElementById('search-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            currentSearch = this.value;
+            currentPage = 1;
+            loadVouchers();
+        }
+    });
+    
+    // 類別篩選
+    document.getElementById('category-filter').addEventListener('change', function() {
+        currentCategory = this.value;
+        currentPage = 1;
+        loadVouchers();
+    });
+    
+    // 狀態篩選
+    document.getElementById('status-filter').addEventListener('change', function() {
+        currentStatus = this.value;
+        currentPage = 1;
+        loadVouchers();
+    });
+    
+    // 新增兌換券按鈕
+    document.getElementById('new-voucher-btn').addEventListener('click', function() {
+        showVoucherModal();
+    });
+    
+    // 重新整理按鈕
+    document.getElementById('refresh-btn').addEventListener('click', function() {
+        loadVouchers();
+    });
+});
+
+// 載入兌換券列表
+function loadVouchers() {
+    const params = new URLSearchParams({
+        page: currentPage,
+        limit: currentLimit,
+        search: currentSearch,
+        category: currentCategory,
+        is_active: currentStatus
+    });
+    
+    fetch(`/admin/vouchers/api/list?${params}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderVouchersTable(data.data);
+                renderPagination(data.pagination);
+                updateStats(data.data);
+            } else {
+                showNotification('載入兌換券列表失敗', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('載入兌換券列表失敗:', error);
+            showNotification('載入兌換券列表失敗', 'error');
+        });
+}
+
+// 渲染兌換券表格
+function renderVouchersTable(vouchers) {
+    const tbody = document.getElementById('vouchers-table-body');
+    
+    if (vouchers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center">無符合條件的兌換券</td></tr>';
+        return;
+    }
+    
+    let html = '';
+    vouchers.forEach(voucher => {
+        const statusClass = voucher.is_active ? 'active' : 'inactive';
+        const statusText = voucher.is_active ? '啟用' : '停用';
+        
+        // 庫存狀態
+        const stockPercentage = (voucher.remaining_quantity / voucher.total_quantity) * 100;
+        let stockClass = 'high';
+        if (stockPercentage < 20) stockClass = 'low';
+        else if (stockPercentage < 50) stockClass = 'medium';
+        
+        // 兌換條件
+        let conditions = [];
+        if (voucher.min_score > 0) conditions.push(`分數≥${voucher.min_score}`);
+        if (voucher.min_play_time > 0) conditions.push(`時間≥${voucher.min_play_time}秒`);
+        const conditionsText = conditions.length > 0 ? conditions.join(', ') : '無限制';
+        
+        html += `
+        <tr>
+            <td>${voucher.id}</td>
+            <td>${voucher.voucher_name}</td>
+            <td>${voucher.vendor_name || '-'}</td>
+            <td><span class="voucher-category">${voucher.category || '未分類'}</span></td>
+            <td class="voucher-value">$${voucher.voucher_value}</td>
+            <td><span class="voucher-stock ${stockClass}">${voucher.remaining_quantity}/${voucher.total_quantity}</span></td>
+            <td class="voucher-conditions">${conditionsText}</td>
+            <td><span class="voucher-status ${statusClass}">${statusText}</span></td>
+            <td>
+                <button class="btn btn-sm btn-primary" onclick="editVoucher(${voucher.id})" title="編輯">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteVoucher(${voucher.id})" title="刪除">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+}
+
+// 渲染分頁
+function renderPagination(pagination) {
+    const container = document.getElementById('pagination-container');
+    const { page, limit, total, totalPages } = pagination;
+    
+    let html = `
+        <div class="pagination-info">
+            <span>顯示第 ${(page - 1) * limit + 1} - ${Math.min(page * limit, total)} 筆，共 ${total} 筆</span>
+        </div>
+        <div class="pagination-buttons">
+    `;
+    
+    html += `<button class="btn btn-sm btn-secondary" ${page === 1 ? 'disabled' : ''} onclick="changePage(${page - 1})">上一頁</button>`;
+    
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= page - 2 && i <= page + 2)) {
+            html += `<button class="btn btn-sm ${i === page ? 'btn-primary' : 'btn-secondary'}" onclick="changePage(${i})">${i}</button>`;
+        } else if (i === page - 3 || i === page + 3) {
+            html += `<span>...</span>`;
+        }
+    }
+    
+    html += `<button class="btn btn-sm btn-secondary" ${page === totalPages ? 'disabled' : ''} onclick="changePage(${page + 1})">下一頁</button>`;
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// 更新統計
+function updateStats(vouchers) {
+    const total = vouchers.length;
+    const active = vouchers.filter(v => v.is_active).length;
+    const inactive = vouchers.filter(v => !v.is_active).length;
+    
+    document.getElementById('total-vouchers').textContent = total;
+    document.getElementById('active-vouchers').textContent = active;
+    document.getElementById('inactive-vouchers').textContent = inactive;
+}
+
+// 切換頁碼
+function changePage(page) {
+    currentPage = page;
+    loadVouchers();
+}
+
+// 顯示通知
+function showNotification(message, type = 'success') {
+    alert(message);
+}
+
+// 顯示兌換券模態框（新增或編輯）
+function showVoucherModal(voucherId = null) {
+    const isEdit = voucherId !== null;
+    const title = isEdit ? '編輯兌換券' : '新增兌換券';
+
+    let modalHtml = `
+        <div class="modal-overlay" id="voucher-modal">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-header">
+                    <h3>${title}</h3>
+                    <button class="modal-close" onclick="closeModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="voucher-form">
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label for="voucher_name">兌換券名稱 <span class="required">*</span></label>
+                                <input type="text" id="voucher_name" name="voucher_name" class="form-control" required>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label for="category">類別</label>
+                                <select id="category" name="category" class="form-control">
+                                    <option value="">未分類</option>
+                                    <option value="餐飲">餐飲</option>
+                                    <option value="購物">購物</option>
+                                    <option value="娛樂">娛樂</option>
+                                    <option value="其他">其他</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label for="vendor_name">廠商名稱</label>
+                                <input type="text" id="vendor_name" name="vendor_name" class="form-control">
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label for="sponsor_name">贊助商名稱</label>
+                                <input type="text" id="sponsor_name" name="sponsor_name" class="form-control">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                <label for="total_quantity">總數量 <span class="required">*</span></label>
+                                <input type="number" id="total_quantity" name="total_quantity" class="form-control"
+                                       min="0" required>
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label for="voucher_value">價值 (元)</label>
+                                <input type="number" id="voucher_value" name="voucher_value" class="form-control"
+                                       min="0" step="0.01" value="0">
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label for="is_active">狀態</label>
+                                <select id="is_active" name="is_active" class="form-control">
+                                    <option value="1">啟用</option>
+                                    <option value="0">停用</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="description">描述</label>
+                            <textarea id="description" name="description" class="form-control" rows="2"></textarea>
+                        </div>
+                        <hr>
+                        <h4>兌換條件</h4>
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label for="min_score">最低分數</label>
+                                <input type="number" id="min_score" name="min_score" class="form-control"
+                                       min="0" value="0">
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label for="min_play_time">最低遊玩時間 (秒)</label>
+                                <input type="number" id="min_play_time" name="min_play_time" class="form-control"
+                                       min="0" value="0">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                    <button class="btn btn-primary" onclick="saveVoucher(${voucherId})">儲存</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('modal-container').innerHTML = modalHtml;
+
+    // 如果是編輯模式，載入兌換券資料
+    if (isEdit) {
+        fetch(`/admin/vouchers/api/${voucherId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const voucher = data.data;
+                    document.getElementById('voucher_name').value = voucher.voucher_name;
+                    document.getElementById('vendor_name').value = voucher.vendor_name || '';
+                    document.getElementById('sponsor_name').value = voucher.sponsor_name || '';
+                    document.getElementById('category').value = voucher.category || '';
+                    document.getElementById('total_quantity').value = voucher.total_quantity;
+                    document.getElementById('voucher_value').value = voucher.voucher_value;
+                    document.getElementById('description').value = voucher.description || '';
+                    document.getElementById('is_active').value = voucher.is_active ? '1' : '0';
+
+                    if (voucher.condition) {
+                        document.getElementById('min_score').value = voucher.condition.min_score || 0;
+                        document.getElementById('min_play_time').value = voucher.condition.min_play_time || 0;
+                    }
+                }
+            });
+    }
+}
+
+// 編輯兌換券
+function editVoucher(voucherId) {
+    showVoucherModal(voucherId);
+}
+
+// 儲存兌換券
+function saveVoucher(voucherId) {
+    const formData = {
+        voucher_name: document.getElementById('voucher_name').value,
+        vendor_name: document.getElementById('vendor_name').value,
+        sponsor_name: document.getElementById('sponsor_name').value,
+        category: document.getElementById('category').value,
+        total_quantity: parseInt(document.getElementById('total_quantity').value),
+        voucher_value: parseFloat(document.getElementById('voucher_value').value),
+        description: document.getElementById('description').value,
+        is_active: document.getElementById('is_active').value === '1',
+        min_score: parseInt(document.getElementById('min_score').value),
+        min_play_time: parseInt(document.getElementById('min_play_time').value)
+    };
+
+    const url = voucherId ? `/admin/vouchers/api/${voucherId}` : '/admin/vouchers/api';
+    const method = voucherId ? 'PUT' : 'POST';
+
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            closeModal();
+            loadVouchers();
+        } else {
+            showNotification(data.message || '儲存失敗', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('儲存兌換券失敗:', error);
+        showNotification('儲存兌換券失敗', 'error');
+    });
+}
+
+// 刪除兌換券
+function deleteVoucher(voucherId) {
+    if (!confirm('確定要刪除此兌換券嗎？此操作無法復原。')) {
+        return;
+    }
+
+    fetch(`/admin/vouchers/api/${voucherId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            loadVouchers();
+        } else {
+            showNotification(data.message || '刪除失敗', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('刪除兌換券失敗:', error);
+        showNotification('刪除兌換券失敗', 'error');
+    });
+}
+
+// 關閉模態框
+function closeModal() {
+    document.getElementById('modal-container').innerHTML = '';
+}
+</script>
+

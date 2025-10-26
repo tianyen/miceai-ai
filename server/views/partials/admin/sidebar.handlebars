@@ -84,6 +84,29 @@
             </a>
         </div>
 
+        <!-- 遊戲室 -->
+        <div class="nav-section">遊戲室</div>
+
+        <div class="nav-item">
+            <a href="/admin/games" class="nav-link{{#if (eq currentPage 'games')}} active{{/if}}">
+                <i class="fas fa-gamepad"></i>
+                遊戲管理
+            </a>
+        </div>
+
+        <div class="nav-item">
+            <a href="/admin/vouchers" class="nav-link{{#if (eq currentPage 'vouchers')}} active{{/if}}">
+                <i class="fas fa-ticket-alt"></i>
+                兌換券管理
+            </a>
+        </div>
+
+        <div class="nav-item nav-sub-item">
+            <a href="/admin/vouchers/scanner" class="nav-link{{#if (eq currentPage 'voucher-scanner')}} active{{/if}}">
+                <i class="fas fa-qrcode"></i>
+                兌換券掃描
+            </a>
+        </div>
 
         <!-- 系統管理功能 - 僅超級管理員可見 -->
         {{!-- {{#if user}}

@@ -16,6 +16,9 @@ const checkinRoutes = require('./checkin');
 const logsRoutes = require('./logs');
 const questionnaireRoutes = require('./questionnaire');
 const profileRoutes = require('./profile');
+const gamesRoutes = require('./games');
+const vouchersRoutes = require('./vouchers');
+const projectGamesRoutes = require('./project-games');
 
 // 公開路由（不需要認證）
 router.use('/', authRoutes);
@@ -23,6 +26,7 @@ router.use('/', authRoutes);
 // 需要認證的路由
 router.use('/dashboard', authenticateSession, dashboardRoutes);
 router.use('/projects', authenticateSession, projectsRoutes);
+router.use('/projects', authenticateSession, projectGamesRoutes);
 router.use('/templates', authenticateSession, templatesRoutes);
 router.use('/users', authenticateSession, usersRoutes);
 router.use('/submissions', authenticateSession, submissionsRoutes);
@@ -30,6 +34,8 @@ router.use('/checkin-management', authenticateSession, checkinRoutes);
 router.use('/logs', authenticateSession, logsRoutes);
 router.use('/questionnaire', authenticateSession, questionnaireRoutes);
 router.use('/profile', authenticateSession, profileRoutes);
+router.use('/games', authenticateSession, gamesRoutes);
+router.use('/vouchers', authenticateSession, vouchersRoutes);
 
 // 設定頁面
 router.get('/settings', authenticateSession, (req, res) => {

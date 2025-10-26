@@ -76,6 +76,7 @@
         <button class="tab-btn" data-tab="tracking">參加者追蹤</button>
         <button class="tab-btn" data-tab="business-cards">QR Code 名片</button>
         <button class="tab-btn" data-tab="qr-scanner">QR掃描</button>
+        <button class="tab-btn" data-tab="games">遊戲設定</button>
     </nav>
 
     <!-- 參加者管理 -->
@@ -255,6 +256,46 @@
                     <li>系統會自動識別並處理簽到</li>
                     <li>掃描結果會即時更新到簽到記錄中</li>
                 </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 遊戲設定 -->
+    <div class="tab-content" id="games-tab">
+        <div class="section-header">
+            <h3>遊戲設定</h3>
+            <div class="section-actions">
+                <button class="btn btn-success" onclick="bindGameModal()">
+                    <i class="fas fa-plus"></i> 綁定遊戲
+                </button>
+                <button class="btn btn-secondary" onclick="refreshProjectGames()">
+                    <i class="fas fa-sync-alt"></i> 重新整理
+                </button>
+            </div>
+        </div>
+
+        <div class="data-table-container">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>遊戲名稱</th>
+                            <th>狀態</th>
+                            <th>關聯兌換券</th>
+                            <th>庫存</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="project-games-table">
+                        <tr>
+                            <td colspan="6" class="text-center">
+                                <div class="spinner"></div>
+                                <p>載入中...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -597,32 +638,161 @@
     color: var(--gray-600);
 }
 
+/* Modal 樣式 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 1rem;
+}
+
+.modal-dialog {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    max-width: 600px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--gray-900);
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--gray-500);
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--border-radius);
+    transition: all var(--transition-fast);
+}
+
+.modal-close:hover {
+    background: var(--gray-100);
+    color: var(--gray-700);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.modal-body .form-group {
+    margin-bottom: 1.5rem;
+}
+
+.modal-body .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.modal-body label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--gray-700);
+}
+
+.modal-body .required {
+    color: var(--danger-color);
+}
+
+.modal-body .form-control {
+    width: 100%;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+}
+
+.modal-body .form-control:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.modal-body .form-text {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: var(--gray-600);
+}
+
+.modal-body .text-center {
+    text-align: center;
+}
+
+.modal-body img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1rem auto;
+}
+
 @media (max-width: 768px) {
     .overview-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .tab-nav {
         flex-wrap: wrap;
     }
-    
+
     .tab-btn {
         flex: 1 1 50%;
     }
-    
+
     .section-header {
         flex-direction: column;
         gap: 1rem;
         align-items: stretch;
     }
-    
+
     .section-actions {
         justify-content: center;
     }
-    
+
     .stats-grid,
     .checkin-stats-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    .modal-dialog {
+        max-width: 100%;
+        margin: 0;
     }
 }
 </style>
@@ -680,6 +850,9 @@ function switchTab(tabName) {
             break;
         case 'qr-scanner':
             // QR掃描頁面不需要自動載入
+            break;
+        case 'games':
+            loadProjectGames();
             break;
     }
 }
@@ -1330,5 +1503,295 @@ function deleteBusinessCard(cardId, cardName) {
             }
         });
     }
+}
+
+// ========== 遊戲設定相關函數 ==========
+
+// 載入專案遊戲列表
+function loadProjectGames() {
+    $.ajax({
+        url: `/admin/projects/${projectId}/games`,
+        method: 'GET',
+        success: function(html) {
+            $('#project-games-table').html(html);
+        },
+        error: function() {
+            $('#project-games-table').html('<tr><td colspan="6" class="text-center text-danger">載入失敗</td></tr>');
+        }
+    });
+}
+
+// 重新整理專案遊戲列表
+function refreshProjectGames() {
+    loadProjectGames();
+    showNotification('遊戲列表已更新', 'info');
+}
+
+// 綁定遊戲模態框
+function bindGameModal() {
+    // 先載入可用的遊戲和兌換券列表
+    Promise.all([
+        $.ajax({ url: '/admin/games/api/list?is_active=1&limit=100', method: 'GET' }),
+        $.ajax({ url: '/admin/vouchers/api/list?is_active=1&limit=100', method: 'GET' })
+    ]).then(([gamesResponse, vouchersResponse]) => {
+        if (!gamesResponse.success || !vouchersResponse.success) {
+            showNotification('載入資料失敗', 'error');
+            return;
+        }
+
+        const games = gamesResponse.data;
+        const vouchers = vouchersResponse.data;
+
+        let gamesOptions = '<option value="">請選擇遊戲</option>';
+        games.forEach(game => {
+            gamesOptions += `<option value="${game.id}">${game.game_name_zh} (${game.game_name_en})</option>`;
+        });
+
+        let vouchersOptions = '<option value="">無兌換券</option>';
+        vouchers.forEach(voucher => {
+            vouchersOptions += `<option value="${voucher.id}">${voucher.voucher_name} ($${voucher.voucher_value})</option>`;
+        });
+
+        const modalHtml = `
+            <div class="modal-overlay" id="bind-game-modal">
+                <div class="modal-dialog">
+                    <div class="modal-header">
+                        <h3>綁定遊戲</h3>
+                        <button class="modal-close" onclick="closeBindGameModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="bind-game-form">
+                            <div class="form-group">
+                                <label for="game_id">選擇遊戲 <span class="required">*</span></label>
+                                <select id="game_id" name="game_id" class="form-control" required>
+                                    ${gamesOptions}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="voucher_id">關聯兌換券</label>
+                                <select id="voucher_id" name="voucher_id" class="form-control">
+                                    ${vouchersOptions}
+                                </select>
+                                <small class="form-text text-muted">選擇後，玩家達成條件即可獲得兌換券</small>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="closeBindGameModal()">取消</button>
+                        <button class="btn btn-primary" onclick="bindGame()">綁定</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        $('body').append(modalHtml);
+    }).catch(() => {
+        showNotification('載入資料失敗', 'error');
+    });
+}
+
+// 關閉綁定遊戲模態框
+function closeBindGameModal() {
+    $('#bind-game-modal').remove();
+}
+
+// 綁定遊戲
+function bindGame() {
+    const gameId = $('#game_id').val();
+    const voucherId = $('#voucher_id').val();
+
+    if (!gameId) {
+        showNotification('請選擇遊戲', 'error');
+        return;
+    }
+
+    $.ajax({
+        url: `/admin/projects/${projectId}/games`,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            game_id: parseInt(gameId),
+            voucher_id: voucherId ? parseInt(voucherId) : null
+        }),
+        success: function(response) {
+            if (response.success) {
+                showNotification(response.message, 'success');
+                closeBindGameModal();
+                loadProjectGames();
+            } else {
+                showNotification(response.message || '綁定失敗', 'error');
+            }
+        },
+        error: function() {
+            showNotification('綁定失敗，請稍後再試', 'error');
+        }
+    });
+}
+
+// 解除遊戲綁定
+function unbindGame(bindingId) {
+    if (confirm('確定要解除此遊戲綁定嗎？')) {
+        $.ajax({
+            url: `/admin/projects/${projectId}/games/${bindingId}`,
+            method: 'DELETE',
+            success: function(response) {
+                if (response.success) {
+                    showNotification(response.message, 'success');
+                    loadProjectGames();
+                } else {
+                    showNotification(response.message || '解除綁定失敗', 'error');
+                }
+            },
+            error: function() {
+                showNotification('解除綁定失敗，請稍後再試', 'error');
+            }
+        });
+    }
+}
+
+// 查看遊戲 QR Code
+function viewGameQR(bindingId) {
+    $.ajax({
+        url: `/admin/projects/${projectId}/games/${bindingId}/qr`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                const data = response.data;
+                const modalHtml = `
+                    <div class="modal-overlay" id="qr-modal">
+                        <div class="modal-dialog">
+                            <div class="modal-header">
+                                <h3>遊戲 QR Code</h3>
+                                <button class="modal-close" onclick="closeQRModal()">&times;</button>
+                            </div>
+                            <div class="modal-body" style="text-align: center;">
+                                <h4>${data.game_name}</h4>
+                                <p class="text-muted">${data.project_name}</p>
+                                <div style="margin: 20px 0;">
+                                    <img src="${data.qr_code_base64}" alt="QR Code" style="max-width: 300px; width: 100%;">
+                                </div>
+                                <button class="btn btn-primary" onclick="downloadGameQR('${data.qr_code_base64}', '${data.game_name}')">
+                                    <i class="fas fa-download"></i> 下載 QR Code
+                                </button>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-secondary" onclick="closeQRModal()">關閉</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                $('body').append(modalHtml);
+            } else {
+                showNotification('獲取 QR Code 失敗', 'error');
+            }
+        },
+        error: function() {
+            showNotification('獲取 QR Code 失敗，請稍後再試', 'error');
+        }
+    });
+}
+
+// 關閉 QR Code 模態框
+function closeQRModal() {
+    $('#qr-modal').remove();
+}
+
+// 下載遊戲 QR Code
+function downloadGameQR(base64, gameName) {
+    const link = document.createElement('a');
+    link.href = base64;
+    link.download = `${gameName}_QRCode.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showNotification('QR Code 下載成功', 'success');
+}
+
+// 編輯專案遊戲綁定
+function editProjectGame(bindingId) {
+    // 先載入當前綁定資訊和可用的兌換券列表
+    Promise.all([
+        $.ajax({ url: `/admin/projects/${projectId}/games/${bindingId}/qr`, method: 'GET' }),
+        $.ajax({ url: '/admin/vouchers/api/list?is_active=1&limit=100', method: 'GET' })
+    ]).then(([bindingResponse, vouchersResponse]) => {
+        if (!bindingResponse.success || !vouchersResponse.success) {
+            showNotification('載入資料失敗', 'error');
+            return;
+        }
+
+        const binding = bindingResponse.data;
+        const vouchers = vouchersResponse.data;
+
+        let vouchersOptions = '<option value="">無兌換券</option>';
+        vouchers.forEach(voucher => {
+            const selected = binding.voucher_id === voucher.id ? 'selected' : '';
+            vouchersOptions += `<option value="${voucher.id}" ${selected}>${voucher.voucher_name} ($${voucher.voucher_value})</option>`;
+        });
+
+        const modalHtml = `
+            <div class="modal-overlay" id="edit-game-modal">
+                <div class="modal-dialog">
+                    <div class="modal-header">
+                        <h3>編輯遊戲綁定</h3>
+                        <button class="modal-close" onclick="closeEditGameModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="edit-game-form">
+                            <div class="form-group">
+                                <label>遊戲名稱</label>
+                                <input type="text" class="form-control" value="${binding.game_name}" disabled>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit_voucher_id">關聯兌換券</label>
+                                <select id="edit_voucher_id" name="voucher_id" class="form-control">
+                                    ${vouchersOptions}
+                                </select>
+                                <small class="form-text text-muted">選擇後，玩家達成條件即可獲得兌換券</small>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="closeEditGameModal()">取消</button>
+                        <button class="btn btn-primary" onclick="updateProjectGame(${bindingId})">儲存</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        $('body').append(modalHtml);
+    }).catch(() => {
+        showNotification('載入資料失敗', 'error');
+    });
+}
+
+// 關閉編輯遊戲模態框
+function closeEditGameModal() {
+    $('#edit-game-modal').remove();
+}
+
+// 更新專案遊戲綁定
+function updateProjectGame(bindingId) {
+    const voucherId = $('#edit_voucher_id').val();
+
+    $.ajax({
+        url: `/admin/projects/${projectId}/games/${bindingId}`,
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            voucher_id: voucherId ? parseInt(voucherId) : null
+        }),
+        success: function(response) {
+            if (response.success) {
+                showNotification(response.message, 'success');
+                closeEditGameModal();
+                loadProjectGames();
+            } else {
+                showNotification(response.message || '更新失敗', 'error');
+            }
+        },
+        error: function() {
+            showNotification('更新失敗，請稍後再試', 'error');
+        }
+    });
 }
 </script>

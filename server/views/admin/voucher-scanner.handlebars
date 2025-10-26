@@ -1,0 +1,309 @@
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <h1>兌換券掃描</h1>
+                <p class="text-muted">掃描 QR Code 兌換券</p>
+            </div>
+
+            <!-- 掃描區域 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">QR Code 掃描器</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="qrCodeInput">掃描或輸入兌換碼</label>
+                                <input type="text" class="form-control" id="qrCodeInput" placeholder="請掃描 QR Code 或手動輸入兌換碼">
+                                <small class="form-text text-muted">支援格式: GAME-2025-XXXXXX 或 trace_id</small>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="scanQRCode()">
+                                <i class="fas fa-qrcode"></i> 掃描兌換
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="clearInput()">
+                                <i class="fas fa-times"></i> 清除
+                            </button>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-info">
+                                <h6><i class="fas fa-info-circle"></i> 可接受的 QR Code 內容</h6>
+                                <ul class="mb-0">
+                                    <li><strong>兌換碼</strong>: GAME-2025-XXXXXX（6 位十六進位）</li>
+                                    <li><strong>Trace ID</strong>: MICE-xxx-xxx 或 TRACExxx</li>
+                                    <li><strong>JSON 格式</strong>:
+                                        <pre class="mb-0 mt-2" style="font-size: 0.85rem;">{
+  "redemption_code": "GAME-2025-A3B7C9",
+  "trace_id": "MICE-lm3k5g-abc123xyz",
+  "user_id": "player_001",
+  "game_id": 1,
+  "project_id": 123,
+  "score": 1200,
+  "voucher_id": 10
+}</pre>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 掃描結果 -->
+            <div id="scanResult" class="card mb-4" style="display: none;">
+                <div class="card-header">
+                    <h5 class="mb-0">掃描結果</h5>
+                </div>
+                <div class="card-body">
+                    <div id="scanResultContent"></div>
+                </div>
+            </div>
+
+            <!-- 兌換記錄 -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">兌換記錄</h5>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="loadRedemptions()">
+                        <i class="fas fa-sync-alt"></i> 重新整理
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>兌換碼</th>
+                                    <th>Trace ID</th>
+                                    <th>兌換券</th>
+                                    <th>兌換時間</th>
+                                    <th>使用狀態</th>
+                                    <th>使用時間</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="redemptionsTableBody">
+                                <tr>
+                                    <td colspan="8" class="text-center">載入中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.page-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid #dee2e6;
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+#qrCodeInput {
+    font-family: 'Courier New', monospace;
+    font-size: 1.1rem;
+}
+
+.badge-success {
+    background-color: #28a745;
+}
+
+.badge-warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.badge-danger {
+    background-color: #dc3545;
+}
+</style>
+
+<script>
+// 頁面載入時獲取兌換記錄
+$(document).ready(function() {
+    loadRedemptions();
+    
+    // 監聽 Enter 鍵
+    $('#qrCodeInput').on('keypress', function(e) {
+        if (e.which === 13) {
+            scanQRCode();
+        }
+    });
+});
+
+// 掃描 QR Code
+async function scanQRCode() {
+    const input = $('#qrCodeInput').val().trim();
+    
+    if (!input) {
+        alert('請輸入兌換碼或 trace_id');
+        return;
+    }
+    
+    try {
+        // 嘗試解析 JSON
+        let data = {};
+        try {
+            data = JSON.parse(input);
+        } catch (e) {
+            // 不是 JSON，直接使用字串
+            data = { code: input };
+        }
+        
+        const response = await fetch('/admin/vouchers/scan', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showScanResult(result.data);
+            loadRedemptions();
+            $('#qrCodeInput').val('');
+        } else {
+            alert('掃描失敗: ' + result.message);
+        }
+    } catch (error) {
+        console.error('掃描錯誤:', error);
+        alert('掃描失敗: ' + error.message);
+    }
+}
+
+// 顯示掃描結果
+function showScanResult(data) {
+    const html = `
+        <div class="alert alert-success">
+            <h5><i class="fas fa-check-circle"></i> 兌換成功！</h5>
+            <hr>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>兌換碼:</strong> ${data.redemption_code}</p>
+                    <p><strong>Trace ID:</strong> ${data.trace_id || 'N/A'}</p>
+                    <p><strong>兌換券:</strong> ${data.voucher_name}</p>
+                    <p><strong>面額:</strong> NT$ ${data.voucher_value}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>廠商:</strong> ${data.voucher_vendor}</p>
+                    <p><strong>類別:</strong> ${data.voucher_category}</p>
+                    <p><strong>兌換時間:</strong> ${data.redeemed_at}</p>
+                    <p><strong>使用時間:</strong> ${data.used_at || '尚未使用'}</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    $('#scanResultContent').html(html);
+    $('#scanResult').show();
+    
+    // 3 秒後自動隱藏
+    setTimeout(() => {
+        $('#scanResult').fadeOut();
+    }, 5000);
+}
+
+// 清除輸入
+function clearInput() {
+    $('#qrCodeInput').val('');
+    $('#scanResult').hide();
+}
+
+// 載入兌換記錄
+async function loadRedemptions() {
+    try {
+        const response = await fetch('/admin/vouchers/redemptions');
+        const result = await response.json();
+        
+        if (result.success) {
+            renderRedemptions(result.data);
+        } else {
+            $('#redemptionsTableBody').html(`
+                <tr>
+                    <td colspan="8" class="text-center text-danger">載入失敗: ${result.message}</td>
+                </tr>
+            `);
+        }
+    } catch (error) {
+        console.error('載入兌換記錄失敗:', error);
+        $('#redemptionsTableBody').html(`
+            <tr>
+                <td colspan="8" class="text-center text-danger">載入失敗: ${error.message}</td>
+            </tr>
+        `);
+    }
+}
+
+// 渲染兌換記錄
+function renderRedemptions(redemptions) {
+    if (redemptions.length === 0) {
+        $('#redemptionsTableBody').html(`
+            <tr>
+                <td colspan="8" class="text-center text-muted">暫無兌換記錄</td>
+            </tr>
+        `);
+        return;
+    }
+    
+    const html = redemptions.map(r => `
+        <tr>
+            <td>${r.id}</td>
+            <td><code>${r.redemption_code}</code></td>
+            <td><code>${r.trace_id || 'N/A'}</code></td>
+            <td>${r.voucher_name}</td>
+            <td>${r.redeemed_at}</td>
+            <td>
+                ${r.is_used ? '<span class="badge badge-success">已使用</span>' : '<span class="badge badge-warning">未使用</span>'}
+            </td>
+            <td>${r.used_at || '-'}</td>
+            <td>
+                ${!r.is_used ? `<button class="btn btn-sm btn-primary" onclick="markAsUsed(${r.id})">標記為已使用</button>` : '-'}
+            </td>
+        </tr>
+    `).join('');
+    
+    $('#redemptionsTableBody').html(html);
+}
+
+// 標記為已使用
+async function markAsUsed(id) {
+    if (!confirm('確定要標記此兌換券為已使用嗎？')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/admin/vouchers/redemptions/${id}/use`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('標記成功');
+            loadRedemptions();
+        } else {
+            alert('標記失敗: ' + result.message);
+        }
+    } catch (error) {
+        console.error('標記失敗:', error);
+        alert('標記失敗: ' + error.message);
+    }
+}
+</script>
+

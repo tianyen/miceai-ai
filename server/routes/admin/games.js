@@ -1,0 +1,255 @@
+/**
+ * 遊戲管理路由
+ */
+const express = require('express');
+const router = express.Router();
+const { body, validationResult } = require('express-validator');
+const database = require('../../config/database');
+const responses = require('../../utils/responses');
+
+// 遊戲管理頁面
+router.get('/', (req, res) => {
+    res.render('admin/games', {
+        layout: 'admin',
+        pageTitle: '遊戲管理',
+        currentPage: 'games',
+        user: req.user,
+        breadcrumbs: [
+            { name: '儀表板', url: '/admin/dashboard' },
+            { name: '遊戲室', url: '#' },
+            { name: '遊戲管理' }
+        ]
+    });
+});
+
+// 獲取遊戲列表 API
+router.get('/api/list', async (req, res) => {
+    try {
+        const { page = 1, limit = 20, search = '', is_active = '' } = req.query;
+        const offset = (page - 1) * limit;
+
+        let query = `
+            SELECT g.*, u.full_name as creator_name
+            FROM games g
+            LEFT JOIN users u ON g.created_by = u.id
+            WHERE 1=1
+        `;
+        let countQuery = 'SELECT COUNT(*) as total FROM games WHERE 1=1';
+        let params = [];
+        let countParams = [];
+
+        // 搜尋條件
+        if (search && search.trim()) {
+            const searchTerm = `%${search.trim()}%`;
+            query += ` AND (g.game_name_zh LIKE ? OR g.game_name_en LIKE ? OR g.description LIKE ?)`;
+            countQuery += ` AND (game_name_zh LIKE ? OR game_name_en LIKE ? OR description LIKE ?)`;
+            params.push(searchTerm, searchTerm, searchTerm);
+            countParams.push(searchTerm, searchTerm, searchTerm);
+        }
+
+        // 狀態篩選
+        if (is_active !== '') {
+            query += ` AND g.is_active = ?`;
+            countQuery += ` AND is_active = ?`;
+            params.push(is_active);
+            countParams.push(is_active);
+        }
+
+        query += ` ORDER BY g.created_at DESC LIMIT ? OFFSET ?`;
+        params.push(parseInt(limit), parseInt(offset));
+
+        const games = await database.query(query, params);
+        const totalResult = await database.get(countQuery, countParams);
+        const total = totalResult.total;
+
+        return responses.paginated(res, games, {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total,
+            totalPages: Math.ceil(total / limit)
+        });
+    } catch (error) {
+        console.error('獲取遊戲列表失敗:', error);
+        return responses.error(res, '獲取遊戲列表失敗', 500);
+    }
+});
+
+// 獲取單一遊戲 API
+router.get('/api/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const game = await database.get('SELECT * FROM games WHERE id = ?', [id]);
+
+        if (!game) {
+            return responses.notFound(res, '遊戲');
+        }
+
+        return responses.success(res, game);
+    } catch (error) {
+        console.error('獲取遊戲失敗:', error);
+        return responses.error(res, '獲取遊戲失敗', 500);
+    }
+});
+
+// 新增遊戲 API
+router.post('/api', [
+    body('game_name_zh').trim().notEmpty().withMessage('遊戲中文名稱為必填'),
+    body('game_name_en').trim().notEmpty().withMessage('遊戲英文名稱為必填'),
+    body('game_url').trim().isURL().withMessage('遊戲 URL 格式不正確'),
+    body('game_version').optional().trim(),
+    body('description').optional().trim()
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return responses.validationError(res, errors.array());
+        }
+
+        const { game_name_zh, game_name_en, game_url, game_version = '1.0.0', description = '' } = req.body;
+        const created_by = req.user.id;
+
+        const result = await database.run(`
+            INSERT INTO games (game_name_zh, game_name_en, game_url, game_version, description, is_active, created_by)
+            VALUES (?, ?, ?, ?, ?, 1, ?)
+        `, [game_name_zh, game_name_en, game_url, game_version, description, created_by]);
+
+        const newGame = await database.get('SELECT * FROM games WHERE id = ?', [result.lastID]);
+
+        return responses.success(res, newGame, '遊戲新增成功');
+    } catch (error) {
+        console.error('新增遊戲失敗:', error);
+        return responses.error(res, '新增遊戲失敗', 500);
+    }
+});
+
+// 更新遊戲 API
+router.put('/api/:id', [
+    body('game_name_zh').optional().trim().notEmpty().withMessage('遊戲中文名稱不能為空'),
+    body('game_name_en').optional().trim().notEmpty().withMessage('遊戲英文名稱不能為空'),
+    body('game_url').optional().trim().isURL().withMessage('遊戲 URL 格式不正確'),
+    body('game_version').optional().trim(),
+    body('description').optional().trim(),
+    body('is_active').optional().isBoolean().withMessage('狀態必須為布林值')
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return responses.validationError(res, errors.array());
+        }
+
+        const { id } = req.params;
+        const game = await database.get('SELECT * FROM games WHERE id = ?', [id]);
+
+        if (!game) {
+            return responses.notFound(res, '遊戲');
+        }
+
+        const updates = [];
+        const params = [];
+
+        if (req.body.game_name_zh !== undefined) {
+            updates.push('game_name_zh = ?');
+            params.push(req.body.game_name_zh);
+        }
+        if (req.body.game_name_en !== undefined) {
+            updates.push('game_name_en = ?');
+            params.push(req.body.game_name_en);
+        }
+        if (req.body.game_url !== undefined) {
+            updates.push('game_url = ?');
+            params.push(req.body.game_url);
+        }
+        if (req.body.game_version !== undefined) {
+            updates.push('game_version = ?');
+            params.push(req.body.game_version);
+        }
+        if (req.body.description !== undefined) {
+            updates.push('description = ?');
+            params.push(req.body.description);
+        }
+        if (req.body.is_active !== undefined) {
+            updates.push('is_active = ?');
+            params.push(req.body.is_active ? 1 : 0);
+        }
+
+        if (updates.length === 0) {
+            return responses.error(res, '沒有要更新的欄位', 400);
+        }
+
+        updates.push('updated_at = CURRENT_TIMESTAMP');
+        params.push(id);
+
+        await database.run(
+            `UPDATE games SET ${updates.join(', ')} WHERE id = ?`,
+            params
+        );
+
+        const updatedGame = await database.get('SELECT * FROM games WHERE id = ?', [id]);
+
+        return responses.success(res, updatedGame, '遊戲更新成功');
+    } catch (error) {
+        console.error('更新遊戲失敗:', error);
+        return responses.error(res, '更新遊戲失敗', 500);
+    }
+});
+
+// 刪除遊戲 API（軟刪除）
+router.delete('/api/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const game = await database.get('SELECT * FROM games WHERE id = ?', [id]);
+
+        if (!game) {
+            return responses.notFound(res, '遊戲');
+        }
+
+        // 檢查是否有專案正在使用此遊戲
+        const projectGames = await database.query(
+            'SELECT COUNT(*) as count FROM project_games WHERE game_id = ? AND is_active = 1',
+            [id]
+        );
+
+        if (projectGames[0].count > 0) {
+            return responses.error(res, '此遊戲正在被專案使用，無法刪除', 400);
+        }
+
+        // 軟刪除
+        await database.run(
+            'UPDATE games SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [id]
+        );
+
+        return responses.success(res, null, '遊戲刪除成功');
+    } catch (error) {
+        console.error('刪除遊戲失敗:', error);
+        return responses.error(res, '刪除遊戲失敗', 500);
+    }
+});
+
+// 切換遊戲狀態 API
+router.patch('/api/:id/toggle', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const game = await database.get('SELECT * FROM games WHERE id = ?', [id]);
+
+        if (!game) {
+            return responses.notFound(res, '遊戲');
+        }
+
+        const newStatus = game.is_active ? 0 : 1;
+        await database.run(
+            'UPDATE games SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [newStatus, id]
+        );
+
+        const updatedGame = await database.get('SELECT * FROM games WHERE id = ?', [id]);
+
+        return responses.success(res, updatedGame, `遊戲已${newStatus ? '啟用' : '停用'}`);
+    } catch (error) {
+        console.error('切換遊戲狀態失敗:', error);
+        return responses.error(res, '切換遊戲狀態失敗', 500);
+    }
+});
+
+module.exports = router;
+
