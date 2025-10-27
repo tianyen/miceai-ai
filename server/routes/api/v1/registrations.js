@@ -543,8 +543,53 @@ router.get('/registrations/:traceId', [
 });
 
 /**
- * QR Code 圖片生成
- * GET /api/v1/qr-codes/:traceId
+ * @swagger
+ * /api/v1/qr-codes/{traceId}:
+ *   get:
+ *     tags: [Registrations (活動報名)]
+ *     summary: 獲取 QR Code 圖片
+ *     description: |
+ *       根據 trace_id 生成並返回 QR Code 圖片（PNG 格式）
+ *
+ *       **用途**：
+ *       - 前端直接顯示 QR Code 圖片
+ *       - 下載 QR Code 圖片
+ *
+ *       **注意**：如果需要 Base64 格式，請使用 `/api/v1/qr-codes/{traceId}/data` 端點
+ *     parameters:
+ *       - in: path
+ *         name: traceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 報名追蹤 ID
+ *         example: MICE-abc123-xyz789
+ *     responses:
+ *       200:
+ *         description: QR Code 圖片（PNG 格式）
+ *         content:
+ *           image/png:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: 參數驗證失敗
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: 找不到報名記錄
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: 伺服器錯誤
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get('/qr-codes/:traceId', [
     param('traceId').isLength({ min: 1, max: 50 }).withMessage('追蹤 ID 格式不正確')

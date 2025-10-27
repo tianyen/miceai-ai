@@ -77,6 +77,33 @@ const forbidden = (res, message = 'Forbidden') => {
 };
 
 /**
+ * 錯誤請求響應 (400)
+ */
+const badRequest = (res, message = 'Bad Request', details = null) => {
+    logger.log4xx(res.req, res, 400, message);
+    return res.status(400).json({
+        success: false,
+        message,
+        ...(details && { details })
+    });
+};
+
+/**
+ * 伺服器錯誤響應 (500)
+ */
+const serverError = (res, message = 'Internal Server Error', errorDetails = null) => {
+    const error = errorDetails instanceof Error ? errorDetails : new Error(message);
+    logger.log5xx(res.req, res, 500, error, message);
+    return res.status(500).json({
+        success: false,
+        message,
+        ...(process.env.NODE_ENV === 'development' && errorDetails && {
+            error: errorDetails.message || errorDetails
+        })
+    });
+};
+
+/**
  * 分頁響應
  */
 const paginated = (res, data, pagination, message = 'Success') => {
@@ -103,6 +130,8 @@ module.exports = {
     notFound,
     unauthorized,
     forbidden,
+    badRequest,
+    serverError,
     paginated,
     html
 };

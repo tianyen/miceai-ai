@@ -367,8 +367,8 @@ router.post('/scan', async (req, res) => {
 
             // 從 trace_id 查找兌換記錄
             const redemption = await database.get(
-                `SELECT vr.*, v.name as voucher_name, v.value as voucher_value,
-                        v.vendor as voucher_vendor, v.category as voucher_category
+                `SELECT vr.*, v.voucher_name, v.voucher_value,
+                        v.vendor_name as voucher_vendor, v.category as voucher_category
                  FROM voucher_redemptions vr
                  JOIN vouchers v ON vr.voucher_id = v.id
                  WHERE vr.trace_id = ? AND vr.is_used = 0
@@ -442,8 +442,8 @@ router.get('/redemptions', async (req, res) => {
         const offset = (page - 1) * limit;
 
         let query = `
-            SELECT vr.*, v.name as voucher_name, v.value as voucher_value,
-                   v.vendor as voucher_vendor, v.category as voucher_category
+            SELECT vr.*, v.voucher_name, v.voucher_value,
+                   v.vendor_name as voucher_vendor, v.category as voucher_category
             FROM voucher_redemptions vr
             JOIN vouchers v ON vr.voucher_id = v.id
             WHERE 1=1

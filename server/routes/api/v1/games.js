@@ -11,6 +11,7 @@ const responses = require('../../../utils/responses');
 const { validateTraceId } = require('../../../utils/traceId');
 const { generateRedemptionCode } = require('../../../utils/redemption-code-generator');
 const { checkVoucherRedemption } = require('../../../utils/voucher-checker');
+const QRCode = require('qrcode');
 
 /**
  * 獲取客戶端 IP
@@ -118,7 +119,7 @@ router.post('/:gameId/sessions/start', async (req, res) => {
 
         // 驗證專案和遊戲綁定關係
         const binding = await database.get(
-            `SELECT pg.*, g.name_zh, g.name_en, g.game_url
+            `SELECT pg.*, g.game_name_zh, g.game_name_en, g.game_url
              FROM project_games pg
              JOIN games g ON pg.game_id = g.id
              WHERE pg.project_id = ? AND pg.game_id = ? AND pg.is_active = 1`,
@@ -147,8 +148,8 @@ router.post('/:gameId/sessions/start', async (req, res) => {
             session_id: result.lastID,
             game_info: {
                 id: binding.game_id,
-                name_zh: binding.name_zh,
-                name_en: binding.name_en,
+                name_zh: binding.game_name_zh,
+                name_en: binding.game_name_en,
                 game_url: binding.game_url
             }
         }, '會話已開始');
@@ -387,6 +388,10 @@ router.post('/:gameId/logs', async (req, res) => {
  *                         redemption_code:
  *                           type: string
  *                           example: "GAME-2025-A3B7C9"
+ *                         qr_code_base64:
+ *                           type: string
+ *                           description: QR Code Base64 編碼，包含兌換碼和 trace_id，可直接用於前端顯示
+ *                           example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
  *       400:
  *         description: 請求參數錯誤
  *       404:
@@ -508,14 +513,29 @@ router.post('/:gameId/sessions/end', async (req, res) => {
 
                             await database.run('COMMIT');
 
+                            // 生成 QR Code Base64（包含兌換碼）
+                            const qrCodeData = JSON.stringify({
+                                redemption_code: redemption_code,
+                                trace_id: trace_id,
+                                voucher_id: voucher.id,
+                                voucher_name: voucher.voucher_name
+                            });
+                            const qrCodeBase64 = await QRCode.toDataURL(qrCodeData, {
+                                errorCorrectionLevel: 'M',
+                                type: 'image/png',
+                                width: 300,
+                                margin: 2
+                            });
+
                             voucherEarned = true;
                             voucherData = {
                                 id: voucher.id,
-                                name: voucher.name,
-                                value: voucher.value,
-                                vendor: voucher.vendor,
+                                name: voucher.voucher_name,
+                                value: voucher.voucher_value,
+                                vendor: voucher.vendor_name,
                                 category: voucher.category,
-                                redemption_code: redemption_code
+                                redemption_code: redemption_code,
+                                qr_code_base64: qrCodeBase64
                             };
 
                             console.log(`🎁 兌換券已發放: ${redemption_code}, trace_id=${trace_id}`);
@@ -669,8 +689,8 @@ router.get('/:gameId/info', async (req, res) => {
 
         const responseData = {
             id: game.id,
-            name_zh: game.name_zh,
-            name_en: game.name_en,
+            name_zh: game.game_name_zh,
+            name_en: game.game_name_en,
             game_url: game.game_url,
             game_version: game.game_version,
             is_active: game.is_active
@@ -689,9 +709,9 @@ router.get('/:gameId/info', async (req, res) => {
             if (voucher) {
                 responseData.voucher = {
                     id: voucher.id,
-                    name: voucher.name,
-                    value: voucher.value,
-                    current_stock: voucher.current_stock,
+                    name: voucher.voucher_name,
+                    value: voucher.voucher_value,
+                    current_stock: voucher.remaining_quantity,
                     conditions: {
                         min_score: voucher.min_score,
                         min_play_time: voucher.min_play_time

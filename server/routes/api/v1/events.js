@@ -561,8 +561,133 @@ router.get('/code/:code', [
 });
 
 /**
- * 根據 ID 獲取特定活動
- * GET /api/v1/events/:id
+ * @swagger
+ * /api/v1/events/{id}:
+ *   get:
+ *     tags: [Events (活動管理)]
+ *     summary: 根據 ID 獲取活動詳情
+ *     description: |
+ *       根據活動 ID 獲取完整的活動資訊，包含活動模板資料
+ *
+ *       **用途**：
+ *       - 前端顯示活動詳情頁面
+ *       - 查詢特定活動的完整資訊
+ *
+ *       **注意**：如果使用活動代碼查詢，請使用 `/api/v1/events/code/{code}` 端點
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 活動 ID
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: 成功獲取活動資訊
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     name:
+ *                       type: string
+ *                       example: 2024年度科技論壇
+ *                     code:
+ *                       type: string
+ *                       example: TECH2024
+ *                     description:
+ *                       type: string
+ *                       example: 探討最新科技趨勢
+ *                     start_date:
+ *                       type: string
+ *                       format: date-time
+ *                       example: 2025-09-01T00:00:00.000Z
+ *                     end_date:
+ *                       type: string
+ *                       format: date-time
+ *                       example: 2025-09-03T00:00:00.000Z
+ *                     location:
+ *                       type: string
+ *                       example: 台北國際會議中心
+ *                     max_participants:
+ *                       type: integer
+ *                       example: 500
+ *                     current_participants:
+ *                       type: integer
+ *                       example: 150
+ *                     is_active:
+ *                       type: integer
+ *                       example: 1
+ *                     template:
+ *                       type: object
+ *                       nullable: true
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                           example: 3
+ *                         name:
+ *                           type: string
+ *                           example: 科技論壇活動模板
+ *                         schedule:
+ *                           type: object
+ *                           example: {"day1": [{"time": "09:00-10:00", "title": "開幕式"}]}
+ *                         introduction:
+ *                           type: string
+ *                           example: 活動簡介內容
+ *                         process:
+ *                           type: string
+ *                           example: 活動流程說明
+ *                         additional_info:
+ *                           type: string
+ *                           example: 其他資訊
+ *                         special_guests:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                                 example: 張教授
+ *                               title:
+ *                                 type: string
+ *                                 example: AI 研究專家
+ *                               bio:
+ *                                 type: string
+ *                                 example: 專長於機器學習
+ *                               photo_url:
+ *                                 type: string
+ *                                 example: https://example.com/photo.jpg
+ *       400:
+ *         description: 參數驗證失敗
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: 找不到活動
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: 伺服器錯誤
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get('/:id', [
     param('id').isInt({ min: 1 }).withMessage('活動 ID 必須是正整數')
