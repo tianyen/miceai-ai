@@ -661,6 +661,7 @@
     width: 100%;
     max-height: 90vh;
     overflow-y: auto;
+    pointer-events: auto;
 }
 
 .modal-header {
@@ -701,6 +702,7 @@
 
 .modal-body {
     padding: 1.5rem;
+    pointer-events: auto;
 }
 
 .modal-footer {
@@ -709,6 +711,11 @@
     gap: 0.5rem;
     padding: 1.5rem;
     border-top: 1px solid var(--border-color);
+    pointer-events: auto;
+}
+
+.modal-body * {
+    pointer-events: auto;
 }
 
 .modal-body .form-group {

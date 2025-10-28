@@ -205,7 +205,7 @@ async function migrate() {
                 CREATE TABLE IF NOT EXISTS voucher_redemptions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     voucher_id INTEGER NOT NULL,
-                    session_id INTEGER NOT NULL,
+                    session_id INTEGER,
                     trace_id VARCHAR(50) NOT NULL,
                     redeemed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     redemption_code VARCHAR(50) UNIQUE,

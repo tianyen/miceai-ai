@@ -559,7 +559,7 @@ router.get('/:id/edit', async (req, res) => {
 
         if (!project) {
             return res.status(404).send(`
-                <div class="modal show" style="display: flex;">
+                <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
@@ -581,7 +581,7 @@ router.get('/:id/edit', async (req, res) => {
         }
 
         const html = `
-            <div class="modal show" style="display: flex;">
+            <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
@@ -710,7 +710,7 @@ router.get('/:id/edit', async (req, res) => {
     } catch (error) {
         console.error('获取编辑表单失败:', error);
         res.status(500).send(`
-            <div class="modal show" style="display: flex;">
+            <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header">

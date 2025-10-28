@@ -51,15 +51,15 @@ function getClientIP(req) {
  *               trace_id:
  *                 type: string
  *                 description: 玩家追蹤 ID（格式 MICE-xxx-xxx 或 TRACExxx）
- *                 example: "MICE-lm3k5g-abc123xyz"
+ *                 example: "MICE-TEST-001"
  *               user_id:
  *                 type: string
  *                 description: 用戶 ID（選填）
  *                 example: "player_001"
  *               project_id:
  *                 type: integer
- *                 description: 專案 ID
- *                 example: 123
+ *                 description: 專案 ID（資料庫中的專案，例如：2 = AI產業交流會）
+ *                 example: 2
  *     responses:
  *       200:
  *         description: 會話已開始
@@ -88,13 +88,13 @@ function getClientIP(req) {
  *                           example: 1
  *                         name_zh:
  *                           type: string
- *                           example: "記憶翻牌遊戲"
+ *                           example: "太空射擊"
  *                         name_en:
  *                           type: string
- *                           example: "Memory Card Game"
+ *                           example: "Space Shooter"
  *                         game_url:
  *                           type: string
- *                           example: "https://example.com/games/memory-card"
+ *                           example: "https://example.com/games/space-shooter"
  *       400:
  *         description: 請求參數錯誤
  *       404:
@@ -188,15 +188,15 @@ router.post('/:gameId/sessions/start', async (req, res) => {
  *               trace_id:
  *                 type: string
  *                 description: 玩家追蹤 ID
- *                 example: "MICE-lm3k5g-abc123xyz"
+ *                 example: "MICE-TEST-001"
  *               user_id:
  *                 type: string
  *                 description: 用戶 ID（選填）
  *                 example: "player_001"
  *               project_id:
  *                 type: integer
- *                 description: 專案 ID
- *                 example: 123
+ *                 description: 專案 ID（資料庫中的專案，例如：2 = AI產業交流會）
+ *                 example: 2
  *               log_level:
  *                 type: string
  *                 enum: [debug, info, warn, error]
@@ -321,15 +321,15 @@ router.post('/:gameId/logs', async (req, res) => {
  *               trace_id:
  *                 type: string
  *                 description: 玩家追蹤 ID
- *                 example: "MICE-lm3k5g-abc123xyz"
+ *                 example: "MICE-TEST-001"
  *               user_id:
  *                 type: string
  *                 description: 用戶 ID（選填）
  *                 example: "player_001"
  *               project_id:
  *                 type: integer
- *                 description: 專案 ID
- *                 example: 123
+ *                 description: 專案 ID（資料庫中的專案，例如：2 = AI產業交流會）
+ *                 example: 2
  *               final_score:
  *                 type: integer
  *                 description: 最終分數
@@ -372,19 +372,19 @@ router.post('/:gameId/logs', async (req, res) => {
  *                       properties:
  *                         id:
  *                           type: integer
- *                           example: 2
+ *                           example: 1
  *                         name:
  *                           type: string
- *                           example: "誠品書店禮券"
+ *                           example: "星巴克咖啡券"
  *                         value:
  *                           type: integer
- *                           example: 200
+ *                           example: 100
  *                         vendor:
  *                           type: string
- *                           example: "誠品書店"
+ *                           example: "星巴克"
  *                         category:
  *                           type: string
- *                           example: "購物"
+ *                           example: "餐飲"
  *                         redemption_code:
  *                           type: string
  *                           example: "GAME-2025-A3B7C9"
@@ -613,13 +613,13 @@ router.post('/:gameId/sessions/end', async (req, res) => {
  *                       example: 1
  *                     name_zh:
  *                       type: string
- *                       example: "記憶翻牌遊戲"
+ *                       example: "太空射擊"
  *                     name_en:
  *                       type: string
- *                       example: "Memory Card Game"
+ *                       example: "Space Shooter"
  *                     game_url:
  *                       type: string
- *                       example: "https://example.com/games/memory-card"
+ *                       example: "https://example.com/games/space-shooter"
  *                     game_version:
  *                       type: string
  *                       example: "1.0.0"
@@ -631,25 +631,25 @@ router.post('/:gameId/sessions/end', async (req, res) => {
  *                       properties:
  *                         id:
  *                           type: integer
- *                           example: 2
+ *                           example: 1
  *                         name:
  *                           type: string
- *                           example: "誠品書店禮券"
+ *                           example: "星巴克咖啡券"
  *                         value:
  *                           type: integer
- *                           example: 200
+ *                           example: 100
  *                         current_stock:
  *                           type: integer
- *                           example: 50
+ *                           example: 100
  *                         conditions:
  *                           type: object
  *                           properties:
  *                             min_score:
  *                               type: integer
- *                               example: 1000
+ *                               example: 500
  *                             min_play_time:
  *                               type: integer
- *                               example: 120
+ *                               example: 300
  *       400:
  *         description: 缺少 project_id 參數
  *       404:

@@ -350,6 +350,13 @@ router.get('/scanner', (req, res) => {
     });
 });
 
+// Webcam 掃描器獨立視窗（無 layout）
+router.get('/camera-scanner', (req, res) => {
+    res.render('admin/voucher-camera-scanner', {
+        layout: false  // 不使用 admin layout，獨立頁面
+    });
+});
+
 // 掃描 QR Code 兌換
 router.post('/scan', async (req, res) => {
     try {
@@ -391,8 +398,8 @@ router.post('/scan', async (req, res) => {
 
         // 查詢兌換記錄
         const redemption = await database.get(
-            `SELECT vr.*, v.name as voucher_name, v.value as voucher_value,
-                    v.vendor as voucher_vendor, v.category as voucher_category
+            `SELECT vr.*, v.voucher_name, v.voucher_value,
+                    v.vendor_name as voucher_vendor, v.category as voucher_category
              FROM voucher_redemptions vr
              JOIN vouchers v ON vr.voucher_id = v.id
              WHERE vr.redemption_code = ?`,

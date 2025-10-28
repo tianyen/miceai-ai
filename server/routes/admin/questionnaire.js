@@ -475,7 +475,7 @@ router.get('/new', async (req, res) => {
         // 检查权限
         if (userRole !== 'super_admin' && userRole !== 'project_manager') {
             return res.status(403).send(`
-                <div class="modal show" style="display: flex;">
+                <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
@@ -514,7 +514,7 @@ router.get('/new', async (req, res) => {
         });
 
         const modalHtml = `
-            <div class="modal show" style="display: flex;">
+            <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
@@ -639,7 +639,7 @@ router.get('/new', async (req, res) => {
     } catch (error) {
         console.error('載入新建問卷表單失敗:', error);
         res.status(500).send(`
-            <div class="modal show" style="display: flex;">
+            <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header">
@@ -668,7 +668,7 @@ router.get('/:id/edit', async (req, res) => {
         // 检查权限
         if (userRole !== 'super_admin' && userRole !== 'project_manager') {
             return res.status(403).send(`
-                <div class="modal show" style="display: flex;">
+                <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
@@ -696,7 +696,7 @@ router.get('/:id/edit', async (req, res) => {
 
         if (!questionnaire) {
             return res.status(404).send(`
-                <div class="modal show" style="display: flex;">
+                <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
@@ -719,7 +719,7 @@ router.get('/:id/edit', async (req, res) => {
             const hasPermission = await questionnaireController.checkProjectPermission(userId, questionnaire.project_id);
             if (!hasPermission) {
                 return res.status(403).send(`
-                    <div class="modal show" style="display: flex;">
+                    <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                         <div class="modal-dialog">
                             <div class="modal-content">
                                 <div class="modal-header">
@@ -760,7 +760,7 @@ router.get('/:id/edit', async (req, res) => {
         });
 
         const modalHtml = `
-            <div class="modal show" style="display: flex;">
+            <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
@@ -885,7 +885,7 @@ router.get('/:id/edit', async (req, res) => {
     } catch (error) {
         console.error('載入編輯問卷表單失敗:', error);
         res.status(500).send(`
-            <div class="modal show" style="display: flex;">
+            <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header">

@@ -17,8 +17,11 @@
         <button class="btn btn-success" onclick="exportCheckinRecords()">
             <i class="fas fa-download"></i> 匯出報到記錄
         </button>
+        <button class="btn btn-success" onclick="openCameraScanner()">
+            <i class="fas fa-camera"></i> Webcam 掃描器
+        </button>
         <a href="/admin/qr-scanner" class="btn btn-secondary">
-            <i class="fas fa-qrcode"></i> QR Code 掃描
+            <i class="fas fa-qrcode"></i> 完整掃描頁面
         </a>
         <button class="btn btn-secondary" onclick="refreshParticipants()">
             <i class="fas fa-sync-alt"></i> 重新整理
@@ -439,8 +442,13 @@
                 if (container) {
                     container.innerHTML = '';
 
+                    // 生成 JSON 格式的 QR Code 數據
+                    const qrData = JSON.stringify({
+                        traceId: qrToken
+                    });
+
                     new QRCode(container, {
-                        text: qrToken,
+                        text: qrData,
                         width: 200,
                         height: 200,
                         colorDark: '#000000',
@@ -484,16 +492,16 @@
 
         // 匯出報到記錄
         window.exportCheckinRecords = function () {
-            $.ajax({
-                url: '/api/admin/checkin/export',
-                method: 'GET',
-                success: function (data) {
-                    $('#export-result').html(data);
-                },
-                error: function () {
-                    showNotification('匯出失敗，請稍後再試', 'error');
-                }
-            });
+            const projectId = $('#project-select').val();
+
+            if (!projectId) {
+                showNotification('請先選擇專案', 'error');
+                return;
+            }
+
+            // 直接使用 window.location 下載 CSV
+            window.location.href = `/api/admin/checkin/export?project_id=${projectId}`;
+            showNotification('正在匯出報到記錄...', 'info');
         };
 
         // 重新整理參與者列表
@@ -691,6 +699,38 @@
                     errorMessage = xhr.responseJSON.message;
                 }
                 showNotification(errorMessage, 'error');
+            }
+        });
+    };
+
+    // 開啟 Webcam 掃描器（獨立視窗）
+    window.openCameraScanner = function() {
+        const width = 800;
+        const height = 700;
+        const left = (screen.width - width) / 2;
+        const top = (screen.height - height) / 2;
+
+        const features = `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
+        const scannerWindow = window.open('/admin/checkin-management/camera-scanner', 'CheckinCameraScanner', features);
+
+        if (!scannerWindow) {
+            showNotification('無法開啟掃描視窗，請檢查瀏覽器彈出視窗設定', 'error');
+            return;
+        }
+
+        // 監聽來自掃描視窗的訊息
+        window.addEventListener('message', function(event) {
+            if (event.origin !== window.location.origin) {
+                return;
+            }
+
+            if (event.data.type === 'CHECKIN_SUCCESS') {
+                showNotification('報到成功！', 'success');
+                // 重新載入參與者列表
+                const projectId = $('#project-select').val();
+                if (projectId) {
+                    loadParticipants(projectId, 1);
+                }
             }
         });
     };

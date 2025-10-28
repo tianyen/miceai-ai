@@ -167,7 +167,7 @@ router.get('/:id', async (req, res) => {
 
         if (!submission) {
             return res.status(404).send(`
-                <div class="modal show" style="display: flex;">
+                <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
@@ -226,7 +226,7 @@ router.get('/:id', async (req, res) => {
         }
 
         const html = `
-            <div class="modal show" style="display: flex;">
+            <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
@@ -310,7 +310,7 @@ router.get('/:id', async (req, res) => {
     } catch (error) {
         console.error('獲取提交詳情失敗:', error);
         res.status(500).send(`
-            <div class="modal show" style="display: flex;">
+            <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header">
@@ -346,7 +346,7 @@ router.get('/:id/edit', async (req, res) => {
 
         if (!submission) {
             return res.status(404).send(`
-                <div class="modal show" style="display: flex;">
+                <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
@@ -371,7 +371,7 @@ router.get('/:id/edit', async (req, res) => {
         const projects = await database.query('SELECT id, project_name FROM invitation_projects ORDER BY project_name');
 
         const html = `
-            <div class="modal show" style="display: flex;">
+            <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
@@ -509,7 +509,7 @@ router.get('/:id/edit', async (req, res) => {
     } catch (error) {
         console.error('获取编辑表单失败:', error);
         res.status(500).send(`
-            <div class="modal show" style="display: flex;">
+            <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header">

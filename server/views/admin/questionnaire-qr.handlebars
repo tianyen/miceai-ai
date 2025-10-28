@@ -124,14 +124,60 @@
     }
 
     .qr-url {
-        font-family: monospace;
-        font-size: 0.8rem;
-        color: var(--gray-600);
-        word-break: break-all;
         margin-bottom: 1rem;
-        padding: 0.5rem;
+    }
+
+    .qr-url strong {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: var(--gray-700);
+    }
+
+    .qr-url .form-control {
+        font-family: monospace;
+        font-size: 0.85rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .qr-code-display {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 1.5rem 0;
+        padding: 1rem;
         background: var(--gray-50);
         border-radius: var(--border-radius);
+    }
+
+    .qr-code-section {
+        background: white;
+        padding: 2rem;
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--shadow-md);
+        margin-bottom: 2rem;
+    }
+
+    .qr-code-section h4 {
+        margin-bottom: 1.5rem;
+        color: var(--gray-800);
+    }
+
+    .questionnaire-info {
+        background: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--shadow-md);
+        margin-bottom: 2rem;
+    }
+
+    .questionnaire-info h3 {
+        margin: 0 0 0.5rem 0;
+        color: var(--primary-color);
+    }
+
+    .questionnaire-info p {
+        margin: 0.25rem 0;
+        color: var(--gray-600);
     }
 
     .qr-actions {
@@ -224,6 +270,9 @@
         }
     }
 </style>
+
+<!-- 載入 QRCode.js 庫 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <script>
     // 問卷 QR Code 專用 JavaScript

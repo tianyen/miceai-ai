@@ -7,6 +7,9 @@
                 user.username}}{{user.username}}{{else}}載入中...{{/if}}{{/if}}</span>
             (<span data-user="role">{{#if user.role}}{{user.role}}{{else}}載入中...{{/if}}</span>)
         </p>
+        <button class="sidebar-toggle" onclick="toggleSidebar()" title="收合側邊欄">
+            <i class="fas fa-chevron-left"></i>
+        </button>
     </div>
 
     <div class="sidebar-nav">

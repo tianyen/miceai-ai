@@ -20,6 +20,13 @@ router.get('/', (req, res) => {
     });
 });
 
+// Webcam 掃描器獨立視窗（無 layout）
+router.get('/camera-scanner', (req, res) => {
+    res.render('admin/checkin-camera-scanner', {
+        layout: false  // 不使用 admin layout，獨立頁面
+    });
+});
+
 // 搜尋參與者
 router.get('/search', async (req, res) => {
     try {

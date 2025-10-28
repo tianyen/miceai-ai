@@ -282,7 +282,7 @@ body.modal-open {
 
 /* 側邊欄樣式 */
 .sidebar {
-    width: 280px;
+    width: 220px;
     background: linear-gradient(135deg, var(--secondary-color) 0%, #34495e 100%);
     color: white;
     position: fixed;
@@ -297,6 +297,7 @@ body.modal-open {
     padding: 2rem 1.5rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     text-align: center;
+    position: relative;
 }
 
 .sidebar-header .logo {
@@ -309,6 +310,32 @@ body.modal-open {
     font-size: 1.2rem;
     font-weight: 600;
     color: white;
+}
+
+.sidebar-toggle {
+    position: absolute;
+    top: 1rem;
+    right: 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.sidebar-toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.sidebar-toggle i {
+    transition: transform 0.3s ease;
 }
 
 .sidebar-nav {
@@ -387,7 +414,7 @@ body.modal-open {
 /* 主內容區 */
 .main-content {
     flex: 1;
-    margin-left: 280px;
+    margin-left: 220px;
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -825,7 +852,11 @@ body.modal-open {
 }
 
 .sidebar-collapsed .sidebar-header h3,
-.sidebar-collapsed .nav-section,
+.sidebar-collapsed .sidebar-header p,
+.sidebar-collapsed .nav-section {
+    display: none;
+}
+
 .sidebar-collapsed .nav-link span {
     display: none;
 }
@@ -837,4 +868,12 @@ body.modal-open {
 
 .sidebar-collapsed .nav-link i {
     margin-right: 0;
+}
+
+.sidebar-collapsed .sidebar-toggle i {
+    transform: rotate(180deg);
+}
+
+.sidebar-collapsed .sidebar-header {
+    padding: 1rem 0.5rem;
 }

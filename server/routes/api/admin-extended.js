@@ -717,27 +717,51 @@ router.get('/questionnaire/qr-codes', authenticateSession, async (req, res) => {
             if (!questionnaire) {
                 html += '<div class="alert alert-warning">問卷不存在</div>';
             } else {
+                const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                const questionnaireUrl = `${baseUrl}/questionnaire/${questionnaire.id}`;
+
                 html += `
                     <div class="questionnaire-info">
                         <h3>${questionnaire.title}</h3>
-                        <p>問卷 ID: ${questionnaire.id}</p>
+                        <p>${questionnaire.description || ''}</p>
+                        <p class="text-muted">問卷 ID: ${questionnaire.id}</p>
                     </div>
 
                     <div class="qr-code-section">
                         <h4>問卷 QR Code</h4>
-                        <div class="qr-code-placeholder">
-                            <p>QR Code 將在此顯示</p>
-                            <p>掃描此 QR Code 可直接訪問問卷</p>
+                        <div class="qr-code-display" id="qr-code-${questionnaire.id}">
+                            <!-- QR Code 將在此生成 -->
+                        </div>
+                        <div class="qr-url">
+                            <strong>問卷連結:</strong>
+                            <input type="text" class="form-control" value="${questionnaireUrl}" readonly onclick="this.select()">
+                            <button class="btn btn-sm btn-secondary" onclick="copyQRUrl('${questionnaireUrl}')">
+                                <i class="fas fa-copy"></i> 複製
+                            </button>
                         </div>
                         <div class="qr-actions">
                             <button class="btn btn-primary" onclick="downloadQR(${questionnaire.id}, 'questionnaire')">
                                 <i class="fas fa-download"></i> 下載 QR Code
                             </button>
-                            <button class="btn btn-secondary" onclick="regenerateQR(${questionnaire.id}, 'questionnaire')">
-                                <i class="fas fa-sync"></i> 重新生成
-                            </button>
                         </div>
                     </div>
+
+                    <script>
+                        // 生成 QR Code
+                        (function() {
+                            const container = document.getElementById('qr-code-${questionnaire.id}');
+                            if (container && typeof QRCode !== 'undefined') {
+                                new QRCode(container, {
+                                    text: '${questionnaireUrl}',
+                                    width: 300,
+                                    height: 300,
+                                    colorDark: '#000000',
+                                    colorLight: '#ffffff',
+                                    correctLevel: QRCode.CorrectLevel.H
+                                });
+                            }
+                        })();
+                    </script>
                 `;
             }
         }
@@ -755,15 +779,34 @@ router.get('/questionnaire/:id/qr-download', authenticateSession, async (req, re
     try {
         const questionnaireId = req.params.id;
         const { type } = req.query;
+        const QRCode = require('qrcode');
 
-        // 這裡應該生成實際的 QR Code 圖片
-        // 暫時返回一個佔位符響應
-        res.setHeader('Content-Type', 'application/json');
-        responses.success(res, {
-            message: 'QR Code 下載功能開發中',
-            questionnaireId,
-            type
+        // 獲取問卷資訊
+        const questionnaire = await database.get('SELECT * FROM questionnaires WHERE id = ?', [questionnaireId]);
+
+        if (!questionnaire) {
+            return responses.error(res, '問卷不存在', 404);
+        }
+
+        // 生成問卷 URL
+        const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+        const questionnaireUrl = `${baseUrl}/questionnaire/${questionnaireId}`;
+
+        // 生成 QR Code 圖片
+        const qrImageBuffer = await QRCode.toBuffer(questionnaireUrl, {
+            type: 'png',
+            width: 400,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
         });
+
+        // 設置響應頭
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Content-Disposition', `attachment; filename="questionnaire-${questionnaireId}-qr.png"`);
+        res.send(qrImageBuffer);
     } catch (error) {
         console.error('Download QR code error:', error);
         responses.error(res, 'QR Code 下載失敗', 500);
@@ -798,12 +841,14 @@ router.post('/qr-scanner/checkin', authenticateSession, async (req, res) => {
             return responses.error(res, 'QR Code 數據不能為空', 400);
         }
 
-        // 解析 QR Code 數據
+        // 解析 QR Code 數據 - 支援 JSON 或純 trace_id
         let participantData;
         try {
+            // 嘗試解析為 JSON
             participantData = JSON.parse(qrData);
         } catch (parseError) {
-            return responses.error(res, 'QR Code 格式無效', 400);
+            // 如果不是 JSON，假設是純 trace_id
+            participantData = { traceId: qrData.trim() };
         }
 
         // 驗證必要欄位

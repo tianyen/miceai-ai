@@ -1,9 +1,19 @@
+<!-- jsQR 庫 -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
             <div class="page-header">
                 <h1>兌換券掃描</h1>
                 <p class="text-muted">掃描 QR Code 兌換券</p>
+            </div>
+
+            <!-- 操作按鈕 -->
+            <div class="mb-3">
+                <button class="btn btn-success" id="open-camera-scanner-btn">
+                    <i class="fas fa-camera"></i> 開啟 Webcam 掃描器
+                </button>
             </div>
 
             <!-- 掃描區域 -->
@@ -136,14 +146,50 @@
 // 頁面載入時獲取兌換記錄
 $(document).ready(function() {
     loadRedemptions();
-    
+
     // 監聽 Enter 鍵
     $('#qrCodeInput').on('keypress', function(e) {
         if (e.which === 13) {
             scanQRCode();
         }
     });
+
+    // 開啟 Webcam 掃描器按鈕
+    $('#open-camera-scanner-btn').on('click', function() {
+        openCameraScanner();
+    });
 });
+
+// 開啟 Webcam 掃描器（獨立視窗）
+function openCameraScanner() {
+    const width = 800;
+    const height = 700;
+    const left = (screen.width - width) / 2;
+    const top = (screen.height - height) / 2;
+
+    const features = `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
+    const scannerWindow = window.open('/admin/vouchers/camera-scanner', 'VoucherCameraScanner', features);
+
+    if (!scannerWindow) {
+        alert('無法開啟掃描視窗，請檢查瀏覽器彈出視窗設定');
+        return;
+    }
+
+    // 監聽來自掃描視窗的訊息
+    window.addEventListener('message', function(event) {
+        // 安全檢查：確保訊息來自同源
+        if (event.origin !== window.location.origin) {
+            return;
+        }
+
+        if (event.data.type === 'VOUCHER_SCAN_SUCCESS') {
+            // 將掃描結果填入輸入框
+            $('#qrCodeInput').val(event.data.qrData);
+            // 自動執行掃描
+            scanQRCode();
+        }
+    });
+}
 
 // 掃描 QR Code
 async function scanQRCode() {

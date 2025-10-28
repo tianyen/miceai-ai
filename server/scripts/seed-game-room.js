@@ -54,48 +54,20 @@ async function seed() {
 
         // 1. 新增測試遊戲
         console.log('🎮 新增測試遊戲...');
-        
+
         const game1Id = await runSQL(`
             INSERT INTO games (game_name_zh, game_name_en, game_url, game_version, description, is_active, created_by)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `, [
-            '太空射擊',
-            'Space Shooter',
-            'https://example.com/games/space-shooter',
+            '幸運飛鏢',
+            'LuckyDart',
+            'https://example.com/games/lucky-dart',
             '1.0.0',
-            '經典太空射擊遊戲，考驗玩家的反應速度和策略',
+            '幸運飛鏢遊戲，投擲飛鏢贏取獎品',
             1,
             adminId
         ]);
-        console.log(`✅ 新增遊戲: 太空射擊 (ID: ${game1Id})`);
-
-        const game2Id = await runSQL(`
-            INSERT INTO games (game_name_zh, game_name_en, game_url, game_version, description, is_active, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [
-            '記憶翻牌',
-            'Memory Match',
-            'https://example.com/games/memory-match',
-            '1.0.0',
-            '記憶力挑戰遊戲，翻開相同的卡片配對',
-            1,
-            adminId
-        ]);
-        console.log(`✅ 新增遊戲: 記憶翻牌 (ID: ${game2Id})`);
-
-        const game3Id = await runSQL(`
-            INSERT INTO games (game_name_zh, game_name_en, game_url, game_version, description, is_active, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [
-            '益智拼圖',
-            'Puzzle Master',
-            'https://example.com/games/puzzle-master',
-            '1.0.0',
-            '拼圖遊戲，訓練邏輯思維和空間感',
-            1,
-            adminId
-        ]);
-        console.log(`✅ 新增遊戲: 益智拼圖 (ID: ${game3Id})`);
+        console.log(`✅ 新增遊戲: 幸運飛鏢 (ID: ${game1Id})`);
 
         // 2. 新增測試兌換券
         console.log('\n🎫 新增測試兌換券...');
@@ -207,13 +179,7 @@ async function seed() {
                 INSERT INTO project_games (project_id, game_id, voucher_id, is_active)
                 VALUES (?, ?, ?, ?)
             `, [projectId, game1Id, voucher1Id, 1]);
-            console.log(`✅ 綁定: 太空射擊 → 專案 ${projectId} (兌換券: 星巴克咖啡券)`);
-
-            await runSQL(`
-                INSERT INTO project_games (project_id, game_id, voucher_id, is_active)
-                VALUES (?, ?, ?, ?)
-            `, [projectId, game2Id, voucher2Id, 1]);
-            console.log(`✅ 綁定: 記憶翻牌 → 專案 ${projectId} (兌換券: 誠品書店禮券)`);
+            console.log(`✅ 綁定: 幸運飛鏢 → 專案 ${projectId} (兌換券: 星巴克咖啡券)`);
         } else {
             console.log('⚠️  找不到專案，跳過遊戲綁定');
         }
@@ -299,14 +265,27 @@ async function seed() {
             console.log('⚠️  找不到專案，跳過測試會話和日誌');
         }
 
+        // 7. 新增測試兌換記錄（與測試 QR Code 一致）
+        console.log('\n🎫 新增測試兌換記錄...');
+
+        await runSQL(`
+            INSERT INTO voucher_redemptions (
+                voucher_id, session_id, trace_id, redemption_code,
+                redeemed_at, is_used, used_at
+            ) VALUES (?, ?, ?, ?, datetime('now'), ?, NULL)
+        `, [voucher1Id, null, 'MICE-TEST-SCAN-001', 'GAME-2025-ABC123', 0]);
+
+        console.log('✅ 新增測試兌換記錄: GAME-2025-ABC123 (未使用)');
+
         console.log('\n✅ 種子資料添加完成！');
         console.log('\n📊 統計:');
-        console.log(`   - 遊戲: 3 個`);
+        console.log(`   - 遊戲: 1 個 (幸運飛鏢)`);
         console.log(`   - 兌換券: 4 個`);
         console.log(`   - 兌換條件: 4 個`);
-        console.log(`   - 專案綁定: ${project ? 2 : 0} 個`);
+        console.log(`   - 專案綁定: ${project ? 1 : 0} 個`);
         console.log(`   - 測試會話: ${project ? 5 : 0} 個`);
         console.log(`   - 測試日誌: ${project ? '15-25' : 0} 個`);
+        console.log(`   - 測試兌換記錄: 1 個 (GAME-2025-ABC123)`);
 
     } catch (error) {
         console.error('\n❌ 種子資料添加失敗:', error);
