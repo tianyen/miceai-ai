@@ -218,12 +218,95 @@ async function seed() {
             console.log('⚠️  找不到專案，跳過遊戲綁定');
         }
 
+        // 6. 新增測試遊戲會話和日誌
+        console.log('\n📊 新增測試遊戲會話和日誌...');
+
+        if (project) {
+            const projectId = project.id;
+            const testTraceIds = [
+                'MICE-TEST-001',
+                'MICE-TEST-002',
+                'LOKI-1730000001-ABC123',
+                'LOKI-1730000002-DEF456',
+                'MICE-TEST-003'
+            ];
+
+            let sessionCount = 0;
+            let logCount = 0;
+
+            // 為每個 trace_id 創建會話和日誌
+            for (let i = 0; i < testTraceIds.length; i++) {
+                const traceId = testTraceIds[i];
+                const gameId = (i % 3) + 1; // 輪流使用 3 個遊戲
+                const finalScore = Math.floor(Math.random() * 1000) + 100; // 100-1100
+                const totalPlayTime = Math.floor(Math.random() * 300) + 60; // 60-360 秒
+                const voucherEarned = finalScore > 500 ? 1 : 0;
+                const voucherId = voucherEarned ? ((i % 3) + 1) : null;
+
+                // 創建會話
+                const sessionId = await runSQL(`
+                    INSERT INTO game_sessions (
+                        project_id, game_id, trace_id, user_id,
+                        session_start, session_end, total_play_time, final_score,
+                        voucher_earned, voucher_id, ip_address, user_agent
+                    ) VALUES (?, ?, ?, ?,
+                        datetime('now', '-' || ? || ' minutes'),
+                        datetime('now', '-' || ? || ' minutes'),
+                        ?, ?, ?, ?, ?, ?)
+                `, [
+                    projectId, gameId, traceId, null,
+                    (i + 1) * 10, // session_start: 10, 20, 30... 分鐘前
+                    (i + 1) * 10 - 5, // session_end: 5 分鐘後
+                    totalPlayTime, finalScore, voucherEarned, voucherId,
+                    '127.0.0.1', 'Mozilla/5.0 Test Browser'
+                ]);
+                sessionCount++;
+
+                // 為每個會話創建 3-5 個日誌
+                const numLogs = Math.floor(Math.random() * 3) + 3;
+                for (let j = 0; j < numLogs; j++) {
+                    const actions = ['game_start', 'throw_dart', 'hit_target', 'receive_award', 'game_end'];
+                    const messages = [
+                        '遊戲開始',
+                        '投擲飛鏢',
+                        '命中目標',
+                        '獲得獎勵',
+                        '遊戲結束'
+                    ];
+                    const logScore = Math.floor((finalScore / numLogs) * (j + 1));
+                    const logPlayTime = Math.floor((totalPlayTime / numLogs) * (j + 1));
+
+                    await runSQL(`
+                        INSERT INTO game_logs (
+                            project_id, game_id, trace_id, user_id,
+                            log_level, message, user_action, score, play_time,
+                            ip_address, user_agent, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                            datetime('now', '-' || ? || ' minutes'))
+                    `, [
+                        projectId, gameId, traceId, null,
+                        'info', messages[j], actions[j], logScore, logPlayTime,
+                        '127.0.0.1', 'Mozilla/5.0 Test Browser',
+                        (i + 1) * 10 - j // 時間遞減
+                    ]);
+                    logCount++;
+                }
+            }
+
+            console.log(`✅ 新增測試會話: ${sessionCount} 個`);
+            console.log(`✅ 新增測試日誌: ${logCount} 個`);
+        } else {
+            console.log('⚠️  找不到專案，跳過測試會話和日誌');
+        }
+
         console.log('\n✅ 種子資料添加完成！');
         console.log('\n📊 統計:');
         console.log(`   - 遊戲: 3 個`);
         console.log(`   - 兌換券: 4 個`);
         console.log(`   - 兌換條件: 4 個`);
         console.log(`   - 專案綁定: ${project ? 2 : 0} 個`);
+        console.log(`   - 測試會話: ${project ? 5 : 0} 個`);
+        console.log(`   - 測試日誌: ${project ? '15-25' : 0} 個`);
 
     } catch (error) {
         console.error('\n❌ 種子資料添加失敗:', error);

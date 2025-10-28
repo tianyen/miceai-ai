@@ -251,5 +251,177 @@ router.patch('/api/:id/toggle', async (req, res) => {
     }
 });
 
+// 獲取遊戲會話列表 API
+router.get('/api/:id/sessions', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { page = 1, limit = 20, trace_id = '' } = req.query;
+        const offset = (page - 1) * limit;
+
+        let query = `
+            SELECT
+                gs.*,
+                g.game_name_zh,
+                g.game_name_en,
+                p.project_name,
+                v.voucher_name
+            FROM game_sessions gs
+            LEFT JOIN games g ON gs.game_id = g.id
+            LEFT JOIN invitation_projects p ON gs.project_id = p.id
+            LEFT JOIN vouchers v ON gs.voucher_id = v.id
+            WHERE gs.game_id = ?
+        `;
+        let countQuery = 'SELECT COUNT(*) as total FROM game_sessions WHERE game_id = ?';
+        let params = [id];
+        let countParams = [id];
+
+        // 搜尋條件
+        if (trace_id && trace_id.trim()) {
+            query += ` AND gs.trace_id LIKE ?`;
+            countQuery += ` AND trace_id LIKE ?`;
+            const searchTerm = `%${trace_id.trim()}%`;
+            params.push(searchTerm);
+            countParams.push(searchTerm);
+        }
+
+        query += ` ORDER BY gs.session_start DESC LIMIT ? OFFSET ?`;
+        params.push(parseInt(limit), parseInt(offset));
+
+        const sessions = await database.query(query, params);
+        const totalResult = await database.get(countQuery, countParams);
+        const total = totalResult.total;
+
+        return responses.paginated(res, sessions, {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total,
+            totalPages: Math.ceil(total / limit)
+        });
+    } catch (error) {
+        console.error('獲取遊戲會話列表失敗:', error);
+        return responses.error(res, '獲取遊戲會話列表失敗', 500);
+    }
+});
+
+// 獲取遊戲日誌列表 API
+router.get('/api/:id/logs', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { page = 1, limit = 50, trace_id = '', log_level = '' } = req.query;
+        const offset = (page - 1) * limit;
+
+        let query = `
+            SELECT
+                gl.*,
+                g.game_name_zh,
+                g.game_name_en,
+                p.project_name
+            FROM game_logs gl
+            LEFT JOIN games g ON gl.game_id = g.id
+            LEFT JOIN invitation_projects p ON gl.project_id = p.id
+            WHERE gl.game_id = ?
+        `;
+        let countQuery = 'SELECT COUNT(*) as total FROM game_logs WHERE game_id = ?';
+        let params = [id];
+        let countParams = [id];
+
+        // 搜尋條件
+        if (trace_id && trace_id.trim()) {
+            query += ` AND gl.trace_id LIKE ?`;
+            countQuery += ` AND trace_id LIKE ?`;
+            const searchTerm = `%${trace_id.trim()}%`;
+            params.push(searchTerm);
+            countParams.push(searchTerm);
+        }
+
+        if (log_level && log_level.trim()) {
+            query += ` AND gl.log_level = ?`;
+            countQuery += ` AND log_level = ?`;
+            params.push(log_level.trim());
+            countParams.push(log_level.trim());
+        }
+
+        query += ` ORDER BY gl.created_at DESC LIMIT ? OFFSET ?`;
+        params.push(parseInt(limit), parseInt(offset));
+
+        const logs = await database.query(query, params);
+        const totalResult = await database.get(countQuery, countParams);
+        const total = totalResult.total;
+
+        return responses.paginated(res, logs, {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total,
+            totalPages: Math.ceil(total / limit)
+        });
+    } catch (error) {
+        console.error('獲取遊戲日誌列表失敗:', error);
+        return responses.error(res, '獲取遊戲日誌列表失敗', 500);
+    }
+});
+
+// 獲取遊戲統計 API
+router.get('/api/:id/stats', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 總會話數
+        const totalSessions = await database.get(
+            'SELECT COUNT(*) as count FROM game_sessions WHERE game_id = ?',
+            [id]
+        );
+
+        // 總日誌數
+        const totalLogs = await database.get(
+            'SELECT COUNT(*) as count FROM game_logs WHERE game_id = ?',
+            [id]
+        );
+
+        // 獨立玩家數（按 trace_id）
+        const uniquePlayers = await database.get(
+            'SELECT COUNT(DISTINCT trace_id) as count FROM game_sessions WHERE game_id = ?',
+            [id]
+        );
+
+        // 兌換券發放數
+        const vouchersEarned = await database.get(
+            'SELECT COUNT(*) as count FROM game_sessions WHERE game_id = ? AND voucher_earned = 1',
+            [id]
+        );
+
+        // 平均分數
+        const avgScore = await database.get(
+            'SELECT AVG(final_score) as avg FROM game_sessions WHERE game_id = ? AND final_score > 0',
+            [id]
+        );
+
+        // 平均遊戲時間
+        const avgPlayTime = await database.get(
+            'SELECT AVG(total_play_time) as avg FROM game_sessions WHERE game_id = ? AND total_play_time > 0',
+            [id]
+        );
+
+        // 最高分
+        const highScore = await database.get(
+            'SELECT MAX(final_score) as max, trace_id FROM game_sessions WHERE game_id = ?',
+            [id]
+        );
+
+        return responses.success(res, {
+            total_sessions: totalSessions.count,
+            total_logs: totalLogs.count,
+            unique_players: uniquePlayers.count,
+            vouchers_earned: vouchersEarned.count,
+            avg_score: Math.round(avgScore.avg || 0),
+            avg_play_time: Math.round(avgPlayTime.avg || 0),
+            high_score: highScore.max || 0,
+            high_score_player: highScore.trace_id || null
+        });
+    } catch (error) {
+        console.error('獲取遊戲統計失敗:', error);
+        return responses.error(res, '獲取遊戲統計失敗', 500);
+    }
+});
+
 module.exports = router;
 
