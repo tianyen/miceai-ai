@@ -22,6 +22,72 @@ router.get('/', (req, res) => {
     });
 });
 
+// 遊戲統計報告頁面
+router.get('/:gameId/stats', async (req, res) => {
+    try {
+        const { gameId } = req.params;
+        const { project_id } = req.query;
+
+        if (!project_id) {
+            return res.status(400).render('admin/404', {
+                layout: 'admin',
+                pageTitle: '缺少參數',
+                message: '缺少 project_id 參數'
+            });
+        }
+
+        // 查詢遊戲資訊
+        const game = await database.get(
+            'SELECT * FROM games WHERE id = ?',
+            [gameId]
+        );
+
+        if (!game) {
+            return res.status(404).render('admin/404', {
+                layout: 'admin',
+                pageTitle: '遊戲不存在'
+            });
+        }
+
+        // 查詢專案資訊
+        const project = await database.get(
+            'SELECT * FROM invitation_projects WHERE id = ?',
+            [project_id]
+        );
+
+        if (!project) {
+            return res.status(404).render('admin/404', {
+                layout: 'admin',
+                pageTitle: '專案不存在'
+            });
+        }
+
+        res.render('admin/game-stats', {
+            layout: 'admin',
+            pageTitle: `遊戲統計 - ${game.game_name_zh}`,
+            currentPage: 'games',
+            user: req.user,
+            gameId: gameId,
+            projectId: project_id,
+            gameName: game.game_name_zh,
+            projectName: project.project_name,
+            breadcrumbs: [
+                { name: '儀表板', url: '/admin/dashboard' },
+                { name: '活動管理', url: '/admin/projects' },
+                { name: project.project_name, url: `/admin/projects/${project_id}/detail` },
+                { name: '遊戲統計' }
+            ]
+        });
+
+    } catch (error) {
+        console.error('載入遊戲統計頁面失敗:', error);
+        res.status(500).render('admin/500', {
+            layout: 'admin',
+            pageTitle: '伺服器錯誤'
+        });
+    }
+});
+
 // 獲取遊戲列表 API
 router.get('/api/list', async (req, res) => {
     try {

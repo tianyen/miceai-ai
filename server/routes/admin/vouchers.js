@@ -414,27 +414,46 @@ router.post('/scan', async (req, res) => {
             return responses.error(res, '此兌換券已使用', 400);
         }
 
-        // 標記為已使用
-        await database.run(
-            `UPDATE voucher_redemptions
-             SET is_used = 1, used_at = CURRENT_TIMESTAMP
-             WHERE id = ?`,
-            [redemption.id]
-        );
+        // 標記為已使用 + 更新庫存
+        await database.run('BEGIN TRANSACTION');
 
-        console.log(`✅ 兌換券已使用: ${redemptionCode}, trace_id=${redemption.trace_id}`);
+        try {
+            // 更新兌換記錄
+            await database.run(
+                `UPDATE voucher_redemptions
+                 SET is_used = 1, used_at = CURRENT_TIMESTAMP
+                 WHERE id = ?`,
+                [redemption.id]
+            );
 
-        return responses.success(res, {
-            id: redemption.id,
-            redemption_code: redemption.redemption_code,
-            trace_id: redemption.trace_id,
-            voucher_name: redemption.voucher_name,
-            voucher_value: redemption.voucher_value,
-            voucher_vendor: redemption.voucher_vendor,
-            voucher_category: redemption.voucher_category,
-            redeemed_at: redemption.redeemed_at,
-            used_at: new Date().toISOString()
-        }, '兌換成功');
+            // 更新兌換券庫存（減少剩餘數量）
+            await database.run(
+                `UPDATE vouchers
+                 SET remaining_quantity = remaining_quantity - 1
+                 WHERE id = ? AND remaining_quantity > 0`,
+                [redemption.voucher_id]
+            );
+
+            await database.run('COMMIT');
+
+            console.log(`✅ 兌換券已使用: ${redemptionCode}, trace_id=${redemption.trace_id}, voucher_id=${redemption.voucher_id}`);
+
+            return responses.success(res, {
+                id: redemption.id,
+                redemption_code: redemption.redemption_code,
+                trace_id: redemption.trace_id,
+                voucher_name: redemption.voucher_name,
+                voucher_value: redemption.voucher_value,
+                voucher_vendor: redemption.voucher_vendor,
+                voucher_category: redemption.voucher_category,
+                redeemed_at: redemption.redeemed_at,
+                used_at: new Date().toISOString()
+            }, '兌換成功');
+
+        } catch (error) {
+            await database.run('ROLLBACK');
+            throw error;
+        }
 
     } catch (error) {
         console.error('掃描兌換失敗:', error);

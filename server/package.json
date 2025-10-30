@@ -17,7 +17,7 @@
     "db:migrate:gameroom": "node scripts/migrate-game-room.js",
     "db:seed:gameroom": "node scripts/seed-game-room.js",
     "db:seed:questionnaire": "node scripts/seed-sample-questionnaire.js",
-    "generate:qrcodes": "node scripts/generate-test-qrcode.js && node scripts/generate-checkin-qrcode.js",
+    "generate:qrcodes": "node scripts/generate-test-qrcode.js && node scripts/generate-registration-qrcode.js",
     "setup": "npm run db:reset && npm run db:seed && npm run db:migrate:gameroom && npm run db:seed:gameroom && npm run db:seed:questionnaire && npm run generate:qrcodes",
     "analyze:imports": "node scripts/analyze-unused-imports.js",
     "logs": "node scripts/view-logs.js",

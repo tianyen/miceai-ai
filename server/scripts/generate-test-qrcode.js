@@ -7,12 +7,21 @@ const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
 
-// 測試資料
+// 測試資料（使用王大明的 trace_id，與 DB Seed 一致）
+// 兌換碼格式: GAME-YYYY-XXXXXX (6位16進制)
+const crypto = require('crypto');
+const redemptionCode = 'GAME-2025-' + crypto.createHash('sha256')
+    .update('redemption-code-2025-wang')
+    .digest('hex')
+    .substring(0, 6)
+    .toUpperCase();
+
 const testData = {
-    redemption_code: 'GAME-2025-ABC123',
-    trace_id: 'MICE-TEST-SCAN-001',
+    redemption_code: redemptionCode,
+    trace_id: 'TRACE05207CF7199967C0', // 王大明的 trace_id
     voucher_id: 1,
-    voucher_name: '星巴克咖啡券'
+    voucher_name: '星巴克咖啡券',
+    player_name: '王大明'
 };
 
 async function generateQRCode() {

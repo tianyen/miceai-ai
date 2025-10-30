@@ -289,7 +289,7 @@
                     </thead>
                     <tbody id="project-games-table">
                         <tr>
-                            <td colspan="6" class="text-center">
+                            <td colspan="7" class="text-center">
                                 <div class="spinner"></div>
                                 <p>載入中...</p>
                             </td>
@@ -1800,5 +1800,10 @@ function updateProjectGame(bindingId) {
             showNotification('更新失敗，請稍後再試', 'error');
         }
     });
+}
+
+// 查看遊戲統計
+function viewGameStats(gameId) {
+    window.location.href = `/admin/games/${gameId}/stats?project_id=${projectId}`;
 }
 </script>

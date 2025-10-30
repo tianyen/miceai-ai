@@ -47,19 +47,19 @@ router.get('/:projectId/games', [
         // 渲染 HTML
         let html = '';
         if (projectGames.length === 0) {
-            html = '<tr><td colspan="6" class="text-center">尚未綁定任何遊戲</td></tr>';
+            html = '<tr><td colspan="7" class="text-center">尚未綁定任何遊戲</td></tr>';
         } else {
             projectGames.forEach(pg => {
-                const gameStatus = pg.game_is_active ? 
-                    '<span class="badge badge-success">啟用</span>' : 
+                const gameStatus = pg.game_is_active ?
+                    '<span class="badge badge-success">啟用</span>' :
                     '<span class="badge badge-secondary">停用</span>';
-                
-                const voucherInfo = pg.voucher_name ? 
-                    `${pg.voucher_name} ($${pg.voucher_value})` : 
+
+                const voucherInfo = pg.voucher_name ?
+                    `${pg.voucher_name} ($${pg.voucher_value})` :
                     '<span class="text-muted">無</span>';
-                
-                const stockInfo = pg.voucher_name ? 
-                    `${pg.remaining_quantity}/${pg.total_quantity}` : 
+
+                const stockInfo = pg.voucher_name ?
+                    `${pg.remaining_quantity}/${pg.total_quantity}` :
                     '-';
 
                 html += `
@@ -73,6 +73,9 @@ router.get('/:projectId/games', [
                     <td>${voucherInfo}</td>
                     <td>${stockInfo}</td>
                     <td>
+                        <button class="btn btn-sm btn-success" onclick="viewGameStats(${pg.game_id})" title="查看統計">
+                            <i class="fas fa-chart-bar"></i> 統計
+                        </button>
                         <button class="btn btn-sm btn-info" onclick="viewGameQR(${pg.id})" title="查看 QR Code">
                             <i class="fas fa-qrcode"></i>
                         </button>

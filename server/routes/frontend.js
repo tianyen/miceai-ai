@@ -7,9 +7,20 @@ const path = require('path');
 const router = express.Router();
 const config = require('../config');
 
-// 前端靜態頁面路由 - 使用新的 views/frontend 路徑
+// 根路徑 - 返回 API 狀態
 router.get('/', (req, res) => {
-    res.sendFile(path.join(config.paths.views, 'frontend/index.html'));
+    res.status(200).json({
+        status: 'ok',
+        message: 'MICE-AI Backend API Server',
+        version: '1.0.0',
+        timestamp: new Date().toISOString(),
+        endpoints: {
+            admin: '/admin',
+            api_v1: '/api/v1',
+            api_admin: '/api/admin',
+            swagger: '/api-docs'
+        }
+    });
 });
 
 router.get('/notification', (req, res) => {

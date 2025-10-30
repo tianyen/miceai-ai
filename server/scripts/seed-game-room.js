@@ -189,25 +189,58 @@ async function seed() {
 
         if (project) {
             const projectId = project.id;
-            const testTraceIds = [
-                'MICE-TEST-001',
-                'MICE-TEST-002',
-                'LOKI-1730000001-ABC123',
-                'LOKI-1730000002-DEF456',
-                'MICE-TEST-003'
-            ];
 
             let sessionCount = 0;
             let logCount = 0;
 
-            // 為每個 trace_id 創建會話和日誌
-            for (let i = 0; i < testTraceIds.length; i++) {
-                const traceId = testTraceIds[i];
-                const gameId = (i % 3) + 1; // 輪流使用 3 個遊戲
-                const finalScore = Math.floor(Math.random() * 1000) + 100; // 100-1100
-                const totalPlayTime = Math.floor(Math.random() * 300) + 60; // 60-360 秒
+            // 生成 30 個測試會話（分佈在過去 24 小時）
+            const totalSessions = 30;
+
+            for (let i = 0; i < totalSessions; i++) {
+                const traceId = `LOKI-TEST-${String(i + 1).padStart(3, '0')}`;
+                const gameId = game1Id; // 都使用幸運飛鏢
+
+                // 分數分佈：20% 高分(800-1200), 50% 中分(400-800), 30% 低分(100-400)
+                let finalScore;
+                const rand = Math.random();
+                if (rand < 0.2) {
+                    finalScore = Math.floor(Math.random() * 400) + 800; // 800-1200
+                } else if (rand < 0.7) {
+                    finalScore = Math.floor(Math.random() * 400) + 400; // 400-800
+                } else {
+                    finalScore = Math.floor(Math.random() * 300) + 100; // 100-400
+                }
+
+                // 遊戲時長：快速(20-40秒), 正常(40-80秒), 慢速(80-150秒)
+                let totalPlayTime;
+                const speedRand = Math.random();
+                if (speedRand < 0.3) {
+                    totalPlayTime = Math.floor(Math.random() * 20) + 20; // 20-40秒
+                } else if (speedRand < 0.8) {
+                    totalPlayTime = Math.floor(Math.random() * 40) + 40; // 40-80秒
+                } else {
+                    totalPlayTime = Math.floor(Math.random() * 70) + 80; // 80-150秒
+                }
+
                 const voucherEarned = finalScore > 500 ? 1 : 0;
-                const voucherId = voucherEarned ? ((i % 3) + 1) : null;
+                const voucherId = voucherEarned ? voucher1Id : null;
+
+                // 時間分佈：模擬真實使用場景（高峰時段更多玩家）
+                // 09:00-12:00: 20%, 12:00-14:00: 10%, 14:00-18:00: 40%, 18:00-22:00: 30%
+                let hoursAgo;
+                const timeRand = Math.random();
+                if (timeRand < 0.2) {
+                    hoursAgo = Math.floor(Math.random() * 3) + 12; // 12-15小時前 (09:00-12:00)
+                } else if (timeRand < 0.3) {
+                    hoursAgo = Math.floor(Math.random() * 2) + 10; // 10-12小時前 (12:00-14:00)
+                } else if (timeRand < 0.7) {
+                    hoursAgo = Math.floor(Math.random() * 4) + 6; // 6-10小時前 (14:00-18:00)
+                } else {
+                    hoursAgo = Math.floor(Math.random() * 4) + 2; // 2-6小時前 (18:00-22:00)
+                }
+
+                const minutesAgo = hoursAgo * 60 + Math.floor(Math.random() * 60);
+                const sessionEndMinutes = minutesAgo - Math.ceil(totalPlayTime / 60);
 
                 // 創建會話
                 const sessionId = await runSQL(`
@@ -221,24 +254,33 @@ async function seed() {
                         ?, ?, ?, ?, ?, ?)
                 `, [
                     projectId, gameId, traceId, null,
-                    (i + 1) * 10, // session_start: 10, 20, 30... 分鐘前
-                    (i + 1) * 10 - 5, // session_end: 5 分鐘後
+                    minutesAgo,
+                    sessionEndMinutes,
                     totalPlayTime, finalScore, voucherEarned, voucherId,
-                    '127.0.0.1', 'Mozilla/5.0 Test Browser'
+                    `192.168.1.${Math.floor(Math.random() * 200) + 1}`,
+                    `Mozilla/5.0 (${['Windows NT 10.0', 'Macintosh', 'iPhone', 'Android'][Math.floor(Math.random() * 4)]})`
                 ]);
                 sessionCount++;
 
-                // 為每個會話創建 3-5 個日誌
-                const numLogs = Math.floor(Math.random() * 3) + 3;
+                // 為每個會話創建 5-8 個日誌（模擬飛鏢投擲）
+                const numLogs = Math.floor(Math.random() * 4) + 5;
+                const actions = ['game_start', 'dart_throw', 'dart_throw', 'dart_throw', 'dart_throw', 'dart_throw', 'calculate_score', 'game_end'];
+
                 for (let j = 0; j < numLogs; j++) {
-                    const actions = ['game_start', 'throw_dart', 'hit_target', 'receive_award', 'game_end'];
-                    const messages = [
-                        '遊戲開始',
-                        '投擲飛鏢',
-                        '命中目標',
-                        '獲得獎勵',
-                        '遊戲結束'
-                    ];
+                    const action = actions[Math.min(j, actions.length - 1)];
+                    let message = '';
+
+                    if (action === 'game_start') {
+                        message = '遊戲開始';
+                    } else if (action === 'dart_throw') {
+                        const throwScore = Math.floor(Math.random() * 200) + 50;
+                        message = `投擲飛鏢 #${j} - 得分: ${throwScore}`;
+                    } else if (action === 'calculate_score') {
+                        message = `計算總分: ${finalScore}`;
+                    } else {
+                        message = '遊戲結束';
+                    }
+
                     const logScore = Math.floor((finalScore / numLogs) * (j + 1));
                     const logPlayTime = Math.floor((totalPlayTime / numLogs) * (j + 1));
 
@@ -251,9 +293,10 @@ async function seed() {
                             datetime('now', '-' || ? || ' minutes'))
                     `, [
                         projectId, gameId, traceId, null,
-                        'info', messages[j], actions[j], logScore, logPlayTime,
-                        '127.0.0.1', 'Mozilla/5.0 Test Browser',
-                        (i + 1) * 10 - j // 時間遞減
+                        'info', message, action, logScore, logPlayTime,
+                        `192.168.1.${Math.floor(Math.random() * 200) + 1}`,
+                        `Mozilla/5.0 Test Browser`,
+                        minutesAgo - Math.floor((totalPlayTime / 60 / numLogs) * j)
                     ]);
                     logCount++;
                 }
@@ -261,21 +304,94 @@ async function seed() {
 
             console.log(`✅ 新增測試會話: ${sessionCount} 個`);
             console.log(`✅ 新增測試日誌: ${logCount} 個`);
+            console.log(`📈 資料分佈: 過去 24 小時，模擬真實使用場景`);
         } else {
             console.log('⚠️  找不到專案，跳過測試會話和日誌');
         }
 
-        // 7. 新增測試兌換記錄（與測試 QR Code 一致）
-        console.log('\n🎫 新增測試兌換記錄...');
+        // 7. 新增「王大明」的遊戲會話和兌換記錄（與 DB Seed 一致）
+        console.log('\n🎮 新增「王大明」的遊戲會話...');
 
-        await runSQL(`
-            INSERT INTO voucher_redemptions (
-                voucher_id, session_id, trace_id, redemption_code,
-                redeemed_at, is_used, used_at
-            ) VALUES (?, ?, ?, ?, datetime('now'), ?, NULL)
-        `, [voucher1Id, null, 'MICE-TEST-SCAN-001', 'GAME-2025-ABC123', 0]);
+        if (project) {
+            const projectId = project.id;
+            const wangTraceId = 'TRACE05207CF7199967C0'; // 王大明的 trace_id (來自 db-seed.js)
+            const wangFinalScore = 850; // 高分
+            const wangPlayTime = 45; // 快速完成
 
-        console.log('✅ 新增測試兌換記錄: GAME-2025-ABC123 (未使用)');
+            // 創建王大明的遊戲會話
+            const wangSessionId = await runSQL(`
+                INSERT INTO game_sessions (
+                    project_id, game_id, trace_id, user_id,
+                    session_start, session_end, total_play_time, final_score,
+                    voucher_earned, voucher_id, ip_address, user_agent
+                ) VALUES (?, ?, ?, ?,
+                    datetime('now', '-30 minutes'),
+                    datetime('now', '-25 minutes'),
+                    ?, ?, ?, ?, ?, ?)
+            `, [
+                projectId, game1Id, wangTraceId, null,
+                wangPlayTime, wangFinalScore, 1, voucher1Id,
+                '192.168.1.100', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
+            ]);
+
+            console.log(`✅ 王大明遊戲會話 (Session ID: ${wangSessionId})`);
+            console.log(`   Trace ID: ${wangTraceId}`);
+            console.log(`   分數: ${wangFinalScore}, 時長: ${wangPlayTime}秒`);
+
+            // 創建王大明的遊戲日誌
+            const wangActions = ['game_start', 'dart_throw', 'dart_throw', 'dart_throw', 'calculate_score', 'game_end'];
+            for (let i = 0; i < wangActions.length; i++) {
+                const action = wangActions[i];
+                let message = '';
+
+                if (action === 'game_start') {
+                    message = '遊戲開始';
+                } else if (action === 'dart_throw') {
+                    message = `投擲飛鏢 #${i} - 得分: ${Math.floor(wangFinalScore / 3)}`;
+                } else if (action === 'calculate_score') {
+                    message = `計算總分: ${wangFinalScore}`;
+                } else {
+                    message = '遊戲結束';
+                }
+
+                await runSQL(`
+                    INSERT INTO game_logs (
+                        project_id, game_id, trace_id, user_id,
+                        log_level, message, user_action, score, play_time,
+                        ip_address, user_agent, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        datetime('now', '-' || ? || ' minutes'))
+                `, [
+                    projectId, game1Id, wangTraceId, null,
+                    'info', message, action,
+                    Math.floor((wangFinalScore / wangActions.length) * (i + 1)),
+                    Math.floor((wangPlayTime / wangActions.length) * (i + 1)),
+                    '192.168.1.100', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+                    30 - (i * 1) // 30, 29, 28... 分鐘前
+                ]);
+            }
+
+            console.log(`✅ 王大明遊戲日誌: ${wangActions.length} 筆`);
+
+            // 創建王大明的兌換記錄（使用確定性生成的兌換碼，符合 GAME-YYYY-XXXXXX 格式）
+            const crypto = require('crypto');
+            const wangRedemptionCode = 'GAME-2025-' + crypto.createHash('sha256')
+                .update('redemption-code-2025-wang')
+                .digest('hex')
+                .substring(0, 6)
+                .toUpperCase(); // GAME-2025-XXXXXX (6位16進制)
+
+            await runSQL(`
+                INSERT INTO voucher_redemptions (
+                    voucher_id, session_id, trace_id, redemption_code,
+                    redeemed_at, is_used, used_at
+                ) VALUES (?, ?, ?, ?, datetime('now', '-25 minutes'), ?, NULL)
+            `, [voucher1Id, wangSessionId, wangTraceId, wangRedemptionCode, 0]);
+
+            console.log(`✅ 王大明兌換記錄: ${wangRedemptionCode} (未使用)`);
+        } else {
+            console.log('⚠️  找不到專案，跳過王大明的遊戲會話');
+        }
 
         console.log('\n✅ 種子資料添加完成！');
         console.log('\n📊 統計:');
