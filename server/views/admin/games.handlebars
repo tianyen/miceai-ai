@@ -124,6 +124,7 @@
     border-radius: 4px;
     font-size: 12px;
 }
+
 </style>
 
 <script>
@@ -304,48 +305,58 @@ function showGameModal(gameId = null) {
     const title = isEdit ? '編輯遊戲' : '新增遊戲';
 
     let modalHtml = `
-        <div class="modal-overlay" id="game-modal">
+        <div class="modal show" id="game-modal">
             <div class="modal-dialog">
-                <div class="modal-header">
-                    <h3>${title}</h3>
-                    <button class="modal-close" onclick="closeModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <form id="game-form">
-                        <div class="form-group">
-                            <label for="game_name_zh">遊戲中文名稱 <span class="required">*</span></label>
-                            <input type="text" id="game_name_zh" name="game_name_zh" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="game_name_en">遊戲英文名稱 <span class="required">*</span></label>
-                            <input type="text" id="game_name_en" name="game_name_en" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="game_url">遊戲 URL <span class="required">*</span></label>
-                            <input type="url" id="game_url" name="game_url" class="form-control" required
-                                   placeholder="https://example.com/games/my-game">
-                        </div>
-                        <div class="form-group">
-                            <label for="game_version">遊戲版本</label>
-                            <input type="text" id="game_version" name="game_version" class="form-control"
-                                   value="1.0.0" placeholder="1.0.0">
-                        </div>
-                        <div class="form-group">
-                            <label for="description">遊戲描述</label>
-                            <textarea id="description" name="description" class="form-control" rows="3"
-                                      placeholder="簡短描述這個遊戲..."></textarea>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
-                    <button class="btn btn-primary" onclick="saveGame(${gameId})">儲存</button>
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">${title}</h3>
+                        <button class="btn-close" onclick="closeModal()"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="game-form">
+                            <div class="form-group">
+                                <label for="game_name_zh">遊戲中文名稱 <span class="required">*</span></label>
+                                <input type="text" id="game_name_zh" name="game_name_zh" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="game_name_en">遊戲英文名稱 <span class="required">*</span></label>
+                                <input type="text" id="game_name_en" name="game_name_en" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="game_url">遊戲 URL <span class="required">*</span></label>
+                                <input type="url" id="game_url" name="game_url" class="form-control" required
+                                       placeholder="https://example.com/games/my-game">
+                            </div>
+                            <div class="form-group">
+                                <label for="game_version">遊戲版本</label>
+                                <input type="text" id="game_version" name="game_version" class="form-control"
+                                       value="1.0.0" placeholder="1.0.0">
+                            </div>
+                            <div class="form-group">
+                                <label for="description">遊戲描述</label>
+                                <textarea id="description" name="description" class="form-control" rows="3"
+                                          placeholder="簡短描述這個遊戲..."></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                        <button class="btn btn-primary" onclick="saveGame(${gameId})">儲存</button>
+                    </div>
                 </div>
             </div>
         </div>
     `;
 
     document.getElementById('modal-container').innerHTML = modalHtml;
+
+    // 添加點擊背景關閉事件
+    const modal = document.getElementById('game-modal');
+    modal.addEventListener('click', function(event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
 
     // 如果是編輯模式，載入遊戲資料
     if (isEdit) {

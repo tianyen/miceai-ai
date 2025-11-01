@@ -20,9 +20,9 @@
 
 .modal-dialog {
     position: relative;
-    width: auto;
-    margin: 1rem;
-    pointer-events: none;
+    width: 100%;
+    max-width: 600px;
+    margin: 1rem auto;
 }
 
 .modal-dialog.modal-sm {
@@ -43,7 +43,6 @@
     flex-direction: column;
     width: 100%;
     min-width: 500px;
-    pointer-events: auto;
     background-color: #fff;
     background-clip: padding-box;
     border: 1px solid rgba(0, 0, 0, 0.2);

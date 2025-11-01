@@ -484,11 +484,20 @@ router.get('/:id/edit', async (req, res) => {
                         success: function(response) {
                             if (response.success) {
                                 closeModal();
-                                showNotification('提交记录已更新', 'success');
-                                loadSubmissions();
-                                loadSubmissionStats();
+                                showNotification('提交記錄已更新', 'success');
+                                // 重新載入列表
+                                if (typeof window.loadSubmissions === 'function') {
+                                    window.loadSubmissions();
+                                }
+                                if (typeof window.loadSubmissionStats === 'function') {
+                                    window.loadSubmissionStats();
+                                }
+                                // 如果函數不存在，刷新頁面
+                                if (typeof window.loadSubmissions !== 'function') {
+                                    window.location.reload();
+                                }
                             } else {
-                                showNotification(response.message || '更新失败', 'error');
+                                showNotification(response.message || '更新失敗', 'error');
                             }
                         },
                         error: function(xhr) {

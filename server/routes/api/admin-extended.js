@@ -394,6 +394,74 @@ router.post('/users/:id/reset-password', authenticateSession, async (req, res) =
     }
 });
 
+// 更新表單提交記錄 API
+router.put('/submissions/:id', authenticateSession, async (req, res) => {
+    try {
+        const submissionId = req.params.id;
+        const {
+            submitter_name,
+            submitter_email,
+            submitter_phone,
+            company_name,
+            position,
+            project_id,
+            status
+        } = req.body;
+
+        // 驗證必要欄位
+        if (!submitter_name || !submitter_email) {
+            return responses.badRequest(res, '姓名和電子郵件為必填欄位');
+        }
+
+        // 驗證電子郵件格式
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(submitter_email)) {
+            return responses.badRequest(res, '請輸入有效的電子郵件地址');
+        }
+
+        // 檢查提交記錄是否存在
+        const submission = await database.get(
+            'SELECT id FROM form_submissions WHERE id = ?',
+            [submissionId]
+        );
+
+        if (!submission) {
+            return responses.notFound(res, '找不到指定的提交記錄');
+        }
+
+        // 更新提交記錄
+        await database.run(`
+            UPDATE form_submissions
+            SET submitter_name = ?,
+                submitter_email = ?,
+                submitter_phone = ?,
+                company_name = ?,
+                position = ?,
+                project_id = ?,
+                status = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `, [
+            submitter_name,
+            submitter_email,
+            submitter_phone || null,
+            company_name || null,
+            position || null,
+            project_id || null,
+            status || 'pending',
+            submissionId
+        ]);
+
+        responses.success(res, {
+            message: '提交記錄已更新',
+            data: { id: submissionId }
+        });
+    } catch (error) {
+        console.error('更新提交記錄失敗:', error);
+        responses.error(res, '更新提交記錄失敗', 500);
+    }
+});
+
 // 表單提交分頁 API
 router.get('/submissions/pagination', authenticateSession, async (req, res) => {
     try {

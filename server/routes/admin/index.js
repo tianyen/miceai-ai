@@ -19,6 +19,8 @@ const profileRoutes = require('./profile');
 const gamesRoutes = require('./games');
 const vouchersRoutes = require('./vouchers');
 const projectGamesRoutes = require('./project-games');
+const boothsRoutes = require('./booths');
+const userTrackingRoutes = require('./user-tracking');
 
 // 公開路由（不需要認證）
 router.use('/', authRoutes);
@@ -36,6 +38,8 @@ router.use('/questionnaire', authenticateSession, questionnaireRoutes);
 router.use('/profile', authenticateSession, profileRoutes);
 router.use('/games', authenticateSession, gamesRoutes);
 router.use('/vouchers', authenticateSession, vouchersRoutes);
+router.use('/booths', authenticateSession, boothsRoutes);
+router.use('/user-tracking', authenticateSession, userTrackingRoutes);
 
 // 設定頁面
 router.get('/settings', authenticateSession, (req, res) => {

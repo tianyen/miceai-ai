@@ -52,6 +52,28 @@ async function seed() {
         const adminId = admin.id;
         console.log(`📝 使用管理員 ID: ${adminId}\n`);
 
+        // 0. 清除舊的遊戲室資料（保持資料一致性）
+        console.log('🗑️  清除舊的遊戲室資料...');
+        await runSQL('DELETE FROM voucher_redemptions');
+        await runSQL('DELETE FROM game_logs');
+        await runSQL('DELETE FROM game_sessions');
+        await runSQL('DELETE FROM project_games');
+        await runSQL('DELETE FROM voucher_conditions');
+        await runSQL('DELETE FROM vouchers');
+        await runSQL('DELETE FROM games');
+
+        // 檢查 booths 表是否存在
+        const boothsTableExists = await getSQL(`
+            SELECT name FROM sqlite_master
+            WHERE type='table' AND name='booths'
+        `);
+        if (boothsTableExists) {
+            await runSQL('DELETE FROM booths');
+            console.log('✅ 清除完成（包含攤位資料）\n');
+        } else {
+            console.log('✅ 清除完成（booths 表尚未建立，跳過）\n');
+        }
+
         // 1. 新增測試遊戲
         console.log('🎮 新增測試遊戲...');
 
@@ -167,13 +189,45 @@ async function seed() {
         `, [voucher4Id, 300, 180, JSON.stringify({ max_attempts: 5 })]);
         console.log(`✅ 便利商店禮券條件: 分數 >= 300, 時間 >= 180 秒`);
 
-        // 4. 綁定遊戲到專案（假設專案 ID 1 存在）
-        console.log('\n🔗 綁定遊戲到專案...');
+        // 4. 新增攤位資料（如果 booths 表存在）
+        console.log('\n🏪 新增攤位資料...');
 
         const project = await getSQL("SELECT id FROM invitation_projects LIMIT 1");
-        if (project) {
+        let booth1Id, booth2Id, booth3Id;
+
+        if (boothsTableExists && project) {
             const projectId = project.id;
             console.log(`📝 使用專案 ID: ${projectId}`);
+
+            // 新增 3 個攤位
+            booth1Id = await runSQL(`
+                INSERT INTO booths (project_id, booth_name, booth_code, location, description, is_active)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `, [projectId, 'A區攤位', 'BOOTH-A1', '展場 A 區入口處', '主要遊戲攤位，提供飛鏢遊戲體驗', 1]);
+            console.log(`✅ 新增攤位: A區攤位 (ID: ${booth1Id}, Code: BOOTH-A1)`);
+
+            booth2Id = await runSQL(`
+                INSERT INTO booths (project_id, booth_name, booth_code, location, description, is_active)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `, [projectId, 'B區攤位', 'BOOTH-B1', '展場 B 區中央', '次要遊戲攤位，提供飛鏢遊戲體驗', 1]);
+            console.log(`✅ 新增攤位: B區攤位 (ID: ${booth2Id}, Code: BOOTH-B1)`);
+
+            booth3Id = await runSQL(`
+                INSERT INTO booths (project_id, booth_name, booth_code, location, description, is_active)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `, [projectId, 'C區攤位', 'BOOTH-C1', '展場 C 區出口處', '體驗攤位，提供飛鏢遊戲體驗', 1]);
+            console.log(`✅ 新增攤位: C區攤位 (ID: ${booth3Id}, Code: BOOTH-C1)`);
+        } else if (!boothsTableExists) {
+            console.log('⚠️  booths 表尚未建立，跳過攤位建立（請先執行 npm run migrate:booths）');
+        } else {
+            console.log('⚠️  找不到專案，跳過攤位建立');
+        }
+
+        // 5. 綁定遊戲到專案
+        console.log('\n🔗 綁定遊戲到專案...');
+
+        if (project) {
+            const projectId = project.id;
 
             await runSQL(`
                 INSERT INTO project_games (project_id, game_id, voucher_id, is_active)
@@ -199,6 +253,18 @@ async function seed() {
             for (let i = 0; i < totalSessions; i++) {
                 const traceId = `LOKI-TEST-${String(i + 1).padStart(3, '0')}`;
                 const gameId = game1Id; // 都使用幸運飛鏢
+
+                // 攤位分佈：均勻分配到 3 個攤位（如果攤位存在）
+                let boothId = null;
+                if (boothsTableExists) {
+                    if (i % 3 === 0) {
+                        boothId = booth1Id; // A區攤位
+                    } else if (i % 3 === 1) {
+                        boothId = booth2Id; // B區攤位
+                    } else {
+                        boothId = booth3Id; // C區攤位
+                    }
+                }
 
                 // 分數分佈：20% 高分(800-1200), 50% 中分(400-800), 30% 低分(100-400)
                 let finalScore;
@@ -242,24 +308,45 @@ async function seed() {
                 const minutesAgo = hoursAgo * 60 + Math.floor(Math.random() * 60);
                 const sessionEndMinutes = minutesAgo - Math.ceil(totalPlayTime / 60);
 
-                // 創建會話
-                const sessionId = await runSQL(`
-                    INSERT INTO game_sessions (
-                        project_id, game_id, trace_id, user_id,
-                        session_start, session_end, total_play_time, final_score,
-                        voucher_earned, voucher_id, ip_address, user_agent
-                    ) VALUES (?, ?, ?, ?,
-                        datetime('now', '-' || ? || ' minutes'),
-                        datetime('now', '-' || ? || ' minutes'),
-                        ?, ?, ?, ?, ?, ?)
-                `, [
-                    projectId, gameId, traceId, null,
-                    minutesAgo,
-                    sessionEndMinutes,
-                    totalPlayTime, finalScore, voucherEarned, voucherId,
-                    `192.168.1.${Math.floor(Math.random() * 200) + 1}`,
-                    `Mozilla/5.0 (${['Windows NT 10.0', 'Macintosh', 'iPhone', 'Android'][Math.floor(Math.random() * 4)]})`
-                ]);
+                // 創建會話（根據 booth_id 欄位是否存在使用不同 SQL）
+                let sessionId;
+                if (boothsTableExists) {
+                    sessionId = await runSQL(`
+                        INSERT INTO game_sessions (
+                            project_id, game_id, trace_id, user_id, booth_id,
+                            session_start, session_end, total_play_time, final_score,
+                            voucher_earned, voucher_id, ip_address, user_agent
+                        ) VALUES (?, ?, ?, ?, ?,
+                            datetime('now', '-' || ? || ' minutes'),
+                            datetime('now', '-' || ? || ' minutes'),
+                            ?, ?, ?, ?, ?, ?)
+                    `, [
+                        projectId, gameId, traceId, null, boothId,
+                        minutesAgo,
+                        sessionEndMinutes,
+                        totalPlayTime, finalScore, voucherEarned, voucherId,
+                        `192.168.1.${Math.floor(Math.random() * 200) + 1}`,
+                        `Mozilla/5.0 (${['Windows NT 10.0', 'Macintosh', 'iPhone', 'Android'][Math.floor(Math.random() * 4)]})`
+                    ]);
+                } else {
+                    sessionId = await runSQL(`
+                        INSERT INTO game_sessions (
+                            project_id, game_id, trace_id, user_id,
+                            session_start, session_end, total_play_time, final_score,
+                            voucher_earned, voucher_id, ip_address, user_agent
+                        ) VALUES (?, ?, ?, ?,
+                            datetime('now', '-' || ? || ' minutes'),
+                            datetime('now', '-' || ? || ' minutes'),
+                            ?, ?, ?, ?, ?, ?)
+                    `, [
+                        projectId, gameId, traceId, null,
+                        minutesAgo,
+                        sessionEndMinutes,
+                        totalPlayTime, finalScore, voucherEarned, voucherId,
+                        `192.168.1.${Math.floor(Math.random() * 200) + 1}`,
+                        `Mozilla/5.0 (${['Windows NT 10.0', 'Macintosh', 'iPhone', 'Android'][Math.floor(Math.random() * 4)]})`
+                    ]);
+                }
                 sessionCount++;
 
                 // 為每個會話創建 5-8 個日誌（模擬飛鏢投擲）
@@ -284,20 +371,37 @@ async function seed() {
                     const logScore = Math.floor((finalScore / numLogs) * (j + 1));
                     const logPlayTime = Math.floor((totalPlayTime / numLogs) * (j + 1));
 
-                    await runSQL(`
-                        INSERT INTO game_logs (
-                            project_id, game_id, trace_id, user_id,
-                            log_level, message, user_action, score, play_time,
-                            ip_address, user_agent, created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                            datetime('now', '-' || ? || ' minutes'))
-                    `, [
-                        projectId, gameId, traceId, null,
-                        'info', message, action, logScore, logPlayTime,
-                        `192.168.1.${Math.floor(Math.random() * 200) + 1}`,
-                        `Mozilla/5.0 Test Browser`,
-                        minutesAgo - Math.floor((totalPlayTime / 60 / numLogs) * j)
-                    ]);
+                    if (boothsTableExists) {
+                        await runSQL(`
+                            INSERT INTO game_logs (
+                                project_id, game_id, trace_id, user_id, booth_id,
+                                log_level, message, user_action, score, play_time,
+                                ip_address, user_agent, created_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                                datetime('now', '-' || ? || ' minutes'))
+                        `, [
+                            projectId, gameId, traceId, null, boothId,
+                            'info', message, action, logScore, logPlayTime,
+                            `192.168.1.${Math.floor(Math.random() * 200) + 1}`,
+                            `Mozilla/5.0 Test Browser`,
+                            minutesAgo - Math.floor((totalPlayTime / 60 / numLogs) * j)
+                        ]);
+                    } else {
+                        await runSQL(`
+                            INSERT INTO game_logs (
+                                project_id, game_id, trace_id, user_id,
+                                log_level, message, user_action, score, play_time,
+                                ip_address, user_agent, created_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                                datetime('now', '-' || ? || ' minutes'))
+                        `, [
+                            projectId, gameId, traceId, null,
+                            'info', message, action, logScore, logPlayTime,
+                            `192.168.1.${Math.floor(Math.random() * 200) + 1}`,
+                            `Mozilla/5.0 Test Browser`,
+                            minutesAgo - Math.floor((totalPlayTime / 60 / numLogs) * j)
+                        ]);
+                    }
                     logCount++;
                 }
             }
@@ -318,21 +422,40 @@ async function seed() {
             const wangFinalScore = 850; // 高分
             const wangPlayTime = 45; // 快速完成
 
-            // 創建王大明的遊戲會話
-            const wangSessionId = await runSQL(`
-                INSERT INTO game_sessions (
-                    project_id, game_id, trace_id, user_id,
-                    session_start, session_end, total_play_time, final_score,
-                    voucher_earned, voucher_id, ip_address, user_agent
-                ) VALUES (?, ?, ?, ?,
-                    datetime('now', '-30 minutes'),
-                    datetime('now', '-25 minutes'),
-                    ?, ?, ?, ?, ?, ?)
-            `, [
-                projectId, game1Id, wangTraceId, null,
-                wangPlayTime, wangFinalScore, 1, voucher1Id,
-                '192.168.1.100', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
-            ]);
+            // 創建王大明的遊戲會話（使用 A區攤位，如果存在）
+            const wangBoothId = boothsTableExists ? booth1Id : null;
+            let wangSessionId;
+            if (boothsTableExists) {
+                wangSessionId = await runSQL(`
+                    INSERT INTO game_sessions (
+                        project_id, game_id, trace_id, user_id, booth_id,
+                        session_start, session_end, total_play_time, final_score,
+                        voucher_earned, voucher_id, ip_address, user_agent
+                    ) VALUES (?, ?, ?, ?, ?,
+                        datetime('now', '-30 minutes'),
+                        datetime('now', '-25 minutes'),
+                        ?, ?, ?, ?, ?, ?)
+                `, [
+                    projectId, game1Id, wangTraceId, null, wangBoothId,
+                    wangPlayTime, wangFinalScore, 1, voucher1Id,
+                    '192.168.1.100', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
+                ]);
+            } else {
+                wangSessionId = await runSQL(`
+                    INSERT INTO game_sessions (
+                        project_id, game_id, trace_id, user_id,
+                        session_start, session_end, total_play_time, final_score,
+                        voucher_earned, voucher_id, ip_address, user_agent
+                    ) VALUES (?, ?, ?, ?,
+                        datetime('now', '-30 minutes'),
+                        datetime('now', '-25 minutes'),
+                        ?, ?, ?, ?, ?, ?)
+                `, [
+                    projectId, game1Id, wangTraceId, null,
+                    wangPlayTime, wangFinalScore, 1, voucher1Id,
+                    '192.168.1.100', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
+                ]);
+            }
 
             console.log(`✅ 王大明遊戲會話 (Session ID: ${wangSessionId})`);
             console.log(`   Trace ID: ${wangTraceId}`);
@@ -354,21 +477,39 @@ async function seed() {
                     message = '遊戲結束';
                 }
 
-                await runSQL(`
-                    INSERT INTO game_logs (
-                        project_id, game_id, trace_id, user_id,
-                        log_level, message, user_action, score, play_time,
-                        ip_address, user_agent, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                        datetime('now', '-' || ? || ' minutes'))
-                `, [
-                    projectId, game1Id, wangTraceId, null,
-                    'info', message, action,
-                    Math.floor((wangFinalScore / wangActions.length) * (i + 1)),
-                    Math.floor((wangPlayTime / wangActions.length) * (i + 1)),
-                    '192.168.1.100', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-                    30 - (i * 1) // 30, 29, 28... 分鐘前
-                ]);
+                if (boothsTableExists) {
+                    await runSQL(`
+                        INSERT INTO game_logs (
+                            project_id, game_id, trace_id, user_id, booth_id,
+                            log_level, message, user_action, score, play_time,
+                            ip_address, user_agent, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                            datetime('now', '-' || ? || ' minutes'))
+                    `, [
+                        projectId, game1Id, wangTraceId, null, wangBoothId,
+                        'info', message, action,
+                        Math.floor((wangFinalScore / wangActions.length) * (i + 1)),
+                        Math.floor((wangPlayTime / wangActions.length) * (i + 1)),
+                        '192.168.1.100', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+                        30 - (i * 1) // 30, 29, 28... 分鐘前
+                    ]);
+                } else {
+                    await runSQL(`
+                        INSERT INTO game_logs (
+                            project_id, game_id, trace_id, user_id,
+                            log_level, message, user_action, score, play_time,
+                            ip_address, user_agent, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                            datetime('now', '-' || ? || ' minutes'))
+                    `, [
+                        projectId, game1Id, wangTraceId, null,
+                        'info', message, action,
+                        Math.floor((wangFinalScore / wangActions.length) * (i + 1)),
+                        Math.floor((wangPlayTime / wangActions.length) * (i + 1)),
+                        '192.168.1.100', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+                        30 - (i * 1) // 30, 29, 28... 分鐘前
+                    ]);
+                }
             }
 
             console.log(`✅ 王大明遊戲日誌: ${wangActions.length} 筆`);
@@ -381,14 +522,24 @@ async function seed() {
                 .substring(0, 6)
                 .toUpperCase(); // GAME-2025-XXXXXX (6位16進制)
 
-            await runSQL(`
-                INSERT INTO voucher_redemptions (
-                    voucher_id, session_id, trace_id, redemption_code,
-                    redeemed_at, is_used, used_at
-                ) VALUES (?, ?, ?, ?, datetime('now', '-25 minutes'), ?, NULL)
-            `, [voucher1Id, wangSessionId, wangTraceId, wangRedemptionCode, 0]);
-
-            console.log(`✅ 王大明兌換記錄: ${wangRedemptionCode} (未使用)`);
+            if (boothsTableExists) {
+                await runSQL(`
+                    INSERT INTO voucher_redemptions (
+                        voucher_id, session_id, trace_id, booth_id, redemption_code,
+                        redeemed_at, is_used, used_at
+                    ) VALUES (?, ?, ?, ?, ?, datetime('now', '-25 minutes'), ?, NULL)
+                `, [voucher1Id, wangSessionId, wangTraceId, wangBoothId, wangRedemptionCode, 0]);
+                console.log(`✅ 王大明兌換記錄: ${wangRedemptionCode} (未使用)`);
+                console.log(`   攤位: A區攤位 (ID: ${booth1Id})`);
+            } else {
+                await runSQL(`
+                    INSERT INTO voucher_redemptions (
+                        voucher_id, session_id, trace_id, redemption_code,
+                        redeemed_at, is_used, used_at
+                    ) VALUES (?, ?, ?, ?, datetime('now', '-25 minutes'), ?, NULL)
+                `, [voucher1Id, wangSessionId, wangTraceId, wangRedemptionCode, 0]);
+                console.log(`✅ 王大明兌換記錄: ${wangRedemptionCode} (未使用)`);
+            }
         } else {
             console.log('⚠️  找不到專案，跳過王大明的遊戲會話');
         }
@@ -398,10 +549,11 @@ async function seed() {
         console.log(`   - 遊戲: 1 個 (幸運飛鏢)`);
         console.log(`   - 兌換券: 4 個`);
         console.log(`   - 兌換條件: 4 個`);
+        console.log(`   - 攤位: ${boothsTableExists ? '3 個 (BOOTH-A1, BOOTH-B1, BOOTH-C1)' : '0 個 (booths 表尚未建立)'}`);
         console.log(`   - 專案綁定: ${project ? 1 : 0} 個`);
-        console.log(`   - 測試會話: ${project ? 5 : 0} 個`);
-        console.log(`   - 測試日誌: ${project ? '15-25' : 0} 個`);
-        console.log(`   - 測試兌換記錄: 1 個 (GAME-2025-ABC123)`);
+        console.log(`   - 測試會話: ${project ? '30 + 1 (王大明)' : 0} 個`);
+        console.log(`   - 測試日誌: ${project ? '180+ (包含王大明)' : 0} 個`);
+        console.log(`   - 測試兌換記錄: 1 個 (王大明)`);
 
     } catch (error) {
         console.error('\n❌ 種子資料添加失敗:', error);
