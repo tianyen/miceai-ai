@@ -28,7 +28,7 @@ router.get('/:id/detail', async (req, res) => {
         // 獲取專案基本信息（包含模板資訊）
         const project = await database.get(`
             SELECT p.*, u.full_name as creator_name, t.template_name, t.id as template_id
-            FROM invitation_projects p
+            FROM event_projects p
             LEFT JOIN users u ON p.created_by = u.id
             LEFT JOIN invitation_templates t ON p.template_id = t.id
             WHERE p.id = ?
@@ -211,7 +211,7 @@ router.get('/pagination', async (req, res) => {
         const limit = parseInt(req.query.limit) || 20;
 
         // 簡化查詢，暫時不考慮權限問題
-        const countQuery = 'SELECT COUNT(*) as count FROM invitation_projects';
+        const countQuery = 'SELECT COUNT(*) as count FROM event_projects';
 
         const totalResult = await database.get(countQuery);
         const total = totalResult?.count || 0;
@@ -273,7 +273,7 @@ router.get('/pagination', async (req, res) => {
 router.get('/:id/edit', async (req, res) => {
     try {
         const projectId = req.params.id;
-        const project = await database.get('SELECT * FROM invitation_projects WHERE id = ?', [projectId]);
+        const project = await database.get('SELECT * FROM event_projects WHERE id = ?', [projectId]);
 
         if (!project) {
             return responses.html(res, '<div class="alert alert-danger">專案不存在</div>');
@@ -554,7 +554,7 @@ router.get('/:id/edit', async (req, res) => {
         const projectId = req.params.id;
 
         const project = await database.get(`
-            SELECT * FROM invitation_projects WHERE id = ?
+            SELECT * FROM event_projects WHERE id = ?
         `, [projectId]);
 
         if (!project) {
@@ -742,7 +742,7 @@ router.get('/:id/registration-urls', async (req, res) => {
         // 檢查專案權限 (這裡簡化，實際可以根據需要添加更複雜的權限檢查)
         const project = await database.get(`
             SELECT id, project_name, project_code, status, description, event_date, event_location
-            FROM invitation_projects 
+            FROM event_projects 
             WHERE id = ? AND (created_by = ? OR ? = 'super_admin')
         `, [projectId, userId, userRole]);
 

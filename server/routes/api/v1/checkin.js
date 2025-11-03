@@ -147,7 +147,7 @@ router.post('/', [
                 p.event_location,
                 p.status as project_status
             FROM form_submissions fs
-            JOIN invitation_projects p ON fs.project_id = p.id
+            JOIN event_projects p ON fs.project_id = p.id
             WHERE fs.trace_id = ?
         `, [trace_id]);
 
@@ -284,14 +284,14 @@ router.post('/', [
 
 /**
  * @swagger
- * /api/v1/check-in/{traceId}:
+ * /api/v1/check-in/{trace_id}:
  *   get:
  *     tags: [Check-in (報到管理)]
  *     summary: 查詢報到記錄
  *     description: 根據 trace_id 查詢報到記錄詳情
  *     parameters:
  *       - in: path
- *         name: traceId
+ *         name: trace_id
  *         required: true
  *         schema:
  *           type: string
@@ -406,7 +406,7 @@ router.get('/:traceId', async (req, res) => {
                 fs.company_name,
                 u.full_name as scanner_name
             FROM check_in_records cr
-            JOIN invitation_projects p ON cr.project_id = p.id
+            JOIN event_projects p ON cr.project_id = p.id
             LEFT JOIN form_submissions fs ON cr.trace_id = fs.trace_id
             LEFT JOIN users u ON cr.scanner_user_id = u.id
             WHERE cr.trace_id = ?

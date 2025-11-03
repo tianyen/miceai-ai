@@ -84,7 +84,7 @@ async function migrate() {
                     qr_code_base64 TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (project_id) REFERENCES invitation_projects(id) ON DELETE CASCADE
+                    FOREIGN KEY (project_id) REFERENCES event_projects(id) ON DELETE CASCADE
                 )
             `, '建立 booths 表');
         } else {

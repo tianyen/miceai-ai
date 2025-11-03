@@ -209,7 +209,7 @@ router.post('/', [
         // 驗證專案是否存在
         const project = await database.get(`
             SELECT id, project_name, status 
-            FROM invitation_projects 
+            FROM event_projects 
             WHERE id = ?
         `, [project_id]);
 
@@ -299,7 +299,7 @@ router.post('/', [
  *     description: 獲取指定專案下的所有名片列表，支援分頁和搜尋
  *     parameters:
  *       - in: path
- *         name: projectId
+ *         name: project_id
  *         required: true
  *         schema:
  *           type: integer
@@ -359,7 +359,7 @@ router.get('/project/:projectId', [
         // 驗證專案是否存在
         const project = await database.get(`
             SELECT id, project_name, status
-            FROM invitation_projects
+            FROM event_projects
             WHERE id = ?
         `, [projectId]);
 
@@ -419,7 +419,7 @@ router.get('/project/:projectId', [
  *     description: 根據名片 ID 獲取完整的名片資訊，返回 JSON 格式供前端串接使用
  *     parameters:
  *       - in: path
- *         name: cardId
+ *         name: card_id
  *         required: true
  *         schema:
  *           type: string
@@ -462,7 +462,7 @@ router.get('/:cardId', [
                 p.project_name,
                 p.status as project_status
             FROM business_cards bc
-            JOIN invitation_projects p ON bc.project_id = p.id
+            JOIN event_projects p ON bc.project_id = p.id
             WHERE bc.card_id = ? AND bc.is_active = 1
         `, [cardId]);
 

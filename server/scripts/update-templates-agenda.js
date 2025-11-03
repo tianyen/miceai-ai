@@ -35,7 +35,7 @@ db.serialize(() => {
         }
     });
 
-    db.run('UPDATE invitation_projects SET template_id = 3 WHERE project_code = ?', ['TECH2024'], (err) => {
+    db.run('UPDATE event_projects SET template_id = 3 WHERE project_code = ?', ['TECH2024'], (err) => {
         if (err) {
             console.error('❌ 更新專案失敗:', err);
         } else {

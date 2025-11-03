@@ -14,12 +14,12 @@ class SubmissionController {
             let submissionsQuery = `
                 SELECT s.*, p.project_name
                 FROM form_submissions s
-                LEFT JOIN invitation_projects p ON s.project_id = p.id
+                LEFT JOIN event_projects p ON s.project_id = p.id
             `;
             let countQuery = `
                 SELECT COUNT(*) as count
                 FROM form_submissions s
-                LEFT JOIN invitation_projects p ON s.project_id = p.id
+                LEFT JOIN event_projects p ON s.project_id = p.id
             `;
 
             let whereClause = '';
@@ -153,7 +153,7 @@ class SubmissionController {
 
             // 權限過濾
             if (userRole !== 'super_admin') {
-                countQuery += ` LEFT JOIN invitation_projects p ON fs.project_id = p.id
+                countQuery += ` LEFT JOIN event_projects p ON fs.project_id = p.id
                               WHERE (p.created_by = ? OR p.id IN (
                                   SELECT project_id FROM user_project_permissions WHERE user_id = ?
                               ))`;
@@ -216,7 +216,7 @@ class SubmissionController {
             let query = `
                 SELECT s.*, p.project_name
                 FROM form_submissions s
-                LEFT JOIN invitation_projects p ON s.project_id = p.id
+                LEFT JOIN event_projects p ON s.project_id = p.id
             `;
             let queryParams = [];
 
@@ -255,7 +255,7 @@ class SubmissionController {
             let query = `
                 SELECT s.*, p.project_name, p.created_by as project_creator
                 FROM form_submissions s
-                LEFT JOIN invitation_projects p ON s.project_id = p.id
+                LEFT JOIN event_projects p ON s.project_id = p.id
                 WHERE s.id = ?
             `;
             let queryParams = [submissionId];
@@ -319,7 +319,7 @@ class SubmissionController {
             const submission = await database.get(`
                 SELECT s.*, p.created_by as project_creator
                 FROM form_submissions s
-                LEFT JOIN invitation_projects p ON s.project_id = p.id
+                LEFT JOIN event_projects p ON s.project_id = p.id
                 WHERE s.id = ?
             `, [submissionId]);
 
@@ -393,7 +393,7 @@ class SubmissionController {
             const submission = await database.get(`
                 SELECT s.*, p.created_by as project_creator
                 FROM form_submissions s
-                LEFT JOIN invitation_projects p ON s.project_id = p.id
+                LEFT JOIN event_projects p ON s.project_id = p.id
                 WHERE s.id = ?
             `, [submissionId]);
 
@@ -485,7 +485,7 @@ class SubmissionController {
             const submission = await database.get(`
                 SELECT s.*, p.created_by as project_creator
                 FROM form_submissions s
-                LEFT JOIN invitation_projects p ON s.project_id = p.id
+                LEFT JOIN event_projects p ON s.project_id = p.id
                 WHERE s.id = ?
             `, [submissionId]);
 
@@ -557,7 +557,7 @@ class SubmissionController {
             if (userRole !== 'super_admin') {
                 whereClause = `
                     WHERE s.project_id IN (
-                        SELECT id FROM invitation_projects 
+                        SELECT id FROM event_projects 
                         WHERE created_by = ? 
                         UNION 
                         SELECT project_id FROM user_project_permissions WHERE user_id = ?
@@ -615,7 +615,7 @@ class SubmissionController {
             let query = `
                 SELECT s.*, p.project_name
                 FROM form_submissions s
-                LEFT JOIN invitation_projects p ON s.project_id = p.id
+                LEFT JOIN event_projects p ON s.project_id = p.id
             `;
             let whereConditions = [];
             let queryParams = [];

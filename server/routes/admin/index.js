@@ -22,6 +22,14 @@ const projectGamesRoutes = require('./project-games');
 const boothsRoutes = require('./booths');
 const userTrackingRoutes = require('./user-tracking');
 
+// 根路徑重定向到登入頁面
+router.get('/', (req, res) => {
+    if (req.session.userId) {
+        return res.redirect('/admin/dashboard');
+    }
+    return res.redirect('/admin/login');
+});
+
 // 公開路由（不需要認證）
 router.use('/', authRoutes);
 

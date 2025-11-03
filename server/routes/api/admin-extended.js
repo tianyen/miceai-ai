@@ -14,7 +14,7 @@ router.get('/projects/pagination', authenticateSession, async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
 
-        const countQuery = 'SELECT COUNT(*) as count FROM invitation_projects';
+        const countQuery = 'SELECT COUNT(*) as count FROM event_projects';
         const totalResult = await database.get(countQuery);
         const total = totalResult?.count || 0;
         const pages = Math.ceil(total / limit);
@@ -74,7 +74,7 @@ router.get('/projects/search', authenticateSession, async (req, res) => {
 
         let searchQuery = `
             SELECT p.*, COUNT(fs.id) as submission_count
-            FROM invitation_projects p
+            FROM event_projects p
             LEFT JOIN form_submissions fs ON p.id = fs.project_id
             WHERE 1=1
         `;
@@ -154,7 +154,7 @@ router.get('/submissions/search', authenticateSession, async (req, res) => {
         let searchQuery = `
             SELECT fs.*, p.project_name 
             FROM form_submissions fs
-            LEFT JOIN invitation_projects p ON fs.project_id = p.id
+            LEFT JOIN event_projects p ON fs.project_id = p.id
             WHERE 1=1
         `;
         let queryParams = [];
@@ -230,7 +230,7 @@ router.get('/checkin/search', authenticateSession, async (req, res) => {
         let searchQuery = `
             SELECT fs.*, p.project_name 
             FROM form_submissions fs
-            LEFT JOIN invitation_projects p ON fs.project_id = p.id
+            LEFT JOIN event_projects p ON fs.project_id = p.id
             WHERE 1=1
         `;
         let queryParams = [];
@@ -1099,7 +1099,7 @@ router.post('/participants/:id/generate-qr', authenticateSession, async (req, re
         const participant = await database.get(`
             SELECT fs.*, p.project_name, p.event_date, p.event_location
             FROM form_submissions fs
-            LEFT JOIN invitation_projects p ON fs.project_id = p.id
+            LEFT JOIN event_projects p ON fs.project_id = p.id
             WHERE fs.id = ?
         `, [participantId]);
 
@@ -1179,7 +1179,7 @@ router.get('/participants/:id/qr-code', authenticateSession, async (req, res) =>
         const participant = await database.get(`
             SELECT fs.*, p.project_name, qr.qr_data, qr.created_at as qr_created_at
             FROM form_submissions fs
-            LEFT JOIN invitation_projects p ON fs.project_id = p.id
+            LEFT JOIN event_projects p ON fs.project_id = p.id
             LEFT JOIN qr_codes qr ON fs.id = qr.submission_id
             WHERE fs.id = ?
         `, [participantId]);
@@ -1305,7 +1305,7 @@ router.get('/participants/:id/qr-download', authenticateSession, async (req, res
         const participant = await database.get(`
             SELECT fs.*, p.project_name, qr.qr_data
             FROM form_submissions fs
-            LEFT JOIN invitation_projects p ON fs.project_id = p.id
+            LEFT JOIN event_projects p ON fs.project_id = p.id
             LEFT JOIN qr_codes qr ON fs.id = qr.submission_id
             WHERE fs.id = ?
         `, [participantId]);

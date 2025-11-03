@@ -28,7 +28,7 @@ router.get('/search', async (req, res) => {
         let searchQuery = `
             SELECT fs.*, p.project_name 
             FROM form_submissions fs
-            LEFT JOIN invitation_projects p ON fs.project_id = p.id
+            LEFT JOIN event_projects p ON fs.project_id = p.id
             WHERE 1=1
         `;
         let queryParams = [];
@@ -161,7 +161,7 @@ router.get('/:id', async (req, res) => {
         const submission = await database.get(`
             SELECT s.*, p.project_name, p.project_code, p.event_date, p.event_location
             FROM form_submissions s
-            LEFT JOIN invitation_projects p ON s.project_id = p.id
+            LEFT JOIN event_projects p ON s.project_id = p.id
             WHERE s.id = ?
         `, [submissionId]);
 
@@ -340,7 +340,7 @@ router.get('/:id/edit', async (req, res) => {
         const submission = await database.get(`
             SELECT s.*, p.project_name, p.project_code
             FROM form_submissions s
-            LEFT JOIN invitation_projects p ON s.project_id = p.id
+            LEFT JOIN event_projects p ON s.project_id = p.id
             WHERE s.id = ?
         `, [submissionId]);
 
@@ -368,7 +368,7 @@ router.get('/:id/edit', async (req, res) => {
         }
 
         // 获取所有项目供选择
-        const projects = await database.query('SELECT id, project_name FROM invitation_projects ORDER BY project_name');
+        const projects = await database.query('SELECT id, project_name FROM event_projects ORDER BY project_name');
 
         const html = `
             <div class="modal show" style="display: flex; align-items: center; justify-content: center;">

@@ -22,7 +22,7 @@ class CheckinController {
 
             // 驗證專案狀態
             const project = await database.get(
-                'SELECT * FROM invitation_projects WHERE id = ? AND status = ?',
+                'SELECT * FROM event_projects WHERE id = ? AND status = ?',
                 [project_id, 'active']
             );
 
@@ -154,7 +154,7 @@ class CheckinController {
             } else if (userRole !== 'super_admin') {
                 // 非超級管理員只能看到有權限的專案
                 query += ` AND cr.project_id IN (
-                    SELECT id FROM invitation_projects WHERE created_by = ?
+                    SELECT id FROM event_projects WHERE created_by = ?
                     UNION
                     SELECT project_id FROM user_project_permissions WHERE user_id = ?
                 )`;
@@ -223,7 +223,7 @@ class CheckinController {
 
             // 獲取專案信息
             const project = await database.get(
-                'SELECT project_name FROM invitation_projects WHERE id = ?',
+                'SELECT project_name FROM event_projects WHERE id = ?',
                 [projectId]
             );
 
@@ -276,7 +276,7 @@ class CheckinController {
                 FROM checkin_records cr
                 LEFT JOIN form_submissions fs ON cr.submission_id = fs.id
                 LEFT JOIN users u ON cr.scanned_by = u.id
-                LEFT JOIN invitation_projects p ON cr.project_id = p.id
+                LEFT JOIN event_projects p ON cr.project_id = p.id
                 WHERE cr.id = ?
             `, [checkinId]);
 
@@ -315,7 +315,7 @@ class CheckinController {
     // 檢查項目權限的輔助方法
     async checkProjectPermission(userId, projectId) {
         const project = await database.get(
-            'SELECT * FROM invitation_projects WHERE id = ? AND created_by = ?',
+            'SELECT * FROM event_projects WHERE id = ? AND created_by = ?',
             [projectId, userId]
         );
 
@@ -344,7 +344,7 @@ class CheckinController {
             const submission = await database.get(`
                 SELECT fs.*, p.status as project_status, p.created_by
                 FROM form_submissions fs
-                LEFT JOIN invitation_projects p ON fs.project_id = p.id
+                LEFT JOIN event_projects p ON fs.project_id = p.id
                 WHERE fs.id = ?
             `, [submissionId]);
 
@@ -507,7 +507,7 @@ class CheckinController {
             // 權限過濾
             if (userRole !== 'super_admin') {
                 whereClause = `WHERE cr.project_id IN (
-                    SELECT id FROM invitation_projects WHERE created_by = ?
+                    SELECT id FROM event_projects WHERE created_by = ?
                     UNION
                     SELECT project_id FROM user_project_permissions WHERE user_id = ?
                 )`;
@@ -540,7 +540,7 @@ class CheckinController {
                 FROM checkin_records cr
                 LEFT JOIN form_submissions fs ON cr.submission_id = fs.id
                 LEFT JOIN users u ON cr.scanned_by = u.id
-                LEFT JOIN invitation_projects p ON cr.project_id = p.id
+                LEFT JOIN event_projects p ON cr.project_id = p.id
                 ${whereClause}
                 ORDER BY cr.checkin_time DESC
             `, queryParams);
@@ -612,7 +612,7 @@ class CheckinController {
                 queryParams = [projectId];
             } else if (userRole !== 'super_admin') {
                 whereClause = `WHERE cr.project_id IN (
-                    SELECT id FROM invitation_projects WHERE created_by = ?
+                    SELECT id FROM event_projects WHERE created_by = ?
                     UNION
                     SELECT project_id FROM user_project_permissions WHERE user_id = ?
                 )`;
@@ -623,7 +623,7 @@ class CheckinController {
             const totalSubmissions = await database.get(`
                 SELECT COUNT(*) as count FROM form_submissions fs
                 ${projectId ? 'WHERE fs.project_id = ?' : (userRole !== 'super_admin' ?
-                    'LEFT JOIN invitation_projects p ON fs.project_id = p.id WHERE (p.created_by = ? OR p.id IN (SELECT project_id FROM user_project_permissions WHERE user_id = ?))' : '')}
+                    'LEFT JOIN event_projects p ON fs.project_id = p.id WHERE (p.created_by = ? OR p.id IN (SELECT project_id FROM user_project_permissions WHERE user_id = ?))' : '')}
             `, projectId ? [projectId] : (userRole !== 'super_admin' ? [userId, userId] : []));
 
             // 总签到数
@@ -641,7 +641,7 @@ class CheckinController {
             const recentCheckins = await database.query(`
                 SELECT cr.*, p.project_name, fs.submitter_email
                 FROM checkin_records cr
-                LEFT JOIN invitation_projects p ON cr.project_id = p.id
+                LEFT JOIN event_projects p ON cr.project_id = p.id
                 LEFT JOIN form_submissions fs ON cr.submission_id = fs.id
                 ${whereClause}
                 ORDER BY cr.checkin_time DESC LIMIT 5
@@ -696,14 +696,14 @@ class CheckinController {
                     qr.qr_data as qr_token
                 FROM form_submissions fs
                 LEFT JOIN checkin_records cr ON fs.id = cr.submission_id
-                LEFT JOIN invitation_projects p ON fs.project_id = p.id
+                LEFT JOIN event_projects p ON fs.project_id = p.id
                 LEFT JOIN qr_codes qr ON fs.id = qr.submission_id
                 WHERE 1=1
             `;
             let countQuery = `
                 SELECT COUNT(DISTINCT fs.id) as count
                 FROM form_submissions fs
-                LEFT JOIN invitation_projects p ON fs.project_id = p.id
+                LEFT JOIN event_projects p ON fs.project_id = p.id
                 WHERE 1=1
             `;
             let queryParams = [];
@@ -858,7 +858,7 @@ class CheckinController {
             let countQuery = `
                 SELECT COUNT(DISTINCT fs.id) as count
                 FROM form_submissions fs
-                LEFT JOIN invitation_projects p ON fs.project_id = p.id
+                LEFT JOIN event_projects p ON fs.project_id = p.id
                 WHERE 1=1
             `;
             let queryParams = [];

@@ -456,7 +456,7 @@ async function addSeedData() {
                 // 檢查並添加專案資料
                 console.log('📋 添加專案資料...');
                 const projectStmt = db.prepare(`
-                    INSERT INTO invitation_projects (
+                    INSERT INTO event_projects (
                         project_name, project_code, description, event_date,
                         event_start_date, event_end_date, event_highlights,
                         event_location, event_type, status, template_id, created_by
@@ -498,7 +498,7 @@ async function addSeedData() {
                 if (templateIds.length > 0) {
                     // 更新第一個專案（TECH2024）使用第一個模板
                     await new Promise((resolve) => {
-                        db.run(`UPDATE invitation_projects SET template_id = ? WHERE project_code = 'TECH2024'`,
+                        db.run(`UPDATE event_projects SET template_id = ? WHERE project_code = 'TECH2024'`,
                             [templateIds[0]],
                             (err) => {
                                 if (!err) console.log(`   ✅ 更新 TECH2024 使用模板 ID: ${templateIds[0]}`);
@@ -510,7 +510,7 @@ async function addSeedData() {
                     // 更新第二個專案（AI2024）使用第三個模板（如果存在）
                     if (templateIds.length >= 3) {
                         await new Promise((resolve) => {
-                            db.run(`UPDATE invitation_projects SET template_id = ? WHERE project_code = 'AI2024'`,
+                            db.run(`UPDATE event_projects SET template_id = ? WHERE project_code = 'AI2024'`,
                                 [templateIds[2]],
                                 (err) => {
                                     if (!err) console.log(`   ✅ 更新 AI2024 使用模板 ID: ${templateIds[2]}`);
@@ -707,7 +707,7 @@ async function addSeedData() {
                         });
                     }),
                     new Promise((resolve) => {
-                        db.get("SELECT COUNT(*) as count FROM invitation_projects", (err, row) => {
+                        db.get("SELECT COUNT(*) as count FROM event_projects", (err, row) => {
                             resolve(row ? row.count : 0);
                         });
                     }),

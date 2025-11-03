@@ -114,7 +114,7 @@ router.post('/:projectId/games', [
         const { game_id, voucher_id } = req.body;
 
         // 檢查專案是否存在
-        const project = await database.get('SELECT * FROM invitation_projects WHERE id = ?', [projectId]);
+        const project = await database.get('SELECT * FROM event_projects WHERE id = ?', [projectId]);
         if (!project) {
             return responses.notFound(res, '專案');
         }
@@ -142,30 +142,58 @@ router.post('/:projectId/games', [
             }
         }
 
-        // 生成遊戲入口 URL
-        const gameUrl = `${config.app.baseUrl}/game/${projectId}/${game_id}`;
+        // 生成 QR Code 資料（包含完整資訊）
+        const qrData = {
+            type: 'game',
+            project_id: projectId,
+            project_code: project.project_code,
+            game_id: game_id,
+            game_name: game.game_name_zh,
+            binding_id: null, // 新增時還沒有 ID，稍後更新
+            game_url: game.game_url
+        };
+
+        const qrCodeUrl = `${config.app.baseUrl}/api/v1/game/start?data=${encodeURIComponent(JSON.stringify(qrData))}`;
 
         // 生成 QR Code Base64
-        const qrCodeBase64 = await QRCode.toDataURL(gameUrl, {
-            errorCorrectionLevel: 'M',
-            type: 'image/png',
-            quality: 0.92,
-            margin: 1,
+        const qrCodeBase64 = await QRCode.toDataURL(qrCodeUrl, {
+            width: 300,
+            margin: 2,
             color: {
                 dark: '#000000',
                 light: '#FFFFFF'
-            },
-            width: 256
+            }
         });
 
-        // 插入綁定記錄
+        // 插入綁定記錄（先不包含 QR Code）
         const result = await database.run(`
             INSERT INTO project_games (
-                project_id, game_id, voucher_id, qr_code_base64, created_at
-            ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-        `, [projectId, game_id, voucher_id || null, qrCodeBase64]);
+                project_id, game_id, voucher_id, created_at
+            ) VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        `, [projectId, game_id, voucher_id || null]);
 
-        responses.success(res, { id: result.lastID }, '遊戲綁定成功');
+        const bindingId = result.lastID;
+
+        // 更新 QR Code 資料，加入正確的 binding_id
+        qrData.binding_id = bindingId;
+        const finalQrCodeUrl = `${config.app.baseUrl}/api/v1/game/start?data=${encodeURIComponent(JSON.stringify(qrData))}`;
+        const finalQrCodeBase64 = await QRCode.toDataURL(finalQrCodeUrl, {
+            width: 300,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
+        });
+
+        // 更新 QR Code Base64
+        await database.run(`
+            UPDATE project_games
+            SET qr_code_base64 = ?
+            WHERE id = ?
+        `, [finalQrCodeBase64, bindingId]);
+
+        responses.success(res, { id: bindingId }, '遊戲綁定成功');
     } catch (error) {
         console.error('綁定遊戲失敗:', error);
         responses.error(res, '綁定遊戲失敗', 500);
@@ -207,12 +235,50 @@ router.put('/:projectId/games/:id', [
             }
         }
 
-        // 更新綁定設定
+        // 獲取遊戲和專案資訊以重新生成 QR Code
+        const gameInfo = await database.get(`
+            SELECT
+                pg.id,
+                pg.game_id,
+                pg.project_id,
+                g.game_name_zh,
+                g.game_url,
+                p.project_code
+            FROM project_games pg
+            LEFT JOIN games g ON pg.game_id = g.id
+            LEFT JOIN event_projects p ON pg.project_id = p.id
+            WHERE pg.id = ?
+        `, [id]);
+
+        // 生成新的 QR Code URL
+        const qrData = {
+            type: 'game',
+            project_id: gameInfo.project_id,
+            project_code: gameInfo.project_code,
+            game_id: gameInfo.game_id,
+            game_name: gameInfo.game_name_zh,
+            binding_id: gameInfo.id,
+            game_url: gameInfo.game_url
+        };
+
+        const qrCodeUrl = `${config.app.baseUrl}/api/v1/game/start?data=${encodeURIComponent(JSON.stringify(qrData))}`;
+        const qrCodeBase64 = await QRCode.toDataURL(qrCodeUrl, {
+            width: 300,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
+        });
+
+        // 更新綁定設定和 QR Code
         await database.run(`
             UPDATE project_games
-            SET voucher_id = ?, updated_at = CURRENT_TIMESTAMP
+            SET voucher_id = ?,
+                qr_code_base64 = ?,
+                updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
-        `, [voucher_id || null, id]);
+        `, [voucher_id || null, qrCodeBase64, id]);
 
         responses.success(res, null, '更新成功');
     } catch (error) {
@@ -291,7 +357,7 @@ router.get('/:projectId/games/:id/qr', [
                 p.project_name
             FROM project_games pg
             LEFT JOIN games g ON pg.game_id = g.id
-            LEFT JOIN invitation_projects p ON pg.project_id = p.id
+            LEFT JOIN event_projects p ON pg.project_id = p.id
             WHERE pg.id = ? AND pg.project_id = ?
         `, [id, projectId]);
 

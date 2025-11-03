@@ -16,12 +16,12 @@ class ProjectController {
                     u.full_name as creator_name,
                     t.template_name as template_name,
                     COUNT(fs.id) as participant_count
-                FROM invitation_projects p
+                FROM event_projects p
                 LEFT JOIN users u ON p.created_by = u.id
                 LEFT JOIN invitation_templates t ON p.template_id = t.id
                 LEFT JOIN form_submissions fs ON p.id = fs.project_id
             `;
-            let countQuery = 'SELECT COUNT(*) as count FROM invitation_projects p';
+            let countQuery = 'SELECT COUNT(*) as count FROM event_projects p';
             let queryParams = [];
 
             if (userRole !== 'super_admin') {
@@ -149,7 +149,7 @@ class ProjectController {
 
             let query = `
                 SELECT p.*, u.full_name as creator_name
-                FROM invitation_projects p
+                FROM event_projects p
                 LEFT JOIN users u ON p.created_by = u.id
             `;
             let queryParams = [];
@@ -186,7 +186,7 @@ class ProjectController {
 
             const project = await database.get(`
                 SELECT p.*, u.full_name as creator_name, a.full_name as assignee_name
-                FROM invitation_projects p
+                FROM event_projects p
                 LEFT JOIN users u ON p.created_by = u.id
                 LEFT JOIN users a ON p.assigned_to = a.id
                 WHERE p.id = ?
@@ -295,7 +295,7 @@ class ProjectController {
     async duplicateProject(req, res) {
         try {
             const projectId = req.params.id;
-            const original = await database.get('SELECT * FROM invitation_projects WHERE id = ?', [projectId]);
+            const original = await database.get('SELECT * FROM event_projects WHERE id = ?', [projectId]);
             if (!original) {
                 return res.status(404).json({ success: false, message: '專案不存在' });
             }
@@ -306,7 +306,7 @@ class ProjectController {
             const newName = `${original.project_name} - 複本`;
 
             const result = await database.run(`
-                INSERT INTO invitation_projects (
+                INSERT INTO event_projects (
                     project_name, project_code, description, event_date, event_location,
                     event_type, created_by, template_config, brand_config, status
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -344,7 +344,7 @@ class ProjectController {
         try {
             const projectId = req.params.id;
             // 確認專案存在
-            const project = await database.get('SELECT * FROM invitation_projects WHERE id = ?', [projectId]);
+            const project = await database.get('SELECT * FROM event_projects WHERE id = ?', [projectId]);
             if (!project) {
                 return res.status(404).json({ success: false, message: '專案不存在' });
             }
@@ -352,7 +352,7 @@ class ProjectController {
             const submissions = await database.query(`
                 SELECT s.*, p.project_name
                 FROM form_submissions s
-                LEFT JOIN invitation_projects p ON s.project_id = p.id
+                LEFT JOIN event_projects p ON s.project_id = p.id
                 WHERE s.project_id = ?
                 ORDER BY s.created_at DESC
             `, [projectId]);
@@ -396,7 +396,7 @@ class ProjectController {
             } = req.body;
 
             const result = await database.run(`
-                INSERT INTO invitation_projects (
+                INSERT INTO event_projects (
                     project_name, project_code, description, event_date, event_location,
                     event_type, created_by, template_config, brand_config, status
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -481,7 +481,7 @@ class ProjectController {
             updateFields.push('updated_at = CURRENT_TIMESTAMP');
             updateValues.push(projectId);
 
-            const query = `UPDATE invitation_projects SET ${updateFields.join(', ')} WHERE id = ?`;
+            const query = `UPDATE event_projects SET ${updateFields.join(', ')} WHERE id = ?`;
             const result = await database.run(query, updateValues);
 
             if (result.changes === 0) {
@@ -519,7 +519,7 @@ class ProjectController {
             const projectId = req.params.id;
 
             // 檢查項目是否存在
-            const project = await database.get('SELECT * FROM invitation_projects WHERE id = ?', [projectId]);
+            const project = await database.get('SELECT * FROM event_projects WHERE id = ?', [projectId]);
             if (!project) {
                 return res.status(404).json({
                     success: false,
@@ -535,7 +535,7 @@ class ProjectController {
                 await database.run('DELETE FROM user_project_permissions WHERE project_id = ?', [projectId]);
                 await database.run('DELETE FROM form_submissions WHERE project_id = ?', [projectId]);
                 await database.run('DELETE FROM qr_codes WHERE project_id = ?', [projectId]);
-                await database.run('DELETE FROM invitation_projects WHERE id = ?', [projectId]);
+                await database.run('DELETE FROM event_projects WHERE id = ?', [projectId]);
 
                 await database.commit();
 
@@ -726,7 +726,7 @@ class ProjectController {
             }
 
             // 檢查項目是否存在和權限
-            const project = await database.get('SELECT * FROM invitation_projects WHERE id = ?', [projectId]);
+            const project = await database.get('SELECT * FROM event_projects WHERE id = ?', [projectId]);
             if (!project) {
                 return res.status(404).json({
                     success: false,
@@ -759,7 +759,7 @@ class ProjectController {
 
             // 更新狀態
             const result = await database.run(
-                'UPDATE invitation_projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                'UPDATE event_projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
                 [status, projectId]
             );
 
@@ -823,7 +823,7 @@ class ProjectController {
                 }
             }
 
-            const project = await database.get('SELECT * FROM invitation_projects WHERE id = ?', [projectId]);
+            const project = await database.get('SELECT * FROM event_projects WHERE id = ?', [projectId]);
             if (!project) {
                 return res.status(404).json({
                     success: false,
@@ -872,7 +872,7 @@ class ProjectController {
             }
 
             const project = await database.get(
-                'SELECT id, project_name, project_code, status, description, event_date, event_location FROM invitation_projects WHERE id = ?',
+                'SELECT id, project_name, project_code, status, description, event_date, event_location FROM event_projects WHERE id = ?',
                 [projectId]
             );
 
@@ -931,7 +931,7 @@ class ProjectController {
     // 檢查項目權限的輔助方法
     async checkProjectPermission(userId, projectId) {
         const project = await database.get(
-            'SELECT * FROM invitation_projects WHERE id = ? AND created_by = ?',
+            'SELECT * FROM event_projects WHERE id = ? AND created_by = ?',
             [projectId, userId]
         );
 
@@ -953,7 +953,7 @@ class ProjectController {
             const userId = req.user.id;
             const userRole = req.user.role;
 
-            let countQuery = 'SELECT COUNT(*) as count FROM invitation_projects p';
+            let countQuery = 'SELECT COUNT(*) as count FROM event_projects p';
             let queryParams = [];
 
             if (userRole !== 'super_admin') {
@@ -1025,7 +1025,7 @@ class ProjectController {
                     p.*,
                     u.full_name as creator_name,
                     COUNT(fs.id) as participant_count
-                FROM invitation_projects p
+                FROM event_projects p
                 LEFT JOIN users u ON p.created_by = u.id
                 LEFT JOIN form_submissions fs ON p.id = fs.project_id
                 WHERE 1=1

@@ -299,7 +299,7 @@ class UserController {
                     COUNT(*) as total_projects,
                     SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_projects,
                     SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_projects
-                FROM invitation_projects
+                FROM event_projects
                 WHERE created_by = ?
             `, [userId]);
 
@@ -564,7 +564,7 @@ class UserController {
 
             // 檢查用戶是否有創建的項目
             const hasProjects = await database.get(
-                'SELECT COUNT(*) as count FROM invitation_projects WHERE created_by = ?',
+                'SELECT COUNT(*) as count FROM event_projects WHERE created_by = ?',
                 [userId]
             );
 
@@ -581,7 +581,7 @@ class UserController {
             try {
                 // 刪除用戶相關數據
                 await database.run('DELETE FROM user_project_permissions WHERE user_id = ?', [userId]);
-                await database.run('UPDATE invitation_projects SET assigned_to = NULL WHERE assigned_to = ?', [userId]);
+                await database.run('UPDATE event_projects SET assigned_to = NULL WHERE assigned_to = ?', [userId]);
                 await database.run('DELETE FROM users WHERE id = ?', [userId]);
 
                 await database.commit();

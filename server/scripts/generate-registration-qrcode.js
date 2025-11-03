@@ -1,7 +1,8 @@
+#!/usr/bin/env node
 /**
  * 生成報名成功後的 QR Code 測試頁面
  * 用於測試活動報到 webcam 掃描功能
- * 
+ *
  * 使用方式:
  * node server/scripts/generate-registration-qrcode.js
  */
@@ -11,7 +12,11 @@ const path = require('path');
 const fs = require('fs');
 const QRCode = require('qrcode');
 
-const dbPath = path.resolve(__dirname, '../data/mice_ai.db');
+// 載入環境變數
+require('dotenv').config();
+const config = require('../config');
+
+const dbPath = path.resolve(config.database.path);
 const outputPath = path.resolve(__dirname, '../../registration-qrcode.html');
 
 console.log('🎫 生成報名成功後的 QR Code 測試頁面...\n');
@@ -41,7 +46,7 @@ db.get(`
         p.event_location,
         qr.qr_base64
     FROM form_submissions fs
-    JOIN invitation_projects p ON fs.project_id = p.id
+    JOIN event_projects p ON fs.project_id = p.id
     LEFT JOIN qr_codes qr ON fs.id = qr.submission_id
     LEFT JOIN checkin_records cr ON fs.id = cr.submission_id
     WHERE cr.id IS NULL

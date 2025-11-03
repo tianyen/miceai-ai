@@ -197,7 +197,7 @@ router.get('/', [
         // 獲取總數
         const countQuery = `
             SELECT COUNT(*) as total 
-            FROM invitation_projects 
+            FROM event_projects 
             ${whereClause}
         `;
         const countResult = await database.get(countQuery, params);
@@ -220,7 +220,7 @@ router.get('/', [
                 p.contact_phone,
                 p.created_at,
                 COUNT(fs.id) as current_participants
-            FROM invitation_projects p
+            FROM event_projects p
             LEFT JOIN form_submissions fs ON p.id = fs.project_id 
                 AND fs.status IN ('pending', 'approved', 'confirmed')
             ${whereClause}
@@ -465,7 +465,7 @@ router.get('/code/:code', [
                 p.created_at,
                 p.updated_at,
                 COUNT(fs.id) as current_participants
-            FROM invitation_projects p
+            FROM event_projects p
             LEFT JOIN form_submissions fs ON p.id = fs.project_id
                 AND fs.status IN ('pending', 'approved', 'confirmed')
             WHERE p.project_code = ?
@@ -722,7 +722,7 @@ router.get('/:id', [
                 p.created_at,
                 p.updated_at,
                 COUNT(fs.id) as current_participants
-            FROM invitation_projects p
+            FROM event_projects p
             LEFT JOIN form_submissions fs ON p.id = fs.project_id
                 AND fs.status IN ('pending', 'approved', 'confirmed')
             WHERE p.id = ?

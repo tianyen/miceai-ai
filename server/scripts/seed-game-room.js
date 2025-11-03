@@ -7,6 +7,9 @@
 
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const QRCode = require('qrcode');
+require('dotenv').config();
+const config = require('../config');
 
 const dbPath = path.join(__dirname, '../data/mice_ai.db');
 
@@ -63,10 +66,11 @@ async function seed() {
         await runSQL('DELETE FROM games');
 
         // 檢查 booths 表是否存在
-        const boothsTableExists = await getSQL(`
+        const boothsTableCheck = await getSQL(`
             SELECT name FROM sqlite_master
             WHERE type='table' AND name='booths'
         `);
+        const boothsTableExists = !!boothsTableCheck;
         if (boothsTableExists) {
             await runSQL('DELETE FROM booths');
             console.log('✅ 清除完成（包含攤位資料）\n');
@@ -192,12 +196,16 @@ async function seed() {
         // 4. 新增攤位資料（如果 booths 表存在）
         console.log('\n🏪 新增攤位資料...');
 
-        const project = await getSQL("SELECT id FROM invitation_projects LIMIT 1");
+        // 優先使用 DIGITAL2024 專案，如果不存在則使用第一個專案
+        let project = await getSQL("SELECT id, project_name, project_code FROM event_projects WHERE project_code = 'DIGITAL2024' LIMIT 1");
+        if (!project) {
+            project = await getSQL("SELECT id, project_name, project_code FROM event_projects LIMIT 1");
+        }
         let booth1Id, booth2Id, booth3Id;
 
         if (boothsTableExists && project) {
             const projectId = project.id;
-            console.log(`📝 使用專案 ID: ${projectId}`);
+            console.log(`📝 使用專案: ${project.project_name} (${project.project_code}) - ID: ${projectId}`);
 
             // 新增 3 個攤位
             booth1Id = await runSQL(`
@@ -229,11 +237,42 @@ async function seed() {
         if (project) {
             const projectId = project.id;
 
-            await runSQL(`
+            // 先插入綁定記錄
+            const bindingId = await runSQL(`
                 INSERT INTO project_games (project_id, game_id, voucher_id, is_active)
                 VALUES (?, ?, ?, ?)
             `, [projectId, game1Id, voucher1Id, 1]);
+
+            // 生成 QR Code
+            const qrData = {
+                type: 'game',
+                project_id: projectId,
+                project_code: project.project_code,
+                game_id: game1Id,
+                game_name: '幸運飛鏢',
+                binding_id: bindingId,
+                game_url: 'https://example.com/games/lucky-dart'
+            };
+
+            const qrCodeUrl = `${config.app.baseUrl}/api/v1/game/start?data=${encodeURIComponent(JSON.stringify(qrData))}`;
+            const qrCodeBase64 = await QRCode.toDataURL(qrCodeUrl, {
+                width: 300,
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                }
+            });
+
+            // 更新 QR Code
+            await runSQL(`
+                UPDATE project_games
+                SET qr_code_base64 = ?
+                WHERE id = ?
+            `, [qrCodeBase64, bindingId]);
+
             console.log(`✅ 綁定: 幸運飛鏢 → 專案 ${projectId} (兌換券: 星巴克咖啡券)`);
+            console.log(`   QR Code 已生成 (Base64 長度: ${qrCodeBase64.length})`);
         } else {
             console.log('⚠️  找不到專案，跳過遊戲綁定');
         }
@@ -418,7 +457,7 @@ async function seed() {
 
         if (project) {
             const projectId = project.id;
-            const wangTraceId = 'TRACE05207CF7199967C0'; // 王大明的 trace_id (來自 db-seed.js)
+            const wangTraceId = 'TRACE5761B581E67BC774'; // 王大明的 trace_id (來自 db-seed.js)
             const wangFinalScore = 850; // 高分
             const wangPlayTime = 45; // 快速完成
 

@@ -1664,6 +1664,13 @@ function viewGameQR(bindingId) {
         success: function(response) {
             if (response.success) {
                 const data = response.data;
+
+                // 檢查 QR Code 是否存在
+                if (!data.qr_code_base64) {
+                    showNotification('QR Code 尚未生成，請稍後再試', 'warning');
+                    return;
+                }
+
                 const modalHtml = `
                     <div class="modal-overlay" id="qr-modal">
                         <div class="modal-dialog">
@@ -1727,7 +1734,7 @@ function editProjectGame(bindingId) {
         }
 
         const binding = bindingResponse.data;
-        const vouchers = vouchersResponse.data;
+        const vouchers = vouchersResponse.data.vouchers || vouchersResponse.data;
 
         let vouchersOptions = '<option value="">無兌換券</option>';
         vouchers.forEach(voucher => {

@@ -16,7 +16,7 @@ class DashboardController {
                     WHERE p.id IN (
                         SELECT DISTINCT project_id FROM user_project_permissions WHERE user_id = ?
                         UNION 
-                        SELECT id FROM invitation_projects WHERE created_by = ?
+                        SELECT id FROM event_projects WHERE created_by = ?
                     )
                 `;
                 projectParams = [userId, userId];
@@ -24,8 +24,8 @@ class DashboardController {
 
             // 獲取總項目數
             const totalProjectsQuery = userRole === 'super_admin' 
-                ? 'SELECT COUNT(*) as count FROM invitation_projects'
-                : `SELECT COUNT(DISTINCT p.id) as count FROM invitation_projects p ${projectFilter}`;
+                ? 'SELECT COUNT(*) as count FROM event_projects'
+                : `SELECT COUNT(DISTINCT p.id) as count FROM event_projects p ${projectFilter}`;
             
             const totalProjects = await database.get(totalProjectsQuery, projectParams);
 
@@ -33,14 +33,14 @@ class DashboardController {
             const totalSubmissionsQuery = userRole === 'super_admin'
                 ? 'SELECT COUNT(*) as count FROM form_submissions'
                 : `SELECT COUNT(DISTINCT s.id) as count FROM form_submissions s 
-                   JOIN invitation_projects p ON s.project_id = p.id ${projectFilter}`;
+                   JOIN event_projects p ON s.project_id = p.id ${projectFilter}`;
             
             const totalSubmissions = await database.get(totalSubmissionsQuery, projectParams);
 
             // 獲取活躍項目數
             const activeProjectsQuery = userRole === 'super_admin'
-                ? "SELECT COUNT(*) as count FROM invitation_projects WHERE status = 'active'"
-                : `SELECT COUNT(DISTINCT p.id) as count FROM invitation_projects p 
+                ? "SELECT COUNT(*) as count FROM event_projects WHERE status = 'active'"
+                : `SELECT COUNT(DISTINCT p.id) as count FROM event_projects p 
                    ${projectFilter} AND p.status = 'active'`;
             
             const activeProjects = await database.get(activeProjectsQuery, projectParams);
@@ -53,9 +53,9 @@ class DashboardController {
 
             // 本月新增項目數
             const projectsThisMonthQuery = userRole === 'super_admin'
-                ? `SELECT COUNT(*) as count FROM invitation_projects 
+                ? `SELECT COUNT(*) as count FROM event_projects 
                    WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')`
-                : `SELECT COUNT(DISTINCT p.id) as count FROM invitation_projects p 
+                : `SELECT COUNT(DISTINCT p.id) as count FROM event_projects p 
                    ${projectFilter} AND strftime('%Y-%m', p.created_at) = strftime('%Y-%m', 'now')`;
             
             const projectsThisMonth = await database.get(projectsThisMonthQuery, projectParams);
@@ -65,16 +65,16 @@ class DashboardController {
                 ? `SELECT COUNT(*) as count FROM form_submissions 
                    WHERE date(created_at) = date('now')`
                 : `SELECT COUNT(DISTINCT s.id) as count FROM form_submissions s 
-                   JOIN invitation_projects p ON s.project_id = p.id 
+                   JOIN event_projects p ON s.project_id = p.id 
                    ${projectFilter} AND date(s.created_at) = date('now')`;
             
             const submissionsToday = await database.get(submissionsTodayQuery, projectParams);
 
             // 上月活躍項目數（用於計算變化）
             const activeProjectsLastMonthQuery = userRole === 'super_admin'
-                ? `SELECT COUNT(*) as count FROM invitation_projects 
+                ? `SELECT COUNT(*) as count FROM event_projects 
                    WHERE status = 'active' AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', '-1 month')`
-                : `SELECT COUNT(DISTINCT p.id) as count FROM invitation_projects p 
+                : `SELECT COUNT(DISTINCT p.id) as count FROM event_projects p 
                    ${projectFilter} AND p.status = 'active' 
                    AND strftime('%Y-%m', p.created_at) = strftime('%Y-%m', 'now', '-1 month')`;
             
@@ -163,7 +163,7 @@ class DashboardController {
                     WHERE p.id IN (
                         SELECT DISTINCT project_id FROM user_project_permissions WHERE user_id = ?
                         UNION 
-                        SELECT id FROM invitation_projects WHERE created_by = ?
+                        SELECT id FROM event_projects WHERE created_by = ?
                     )
                 `;
                 projectParams = [userId, userId];
@@ -171,7 +171,7 @@ class DashboardController {
 
             const projects = await database.query(`
                 SELECT p.*, u.full_name as creator_name
-                FROM invitation_projects p
+                FROM event_projects p
                 LEFT JOIN users u ON p.created_by = u.id
                 ${projectFilter}
                 ORDER BY p.created_at DESC

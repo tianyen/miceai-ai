@@ -21,6 +21,51 @@ router.get('/', (req, res) => {
     });
 });
 
+// 攤位統計頁面
+router.get('/:id/stats', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 獲取攤位資訊
+        const booth = await database.get(`
+            SELECT b.*, p.project_name
+            FROM booths b
+            LEFT JOIN event_projects p ON b.project_id = p.id
+            WHERE b.id = ?
+        `, [id]);
+
+        if (!booth) {
+            return res.status(404).render('admin/error', {
+                layout: 'admin',
+                pageTitle: '攤位不存在',
+                message: '找不到指定的攤位',
+                user: req.user
+            });
+        }
+
+        res.render('admin/booth-stats', {
+            layout: 'admin',
+            pageTitle: `攤位統計 - ${booth.booth_name}`,
+            currentPage: 'booths',
+            user: req.user,
+            booth: booth,
+            breadcrumbs: [
+                { name: '首頁', url: '/admin' },
+                { name: '攤位管理', url: '/admin/booths' },
+                { name: booth.booth_name, url: `/admin/booths/${id}/stats` }
+            ]
+        });
+    } catch (error) {
+        console.error('載入攤位統計頁面失敗:', error);
+        return res.status(500).render('admin/error', {
+            layout: 'admin',
+            pageTitle: '系統錯誤',
+            message: '載入攤位統計頁面失敗',
+            user: req.user
+        });
+    }
+});
+
 // 獲取所有攤位（API）
 router.get('/api/list', async (req, res) => {
     try {
@@ -33,7 +78,7 @@ router.get('/api/list', async (req, res) => {
                 COUNT(DISTINCT gs.id) as session_count,
                 COUNT(DISTINCT gs.trace_id) as player_count
             FROM booths b
-            LEFT JOIN invitation_projects p ON b.project_id = p.id
+            LEFT JOIN event_projects p ON b.project_id = p.id
             LEFT JOIN game_sessions gs ON b.id = gs.booth_id
         `;
 
@@ -46,7 +91,7 @@ router.get('/api/list', async (req, res) => {
         query += ' GROUP BY b.id ORDER BY b.created_at DESC';
 
         const booths = await database.query(query, params);
-        return responses.success(res, '獲取攤位列表成功', { booths });
+        return responses.success(res, { booths }, '獲取攤位列表成功');
     } catch (error) {
         console.error('獲取攤位列表失敗:', error);
         return responses.serverError(res, '獲取攤位列表失敗');
@@ -61,7 +106,7 @@ router.get('/api/:id', async (req, res) => {
         const booth = await database.get(
             `SELECT b.*, p.project_name
              FROM booths b
-             LEFT JOIN invitation_projects p ON b.project_id = p.id
+             LEFT JOIN event_projects p ON b.project_id = p.id
              WHERE b.id = ?`,
             [id]
         );
@@ -70,7 +115,7 @@ router.get('/api/:id', async (req, res) => {
             return responses.notFound(res, '找不到攤位');
         }
 
-        return responses.success(res, '獲取攤位詳情成功', { booth });
+        return responses.success(res, { booth }, '獲取攤位詳情成功');
     } catch (error) {
         console.error('獲取攤位詳情失敗:', error);
         return responses.serverError(res, '獲取攤位詳情失敗');
@@ -110,7 +155,7 @@ router.post('/api', [
             [project_id, booth_name, booth_code, location || '', description || '', 1]
         );
 
-        return responses.success(res, '新增攤位成功', { id: result });
+        return responses.success(res, { id: result }, '新增攤位成功');
     } catch (error) {
         console.error('新增攤位失敗:', error);
         return responses.serverError(res, '新增攤位失敗');
@@ -184,7 +229,7 @@ router.put('/api/:id', [
             params
         );
 
-        return responses.success(res, '更新攤位成功');
+        return responses.success(res, null, '更新攤位成功');
     } catch (error) {
         console.error('更新攤位失敗:', error);
         return responses.serverError(res, '更新攤位失敗');
@@ -215,7 +260,7 @@ router.delete('/api/:id', async (req, res) => {
         // 刪除攤位
         await database.run('DELETE FROM booths WHERE id = ?', [id]);
 
-        return responses.success(res, '刪除攤位成功');
+        return responses.success(res, null, '刪除攤位成功');
     } catch (error) {
         console.error('刪除攤位失敗:', error);
         return responses.serverError(res, '刪除攤位失敗');
@@ -269,7 +314,7 @@ router.get('/api/:id/stats', async (req, res) => {
             LIMIT 24
         `, params);
 
-        return responses.success(res, '獲取攤位統計成功', {
+        return responses.success(res, {
             booth,
             summary: {
                 total_players: summary.total_players || 0,
@@ -280,7 +325,7 @@ router.get('/api/:id/stats', async (req, res) => {
                 vouchers_earned: summary.vouchers_earned || 0
             },
             hourly_stats: hourlyStats
-        });
+        }, '獲取攤位統計成功');
     } catch (error) {
         console.error('獲取攤位統計失敗:', error);
         return responses.serverError(res, '獲取攤位統計失敗');

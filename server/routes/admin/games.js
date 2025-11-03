@@ -51,7 +51,7 @@ router.get('/:gameId/stats', async (req, res) => {
 
         // 查詢專案資訊
         const project = await database.get(
-            'SELECT * FROM invitation_projects WHERE id = ?',
+            'SELECT * FROM event_projects WHERE id = ?',
             [project_id]
         );
 
@@ -333,7 +333,7 @@ router.get('/api/:id/sessions', async (req, res) => {
                 v.voucher_name
             FROM game_sessions gs
             LEFT JOIN games g ON gs.game_id = g.id
-            LEFT JOIN invitation_projects p ON gs.project_id = p.id
+            LEFT JOIN event_projects p ON gs.project_id = p.id
             LEFT JOIN vouchers v ON gs.voucher_id = v.id
             WHERE gs.game_id = ?
         `;
@@ -384,7 +384,7 @@ router.get('/api/:id/logs', async (req, res) => {
                 p.project_name
             FROM game_logs gl
             LEFT JOIN games g ON gl.game_id = g.id
-            LEFT JOIN invitation_projects p ON gl.project_id = p.id
+            LEFT JOIN event_projects p ON gl.project_id = p.id
             WHERE gl.game_id = ?
         `;
         let countQuery = 'SELECT COUNT(*) as total FROM game_logs WHERE game_id = ?';

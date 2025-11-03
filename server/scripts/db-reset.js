@@ -276,7 +276,7 @@ async function resetDatabase() {
 
                 // 插入專案資料
                 const projectStmt = db.prepare(`
-                    INSERT INTO invitation_projects (
+                    INSERT INTO event_projects (
                         project_name, project_code, description, event_date, 
                         event_location, event_type, status, created_by
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, 1)

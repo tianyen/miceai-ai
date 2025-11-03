@@ -92,7 +92,7 @@ function validateDatabase() {
         // 檢查主要表格是否存在
         const tables = [
             'users',
-            'invitation_projects', 
+            'event_projects', 
             'form_submissions',
             'questionnaires',
             'questionnaire_questions',

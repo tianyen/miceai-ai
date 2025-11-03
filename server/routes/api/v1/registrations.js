@@ -212,7 +212,7 @@ router.post('/events/:eventId/registrations', [
             SELECT id, project_name, project_code, event_date, event_location, 
                    status, max_participants, registration_deadline,
                    contact_email, contact_phone
-            FROM invitation_projects 
+            FROM event_projects 
             WHERE id = ? AND status = 'active'
         `, [eventId]);
 
@@ -383,7 +383,7 @@ router.post('/events/:eventId/registrations', [
  *       - 獲取 QR Code 掃描次數
  *     parameters:
  *       - in: path
- *         name: traceId
+ *         name: trace_id
  *         required: true
  *         schema:
  *           type: string
@@ -500,7 +500,7 @@ router.get('/registrations/:traceId', [
                 qr.scan_count,
                 qr.last_scanned
             FROM form_submissions fs
-            JOIN invitation_projects p ON fs.project_id = p.id
+            JOIN event_projects p ON fs.project_id = p.id
             LEFT JOIN qr_codes qr ON fs.id = qr.submission_id
             WHERE fs.trace_id = ?
         `, [traceId]);
@@ -558,7 +558,7 @@ router.get('/registrations/:traceId', [
  *       **注意**：如果需要 Base64 格式，請使用 `/api/v1/qr-codes/{traceId}/data` 端點
  *     parameters:
  *       - in: path
- *         name: traceId
+ *         name: trace_id
  *         required: true
  *         schema:
  *           type: string
@@ -608,7 +608,7 @@ router.get('/qr-codes/:traceId', [
             SELECT qr.qr_data, fs.submitter_name, p.project_name
             FROM qr_codes qr
             JOIN form_submissions fs ON qr.submission_id = fs.id
-            JOIN invitation_projects p ON qr.project_id = p.id
+            JOIN event_projects p ON qr.project_id = p.id
             WHERE fs.trace_id = ?
         `, [traceId]);
 
@@ -649,7 +649,7 @@ router.get('/qr-codes/:traceId', [
  *     description: 根據 trace_id 獲取 QR Code 的 Base64 編碼，可直接用於前端顯示
  *     parameters:
  *       - in: path
- *         name: traceId
+ *         name: trace_id
  *         required: true
  *         schema:
  *           type: string
@@ -724,7 +724,7 @@ router.get('/qr-codes/:traceId/data', [
                 p.project_name as event_name
             FROM qr_codes qr
             JOIN form_submissions fs ON qr.submission_id = fs.id
-            JOIN invitation_projects p ON qr.project_id = p.id
+            JOIN event_projects p ON qr.project_id = p.id
             WHERE fs.trace_id = ?
         `, [traceId]);
 

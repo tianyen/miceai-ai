@@ -28,7 +28,7 @@ router.post('/register', async (req, res) => {
         // 驗證專案是否存在且開放報名
         const project = await database.get(`
             SELECT id, project_name, status 
-            FROM invitation_projects 
+            FROM event_projects 
             WHERE id = ? AND status = 'active'
         `, [project_id]);
 

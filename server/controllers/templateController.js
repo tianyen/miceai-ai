@@ -370,7 +370,7 @@ class TemplateController {
             // 檢查是否有項目使用此模板
             const projectsUsingTemplate = await database.get(`
                 SELECT COUNT(*) as count
-                FROM invitation_projects
+                FROM event_projects
                 WHERE template_config LIKE ?
             `, [`%"template_id":${templateId}%`]);
 
@@ -568,7 +568,7 @@ class TemplateController {
             // 獲取使用此模板的項目
             const projects = await database.query(`
                 SELECT id, project_name, project_code, status, created_at
-                FROM invitation_projects
+                FROM event_projects
                 WHERE template_config LIKE ?
                 ORDER BY created_at DESC
             `, [`%"template_id":${templateId}%`]);
@@ -832,7 +832,7 @@ class TemplateController {
             // 如果提供了專案 ID，獲取專案資訊
             if (projectId) {
                 const project = await database.get(`
-                    SELECT * FROM invitation_projects WHERE id = ?
+                    SELECT * FROM event_projects WHERE id = ?
                 `, [projectId]);
 
                 if (project) {

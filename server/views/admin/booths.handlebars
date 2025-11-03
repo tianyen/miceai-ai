@@ -66,73 +66,6 @@
     border-radius: 4px;
     font-size: 13px;
 }
-
-/* Modal 樣式 */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-}
-
-.modal-dialog {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    max-width: 600px;
-    width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
-}
-
-.modal-header {
-    padding: 20px;
-    border-bottom: 1px solid #dee2e6;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.modal-header h3 {
-    margin: 0;
-    font-size: 1.25rem;
-}
-
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: #6c757d;
-    padding: 0;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.modal-close:hover {
-    color: #000;
-}
-
-.modal-body {
-    padding: 20px;
-}
-
-.modal-footer {
-    padding: 15px 20px;
-    border-top: 1px solid #dee2e6;
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-}
 </style>
 
 <script>
@@ -161,8 +94,8 @@ async function loadProjects() {
         const response = await fetch('/api/admin/projects');
         const data = await response.json();
 
-        if (data.success && data.data) {
-            allProjects = data.data;
+        if (data.success && data.data && data.data.projects) {
+            allProjects = data.data.projects;
 
             const select = document.getElementById('project-filter');
             select.innerHTML = '<option value="">全部專案</option>';
@@ -279,57 +212,67 @@ function renderBoothsTable(booths) {
 function showBoothModal(boothId = null) {
     const isEdit = boothId !== null;
     const title = isEdit ? '編輯攤位' : '新增攤位';
-    
+
     let modalHtml = `
-        <div class="modal-overlay" id="booth-modal">
+        <div class="modal show" id="booth-modal">
             <div class="modal-dialog">
-                <div class="modal-header">
-                    <h3>${title}</h3>
-                    <button class="modal-close" onclick="closeModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <form id="booth-form">
-                        <div class="form-group">
-                            <label>專案 *</label>
-                            <select class="form-control" id="booth-project-id" required>
-                                <option value="">請選擇專案</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>攤位名稱 *</label>
-                            <input type="text" class="form-control" id="booth-name" required>
-                        </div>
-                        <div class="form-group">
-                            <label>攤位代碼 *</label>
-                            <input type="text" class="form-control" id="booth-code" required placeholder="例: BOOTH-A1">
-                        </div>
-                        <div class="form-group">
-                            <label>位置</label>
-                            <input type="text" class="form-control" id="booth-location" placeholder="例: 展場 A 區入口處">
-                        </div>
-                        <div class="form-group">
-                            <label>描述</label>
-                            <textarea class="form-control" id="booth-description" rows="3"></textarea>
-                        </div>
-                        ${isEdit ? `
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="booth-is-active"> 啟用
-                            </label>
-                        </div>
-                        ` : ''}
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
-                    <button class="btn btn-primary" onclick="saveBooth(${boothId})">儲存</button>
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">${title}</h3>
+                        <button class="btn-close" onclick="closeModal()"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="booth-form">
+                            <div class="form-group">
+                                <label for="booth-project-id">專案 <span class="required">*</span></label>
+                                <select class="form-control" id="booth-project-id" required>
+                                    <option value="">請選擇專案</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="booth-name">攤位名稱 <span class="required">*</span></label>
+                                <input type="text" class="form-control" id="booth-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="booth-code">攤位代碼 <span class="required">*</span></label>
+                                <input type="text" class="form-control" id="booth-code" required placeholder="例: BOOTH-A1">
+                            </div>
+                            <div class="form-group">
+                                <label for="booth-location">位置</label>
+                                <input type="text" class="form-control" id="booth-location" placeholder="例: 展場 A 區入口處">
+                            </div>
+                            <div class="form-group">
+                                <label for="booth-description">描述</label>
+                                <textarea class="form-control" id="booth-description" rows="3"></textarea>
+                            </div>
+                            ${isEdit ? `
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="booth-is-active"> 啟用
+                                </label>
+                            </div>
+                            ` : ''}
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                        <button class="btn btn-primary" onclick="saveBooth(${boothId})">儲存</button>
+                    </div>
                 </div>
             </div>
         </div>
     `;
-    
+
     document.getElementById('modal-container').innerHTML = modalHtml;
-    
+
+    // 添加點擊背景關閉事件
+    const modal = document.getElementById('booth-modal');
+    modal.addEventListener('click', function(event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+
     // 填充專案選項
     const projectSelect = document.getElementById('booth-project-id');
     allProjects.forEach(project => {
@@ -338,7 +281,7 @@ function showBoothModal(boothId = null) {
         option.textContent = project.project_name;
         projectSelect.appendChild(option);
     });
-    
+
     // 如果是編輯模式，載入攤位資料
     if (isEdit) {
         loadBoothData(boothId);

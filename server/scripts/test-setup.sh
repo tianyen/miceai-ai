@@ -14,8 +14,8 @@ NC='\033[0m' # No Color
 
 # 步驟 1: 清理現有資料庫
 echo "📝 步驟 1: 清理現有資料庫..."
-if [ -f "data/database.sqlite" ]; then
-    rm data/database.sqlite
+if [ -f "data/mice_ai.db" ]; then
+    rm data/mice_ai.db
     echo -e "${GREEN}✅ 已刪除現有資料庫${NC}"
 else
     echo -e "${YELLOW}ℹ️  資料庫不存在，跳過刪除${NC}"
@@ -57,7 +57,7 @@ echo ""
 
 # 步驟 5: 檢查 template_id 欄位
 echo "📝 步驟 5: 檢查 template_id 欄位..."
-sqlite3 data/database.sqlite "PRAGMA table_info(invitation_projects);" | grep template_id
+sqlite3 data/mice_ai.db "PRAGMA table_info(event_projects);" | grep template_id
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ template_id 欄位存在${NC}"
 else
@@ -68,7 +68,7 @@ echo ""
 
 # 步驟 6: 檢查模板數據
 echo "📝 步驟 6: 檢查模板數據..."
-TEMPLATE_COUNT=$(sqlite3 data/database.sqlite "SELECT COUNT(*) FROM invitation_templates;")
+TEMPLATE_COUNT=$(sqlite3 data/mice_ai.db "SELECT COUNT(*) FROM invitation_templates;")
 echo "   模板數量: $TEMPLATE_COUNT"
 if [ "$TEMPLATE_COUNT" -gt 0 ]; then
     echo -e "${GREEN}✅ 模板數據存在${NC}"
@@ -80,7 +80,7 @@ echo ""
 
 # 步驟 7: 檢查專案與模板關聯
 echo "📝 步驟 7: 檢查專案與模板關聯..."
-sqlite3 data/database.sqlite "SELECT project_name, template_id FROM invitation_projects WHERE template_id IS NOT NULL;"
+sqlite3 data/mice_ai.db "SELECT project_name, template_id FROM event_projects WHERE template_id IS NOT NULL;"
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ 專案模板關聯正常${NC}"
 else
@@ -90,7 +90,7 @@ echo ""
 
 # 步驟 8: 檢查 QR Code 相關表
 echo "📝 步驟 8: 檢查 QR Code 相關表..."
-sqlite3 data/database.sqlite "SELECT name FROM sqlite_master WHERE type='table' AND name='qr_codes';"
+sqlite3 data/mice_ai.db "SELECT name FROM sqlite_master WHERE type='table' AND name='qr_codes';"
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ qr_codes 表存在${NC}"
 else
@@ -102,10 +102,10 @@ echo ""
 echo "🎉 所有測試通過！"
 echo ""
 echo "📊 資料庫統計:"
-echo "   用戶數量: $(sqlite3 data/database.sqlite 'SELECT COUNT(*) FROM users;')"
-echo "   專案數量: $(sqlite3 data/database.sqlite 'SELECT COUNT(*) FROM invitation_projects;')"
-echo "   模板數量: $(sqlite3 data/database.sqlite 'SELECT COUNT(*) FROM invitation_templates;')"
-echo "   報名數量: $(sqlite3 data/database.sqlite 'SELECT COUNT(*) FROM form_submissions;')"
+echo "   用戶數量: $(sqlite3 data/mice_ai.db 'SELECT COUNT(*) FROM users;')"
+echo "   專案數量: $(sqlite3 data/mice_ai.db 'SELECT COUNT(*) FROM event_projects;')"
+echo "   模板數量: $(sqlite3 data/mice_ai.db 'SELECT COUNT(*) FROM invitation_templates;')"
+echo "   報名數量: $(sqlite3 data/mice_ai.db 'SELECT COUNT(*) FROM form_submissions;')"
 echo ""
 echo "✅ 系統已準備就緒，可以啟動服務器進行測試！"
 echo "   執行: npm run dev"

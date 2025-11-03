@@ -41,7 +41,7 @@ class QuestionnaireController {
                 }
             } else if (userRole !== 'super_admin') {
                 query += ` AND q.project_id IN (
-                    SELECT id FROM invitation_projects WHERE created_by = ?
+                    SELECT id FROM event_projects WHERE created_by = ?
                     UNION
                     SELECT project_id FROM user_project_permissions WHERE user_id = ?
                 )`;
@@ -77,7 +77,7 @@ class QuestionnaireController {
                 SELECT q.*, u.full_name as creator_name, p.project_name
                 FROM questionnaires q
                 LEFT JOIN users u ON q.created_by = u.id
-                LEFT JOIN invitation_projects p ON q.project_id = p.id
+                LEFT JOIN event_projects p ON q.project_id = p.id
                 WHERE q.id = ?
             `, [questionnaireId]);
 
@@ -705,7 +705,7 @@ class QuestionnaireController {
     // 檢查項目權限的輔助方法
     async checkProjectPermission(userId, projectId) {
         const project = await database.get(
-            'SELECT * FROM invitation_projects WHERE id = ? AND created_by = ?',
+            'SELECT * FROM event_projects WHERE id = ? AND created_by = ?',
             [projectId, userId]
         );
 
@@ -728,7 +728,7 @@ class QuestionnaireController {
             const questionnaire = await database.get(`
                 SELECT q.*, p.project_name
                 FROM questionnaires q
-                LEFT JOIN invitation_projects p ON q.project_id = p.id
+                LEFT JOIN event_projects p ON q.project_id = p.id
                 WHERE q.id = ? AND q.is_active = 1
             `, [questionnaireId]);
 
@@ -976,7 +976,7 @@ class QuestionnaireController {
             const questionnaire = await database.get(`
                 SELECT q.*, p.project_name
                 FROM questionnaires q
-                LEFT JOIN invitation_projects p ON q.project_id = p.id
+                LEFT JOIN event_projects p ON q.project_id = p.id
                 WHERE q.id = ?
             `, [questionnaireId]);
 
@@ -1614,7 +1614,7 @@ class QuestionnaireController {
             const questionnaire = await database.get(`
                 SELECT q.*, p.project_name
                 FROM questionnaires q
-                LEFT JOIN invitation_projects p ON q.project_id = p.id
+                LEFT JOIN event_projects p ON q.project_id = p.id
                 WHERE q.id = ?
             `, [questionnaireId]);
 

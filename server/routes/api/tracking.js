@@ -33,7 +33,7 @@ router.get('/participants', authenticateSession, async (req, res) => {
                 END as status
             FROM form_submissions fs
             LEFT JOIN checkin_records cr ON fs.id = cr.submission_id
-            LEFT JOIN invitation_projects p ON fs.project_id = p.id
+            LEFT JOIN event_projects p ON fs.project_id = p.id
             WHERE 1=1
         `;
         let queryParams = [];
@@ -170,7 +170,7 @@ router.get('/stats', authenticateSession, async (req, res) => {
         const totalParticipants = await database.get(`
             SELECT COUNT(*) as count 
             FROM form_submissions fs
-            LEFT JOIN invitation_projects p ON fs.project_id = p.id
+            LEFT JOIN event_projects p ON fs.project_id = p.id
             ${whereClause}
         `, queryParams);
         
@@ -178,7 +178,7 @@ router.get('/stats', authenticateSession, async (req, res) => {
         const checkedInParticipants = await database.get(`
             SELECT COUNT(*) as count
             FROM checkin_records cr
-            LEFT JOIN invitation_projects p ON cr.project_id = p.id
+            LEFT JOIN event_projects p ON cr.project_id = p.id
             ${whereClause ? whereClause.replace('fs.', 'cr.') : ''}
         `, queryParams);
         
@@ -189,7 +189,7 @@ router.get('/stats', authenticateSession, async (req, res) => {
                 COUNT(DISTINCT cr.id) as checkins
             FROM form_submissions fs
             LEFT JOIN checkin_records cr ON fs.id = cr.submission_id AND DATE(cr.checkin_time) = DATE('now', 'localtime')
-            LEFT JOIN invitation_projects p ON fs.project_id = p.id
+            LEFT JOIN event_projects p ON fs.project_id = p.id
             ${whereClause} ${whereClause ? 'AND' : 'WHERE'} DATE(fs.created_at) = DATE('now', 'localtime')
         `, queryParams);
         
@@ -254,7 +254,7 @@ router.get('/search', authenticateSession, async (req, res) => {
                 END as status
             FROM form_submissions fs
             LEFT JOIN checkin_records cr ON fs.id = cr.submission_id
-            LEFT JOIN invitation_projects p ON fs.project_id = p.id
+            LEFT JOIN event_projects p ON fs.project_id = p.id
             WHERE 1=1
         `;
         let queryParams = [];

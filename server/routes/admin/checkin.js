@@ -35,7 +35,7 @@ router.get('/search', async (req, res) => {
         let searchQuery = `
             SELECT fs.*, p.project_name 
             FROM form_submissions fs
-            LEFT JOIN invitation_projects p ON fs.project_id = p.id
+            LEFT JOIN event_projects p ON fs.project_id = p.id
             WHERE 1=1
         `;
         let queryParams = [];

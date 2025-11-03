@@ -41,7 +41,7 @@ function getSQL(sql, params = []) {
 async function seed() {
     try {
         // 1. 獲取第一個專案 ID
-        const project = await getSQL('SELECT id FROM invitation_projects ORDER BY id LIMIT 1');
+        const project = await getSQL('SELECT id FROM event_projects ORDER BY id LIMIT 1');
         if (!project) {
             console.log('⚠️  找不到專案，請先執行 npm run db:seed');
             process.exit(1);

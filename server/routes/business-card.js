@@ -23,7 +23,7 @@ router.get('/:cardId', async (req, res) => {
                 ip.event_date,
                 ip.event_location
             FROM business_cards bc
-            LEFT JOIN invitation_projects ip ON bc.project_id = ip.id
+            LEFT JOIN event_projects ip ON bc.project_id = ip.id
             WHERE bc.card_id = ? AND bc.is_active = 1
         `, [cardId]);
         

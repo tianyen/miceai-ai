@@ -35,8 +35,8 @@ const checks = [
     },
     {
         name: 'MICE-AI 項目',
-        table: 'invitation_projects',
-        query: 'SELECT COUNT(*) as count, status FROM invitation_projects GROUP BY status'
+        table: 'event_projects',
+        query: 'SELECT COUNT(*) as count, status FROM event_projects GROUP BY status'
     },
     {
         name: '表單提交',

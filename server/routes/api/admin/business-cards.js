@@ -34,7 +34,7 @@ router.get('/project/:projectId', [
         // 驗證專案是否存在
         const project = await database.get(`
             SELECT id, project_name, status 
-            FROM invitation_projects 
+            FROM event_projects 
             WHERE id = ?
         `, [projectId]);
 
@@ -125,7 +125,7 @@ router.get('/:cardId', [
                 p.project_name,
                 p.status as project_status
             FROM business_cards bc
-            JOIN invitation_projects p ON bc.project_id = p.id
+            JOIN event_projects p ON bc.project_id = p.id
             WHERE bc.card_id = ?
         `, [cardId]);
 

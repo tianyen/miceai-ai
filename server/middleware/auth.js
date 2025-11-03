@@ -154,13 +154,13 @@ const requireProjectPermission = (requiredPermission) => {
             const permission = await database.get(`
                 SELECT pp.permission_level, p.created_by 
                 FROM user_project_permissions pp
-                JOIN invitation_projects p ON p.id = pp.project_id
+                JOIN event_projects p ON p.id = pp.project_id
                 WHERE pp.user_id = ? AND pp.project_id = ?
             `, [req.user.id, projectId]);
 
             // 檢查是否為項目創建者
             const project = await database.get(
-                'SELECT created_by FROM invitation_projects WHERE id = ?',
+                'SELECT created_by FROM event_projects WHERE id = ?',
                 [projectId]
             );
 

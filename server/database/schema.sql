@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS users (
     FOREIGN KEY (managed_by) REFERENCES users(id)
 );
 
--- MICE-AI 項目表
-CREATE TABLE IF NOT EXISTS invitation_projects (
+-- MICE-AI 活動專案表 (Event Projects)
+CREATE TABLE IF NOT EXISTS event_projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_name VARCHAR(200) NOT NULL,
     project_code VARCHAR(50) UNIQUE NOT NULL,
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS user_project_permissions (
     assigned_by INTEGER NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (project_id) REFERENCES invitation_projects(id),
+    FOREIGN KEY (project_id) REFERENCES event_projects(id),
     FOREIGN KEY (assigned_by) REFERENCES users(id),
     UNIQUE(user_id, project_id)
 );
@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS form_submissions (
     checkin_notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (project_id) REFERENCES invitation_projects(id)
+    FOREIGN KEY (project_id) REFERENCES event_projects(id)
 );
 
 -- 系統日誌表
@@ -128,6 +128,18 @@ CREATE TABLE IF NOT EXISTS system_logs (
     target_id INTEGER,
     details TEXT,
     ip_address VARCHAR(45),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- 管理員登入日誌表
+CREATE TABLE IF NOT EXISTS admin_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    action VARCHAR(100) NOT NULL,
+    details TEXT,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -144,7 +156,7 @@ CREATE TABLE IF NOT EXISTS qr_codes (
     last_scanned TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (project_id) REFERENCES invitation_projects(id),
+    FOREIGN KEY (project_id) REFERENCES event_projects(id),
     FOREIGN KEY (submission_id) REFERENCES form_submissions(id)
 );
 
@@ -164,7 +176,7 @@ CREATE TABLE IF NOT EXISTS checkin_records (
     scanned_by INTEGER,
     scanner_location VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (project_id) REFERENCES invitation_projects(id),
+    FOREIGN KEY (project_id) REFERENCES event_projects(id),
     FOREIGN KEY (submission_id) REFERENCES form_submissions(id),
     FOREIGN KEY (scanned_by) REFERENCES users(id)
 );
@@ -183,7 +195,7 @@ CREATE TABLE IF NOT EXISTS questionnaires (
     created_by INTEGER NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (project_id) REFERENCES invitation_projects(id),
+    FOREIGN KEY (project_id) REFERENCES event_projects(id),
     FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
@@ -231,7 +243,7 @@ CREATE TABLE IF NOT EXISTS participant_interactions (
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     ip_address VARCHAR(45),
     user_agent TEXT,
-    FOREIGN KEY (project_id) REFERENCES invitation_projects(id),
+    FOREIGN KEY (project_id) REFERENCES event_projects(id),
     FOREIGN KEY (submission_id) REFERENCES form_submissions(id)
 );
 
@@ -362,7 +374,7 @@ CREATE TABLE IF NOT EXISTS business_cards (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (project_id) REFERENCES invitation_projects(id) ON DELETE CASCADE
+    FOREIGN KEY (project_id) REFERENCES event_projects(id) ON DELETE CASCADE
 );
 
 -- 創建索引以提高查詢性能

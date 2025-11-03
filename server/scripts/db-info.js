@@ -64,7 +64,7 @@ async function showDatabaseInfo() {
                 // 顯示專案狀態統計  
                 console.log('\n📋 專案狀態統計:');
                 const projectStats = await new Promise((resolve, reject) => {
-                    db.all("SELECT status, COUNT(*) as count FROM invitation_projects GROUP BY status", (err, rows) => {
+                    db.all("SELECT status, COUNT(*) as count FROM event_projects GROUP BY status", (err, rows) => {
                         if (err) reject(err);
                         else resolve(rows);
                     });

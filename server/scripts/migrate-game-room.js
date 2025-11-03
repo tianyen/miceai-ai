@@ -138,7 +138,7 @@ async function migrate() {
                     qr_code_base64 TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (project_id) REFERENCES invitation_projects(id) ON DELETE CASCADE,
+                    FOREIGN KEY (project_id) REFERENCES event_projects(id) ON DELETE CASCADE,
                     FOREIGN KEY (game_id) REFERENCES games(id),
                     FOREIGN KEY (voucher_id) REFERENCES vouchers(id),
                     UNIQUE(project_id, game_id)
@@ -165,7 +165,7 @@ async function migrate() {
                     ip_address VARCHAR(45),
                     user_agent TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (project_id) REFERENCES invitation_projects(id),
+                    FOREIGN KEY (project_id) REFERENCES event_projects(id),
                     FOREIGN KEY (game_id) REFERENCES games(id)
                 )
             `, '建立 game_logs 表');
@@ -190,7 +190,7 @@ async function migrate() {
                     voucher_id INTEGER,
                     ip_address VARCHAR(45),
                     user_agent TEXT,
-                    FOREIGN KEY (project_id) REFERENCES invitation_projects(id),
+                    FOREIGN KEY (project_id) REFERENCES event_projects(id),
                     FOREIGN KEY (game_id) REFERENCES games(id),
                     FOREIGN KEY (voucher_id) REFERENCES vouchers(id)
                 )

@@ -235,7 +235,7 @@ router.get('/api/questionnaires', async (req, res) => {
                 COUNT(qq.id) as question_count,
                 COUNT(qr.id) as response_count
             FROM questionnaires q
-            LEFT JOIN invitation_projects p ON q.project_id = p.id
+            LEFT JOIN event_projects p ON q.project_id = p.id
             LEFT JOIN users u ON q.created_by = u.id
             LEFT JOIN questionnaire_questions qq ON q.id = qq.questionnaire_id
             LEFT JOIN questionnaire_responses qr ON q.id = qr.questionnaire_id AND qr.is_completed = 1
@@ -244,7 +244,7 @@ router.get('/api/questionnaires', async (req, res) => {
         let countQuery = `
             SELECT COUNT(DISTINCT q.id) as count
             FROM questionnaires q
-            LEFT JOIN invitation_projects p ON q.project_id = p.id
+            LEFT JOIN event_projects p ON q.project_id = p.id
             WHERE 1=1
         `;
         let queryParams = [];
@@ -393,7 +393,7 @@ router.get('/api/pagination', async (req, res) => {
         let countQuery = `
             SELECT COUNT(DISTINCT q.id) as count
             FROM questionnaires q
-            LEFT JOIN invitation_projects p ON q.project_id = p.id
+            LEFT JOIN event_projects p ON q.project_id = p.id
             WHERE 1=1
         `;
         let queryParams = [];
@@ -496,11 +496,11 @@ router.get('/new', async (req, res) => {
         // 获取用户可访问的项目
         let projects = [];
         if (userRole === 'super_admin') {
-            projects = await database.query('SELECT id, project_name FROM invitation_projects ORDER BY project_name');
+            projects = await database.query('SELECT id, project_name FROM event_projects ORDER BY project_name');
         } else {
             projects = await database.query(`
                 SELECT DISTINCT p.id, p.project_name 
-                FROM invitation_projects p
+                FROM event_projects p
                 WHERE p.created_by = ? OR p.id IN (
                     SELECT project_id FROM user_project_permissions WHERE user_id = ?
                 )
@@ -690,7 +690,7 @@ router.get('/:id/edit', async (req, res) => {
         const questionnaire = await database.get(`
             SELECT q.*, p.project_name 
             FROM questionnaires q
-            LEFT JOIN invitation_projects p ON q.project_id = p.id
+            LEFT JOIN event_projects p ON q.project_id = p.id
             WHERE q.id = ?
         `, [questionnaireId]);
 
@@ -741,11 +741,11 @@ router.get('/:id/edit', async (req, res) => {
         // 获取用户可访问的项目
         let projects = [];
         if (userRole === 'super_admin') {
-            projects = await database.query('SELECT id, project_name FROM invitation_projects ORDER BY project_name');
+            projects = await database.query('SELECT id, project_name FROM event_projects ORDER BY project_name');
         } else {
             projects = await database.query(`
                 SELECT DISTINCT p.id, p.project_name 
-                FROM invitation_projects p
+                FROM event_projects p
                 WHERE p.created_by = ? OR p.id IN (
                     SELECT project_id FROM user_project_permissions WHERE user_id = ?
                 )

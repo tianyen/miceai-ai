@@ -41,7 +41,7 @@ router.get('/api/daily-users', async (req, res) => {
                 MAX(gs.final_score) as highest_score,
                 COUNT(DISTINCT vr.id) as vouchers_redeemed
             FROM form_submissions fs
-            LEFT JOIN invitation_projects p ON fs.project_id = p.id
+            LEFT JOIN event_projects p ON fs.project_id = p.id
             LEFT JOIN checkin_records cr ON fs.trace_id = cr.trace_id
             LEFT JOIN game_sessions gs ON fs.trace_id = gs.trace_id
             LEFT JOIN voucher_redemptions vr ON fs.trace_id = vr.trace_id
@@ -88,7 +88,7 @@ router.get('/api/user-journey/:traceId', async (req, res) => {
                 fs.created_at as registration_time,
                 cr.checked_in_at
             FROM form_submissions fs
-            LEFT JOIN invitation_projects p ON fs.project_id = p.id
+            LEFT JOIN event_projects p ON fs.project_id = p.id
             LEFT JOIN checkin_records cr ON fs.trace_id = cr.trace_id
             WHERE fs.trace_id = ?
         `, [traceId]);

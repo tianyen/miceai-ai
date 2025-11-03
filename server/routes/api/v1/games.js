@@ -33,7 +33,7 @@ function getClientIP(req) {
  *     tags: [遊戲室]
  *     parameters:
  *       - in: path
- *         name: gameId
+ *         name: game_id
  *         required: true
  *         description: 遊戲 ID
  *         schema:
@@ -169,7 +169,7 @@ router.post('/:gameId/sessions/start', async (req, res) => {
  *     tags: [遊戲室]
  *     parameters:
  *       - in: path
- *         name: gameId
+ *         name: game_id
  *         required: true
  *         description: 遊戲 ID
  *         schema:
@@ -303,7 +303,7 @@ router.post('/:gameId/logs', async (req, res) => {
  *     tags: [遊戲室]
  *     parameters:
  *       - in: path
- *         name: gameId
+ *         name: game_id
  *         required: true
  *         description: 遊戲 ID
  *         schema:
@@ -579,19 +579,19 @@ router.post('/:gameId/sessions/end', async (req, res) => {
  * /api/v1/games/{gameId}/info:
  *   get:
  *     summary: 獲取遊戲資訊
- *     description: 獲取遊戲基本資訊和兌換券條件（可選）
+ *     description: 獲取遊戲基本資訊。如果提供 project_id，會額外返回專案綁定狀態和兌換券資訊
  *     tags: [遊戲室]
  *     parameters:
  *       - in: path
- *         name: gameId
+ *         name: game_id
  *         required: true
  *         description: 遊戲 ID
  *         schema:
  *           type: integer
  *       - in: query
  *         name: project_id
- *         required: true
- *         description: 專案 ID
+ *         required: false
+ *         description: 專案 ID（可選）。提供時會返回專案綁定狀態和兌換券資訊
  *         schema:
  *           type: integer
  *     responses:
@@ -626,8 +626,13 @@ router.post('/:gameId/sessions/end', async (req, res) => {
  *                     is_active:
  *                       type: integer
  *                       example: 1
+ *                     is_bound:
+ *                       type: boolean
+ *                       example: true
+ *                       description: 專案是否綁定此遊戲（僅在提供 project_id 時返回）
  *                     voucher:
  *                       type: object
+ *                       description: 兌換券資訊（僅在提供 project_id 且有綁定兌換券時返回）
  *                       properties:
  *                         id:
  *                           type: integer
@@ -650,10 +655,8 @@ router.post('/:gameId/sessions/end', async (req, res) => {
  *                             min_play_time:
  *                               type: integer
  *                               example: 300
- *       400:
- *         description: 缺少 project_id 參數
  *       404:
- *         description: 遊戲不存在或專案未綁定此遊戲
+ *         description: 遊戲不存在或未啟用
  *       500:
  *         description: 伺服器錯誤
  */
@@ -661,10 +664,6 @@ router.get('/:gameId/info', async (req, res) => {
     try {
         const { gameId } = req.params;
         const { project_id } = req.query;
-
-        if (!project_id) {
-            return responses.badRequest(res, '缺少 project_id 參數');
-        }
 
         // 查詢遊戲資訊
         const game = await database.get(
@@ -676,17 +675,6 @@ router.get('/:gameId/info', async (req, res) => {
             return responses.notFound(res, '遊戲不存在或未啟用');
         }
 
-        // 查詢專案綁定資訊
-        const binding = await database.get(
-            `SELECT * FROM project_games
-             WHERE project_id = ? AND game_id = ? AND is_active = 1`,
-            [project_id, gameId]
-        );
-
-        if (!binding) {
-            return responses.notFound(res, '專案未綁定此遊戲');
-        }
-
         const responseData = {
             id: game.id,
             name_zh: game.game_name_zh,
@@ -696,27 +684,42 @@ router.get('/:gameId/info', async (req, res) => {
             is_active: game.is_active
         };
 
-        // 如果有綁定兌換券，返回兌換券資訊
-        if (binding.voucher_id) {
-            const voucher = await database.get(
-                `SELECT v.*, vc.min_score, vc.min_play_time
-                 FROM vouchers v
-                 LEFT JOIN voucher_conditions vc ON v.id = vc.voucher_id
-                 WHERE v.id = ? AND v.is_active = 1`,
-                [binding.voucher_id]
+        // 如果提供了 project_id，查詢專案綁定資訊和兌換券
+        if (project_id) {
+            const binding = await database.get(
+                `SELECT * FROM project_games
+                 WHERE project_id = ? AND game_id = ? AND is_active = 1`,
+                [project_id, gameId]
             );
 
-            if (voucher) {
-                responseData.voucher = {
-                    id: voucher.id,
-                    name: voucher.voucher_name,
-                    value: voucher.voucher_value,
-                    current_stock: voucher.remaining_quantity,
-                    conditions: {
-                        min_score: voucher.min_score,
-                        min_play_time: voucher.min_play_time
+            if (binding) {
+                responseData.is_bound = true;
+
+                // 如果有綁定兌換券，返回兌換券資訊
+                if (binding.voucher_id) {
+                    const voucher = await database.get(
+                        `SELECT v.*, vc.min_score, vc.min_play_time
+                         FROM vouchers v
+                         LEFT JOIN voucher_conditions vc ON v.id = vc.voucher_id
+                         WHERE v.id = ? AND v.is_active = 1`,
+                        [binding.voucher_id]
+                    );
+
+                    if (voucher) {
+                        responseData.voucher = {
+                            id: voucher.id,
+                            name: voucher.voucher_name,
+                            value: voucher.voucher_value,
+                            current_stock: voucher.remaining_quantity,
+                            conditions: {
+                                min_score: voucher.min_score,
+                                min_play_time: voucher.min_play_time
+                            }
+                        };
                     }
-                };
+                }
+            } else {
+                responseData.is_bound = false;
             }
         }
 

@@ -21,15 +21,15 @@ const db = new sqlite3.Database(dbPath, (err) => {
     }
 });
 
-// 檢查 invitation_projects 表結構
-db.all("PRAGMA table_info(invitation_projects)", (err, rows) => {
+// 檢查 event_projects 表結構
+db.all("PRAGMA table_info(event_projects)", (err, rows) => {
     if (err) {
         console.error('❌ 查詢表結構失敗:', err.message);
         db.close();
         process.exit(1);
     }
 
-    console.log('📋 invitation_projects 表結構:');
+    console.log('📋 event_projects 表結構:');
     console.log('─'.repeat(80));
     rows.forEach(row => {
         console.log(`  ${row.cid}. ${row.name.padEnd(25)} ${row.type.padEnd(15)} ${row.notnull ? 'NOT NULL' : ''} ${row.dflt_value ? 'DEFAULT ' + row.dflt_value : ''}`);
@@ -49,7 +49,7 @@ db.all("PRAGMA table_info(invitation_projects)", (err, rows) => {
     // 檢查專案與模板關聯
     db.all(`
         SELECT p.id, p.project_name, p.project_code, p.template_id, t.template_name
-        FROM invitation_projects p
+        FROM event_projects p
         LEFT JOIN invitation_templates t ON p.template_id = t.id
     `, (err, projects) => {
         if (err) {

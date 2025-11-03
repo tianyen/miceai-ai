@@ -18,7 +18,7 @@ const redemptionCode = 'GAME-2025-' + crypto.createHash('sha256')
 
 const testData = {
     redemption_code: redemptionCode,
-    trace_id: 'TRACE05207CF7199967C0', // 王大明的 trace_id
+    trace_id: 'TRACE5761B581E67BC774', // 王大明的 trace_id (來自 db-seed.js)
     voucher_id: 1,
     voucher_name: '星巴克咖啡券',
     player_name: '王大明'
