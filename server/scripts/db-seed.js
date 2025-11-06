@@ -215,7 +215,7 @@ const seedData = {
         },
         {
             trace_id: idGen.generateTraceId(3),  // 固定的 trace_id
-            project_id: 2,
+            project_id: 1,  // 修正為 TECH2024 (與遊戲會話保持一致)
             submitter_name: '王大明',
             submitter_email: 'wang@example.com',
             submitter_phone: '0934567890',

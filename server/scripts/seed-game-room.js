@@ -196,8 +196,8 @@ async function seed() {
         // 4. 新增攤位資料（如果 booths 表存在）
         console.log('\n🏪 新增攤位資料...');
 
-        // 優先使用 DIGITAL2024 專案，如果不存在則使用第一個專案
-        let project = await getSQL("SELECT id, project_name, project_code FROM event_projects WHERE project_code = 'DIGITAL2024' LIMIT 1");
+        // 優先使用 TECH2024 專案（與王大明的表單提交一致），如果不存在則使用第一個專案
+        let project = await getSQL("SELECT id, project_name, project_code FROM event_projects WHERE project_code = 'TECH2024' LIMIT 1");
         if (!project) {
             project = await getSQL("SELECT id, project_name, project_code FROM event_projects LIMIT 1");
         }
@@ -457,7 +457,13 @@ async function seed() {
 
         if (project) {
             const projectId = project.id;
-            const wangTraceId = 'TRACE5761B581E67BC774'; // 王大明的 trace_id (來自 db-seed.js)
+            // 使用與 db-seed.js 一致的 trace_id 生成方式
+            const crypto = require('crypto');
+            const wangTraceId = 'TRACE' + crypto.createHash('sha256')
+                .update('mice-ai-2025-trace-3')
+                .digest('hex')
+                .substring(0, 16)
+                .toUpperCase(); // 王大明的 trace_id (來自 db-seed.js idGen.generateTraceId(3))
             const wangFinalScore = 850; // 高分
             const wangPlayTime = 45; // 快速完成
 
@@ -554,7 +560,6 @@ async function seed() {
             console.log(`✅ 王大明遊戲日誌: ${wangActions.length} 筆`);
 
             // 創建王大明的兌換記錄（使用確定性生成的兌換碼，符合 GAME-YYYY-XXXXXX 格式）
-            const crypto = require('crypto');
             const wangRedemptionCode = 'GAME-2025-' + crypto.createHash('sha256')
                 .update('redemption-code-2025-wang')
                 .digest('hex')

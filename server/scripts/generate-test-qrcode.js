@@ -16,9 +16,16 @@ const redemptionCode = 'GAME-2025-' + crypto.createHash('sha256')
     .substring(0, 6)
     .toUpperCase();
 
+// 使用與 db-seed.js 一致的 trace_id 生成方式 (idGen.generateTraceId(3))
+const wangTraceId = 'TRACE' + crypto.createHash('sha256')
+    .update('mice-ai-2025-trace-3')
+    .digest('hex')
+    .substring(0, 16)
+    .toUpperCase();
+
 const testData = {
     redemption_code: redemptionCode,
-    trace_id: 'TRACE5761B581E67BC774', // 王大明的 trace_id (來自 db-seed.js)
+    trace_id: wangTraceId, // 王大明的 trace_id (來自 db-seed.js)
     voucher_id: 1,
     voucher_name: '星巴克咖啡券',
     player_name: '王大明'
