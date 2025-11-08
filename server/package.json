@@ -26,7 +26,11 @@
     "db:seed:wishtree": "node scripts/seed-wish-tree.js",
     "generate:qrcodes": "node scripts/generate-test-qrcode.js",
     "generate:registration-qrcode": "node scripts/generate-registration-qrcode.js",
+<<<<<<< HEAD
     "setup": "npm run db:reset && npm run db:seed && npm run db:migrate:gameroom && npm run db:migrate:booths && npm run db:migrate:wishtree && npm run db:seed:gameroom && npm run db:seed:questionnaire && npm run db:seed:wishtree && npm run generate:qrcodes && npm run generate:registration-qrcode",
+=======
+    "setup": "npm run db:reset && npm run db:seed && npm run db:migrate:gameroom && npm run db:migrate:booths && npm run db:seed:gameroom && npm run db:seed:questionnaire && npm run generate:qrcodes && npm run generate:registration-qrcode",
+>>>>>>> 27c22e4 (fix: bring back qrcode generate for test)
     "analyze:imports": "node scripts/analyze-unused-imports.js",
     "logs": "node scripts/view-logs.js",
     "logs:4xx": "node scripts/view-logs.js 4xx_errors_$(date +%Y-%m-%d).log",
