@@ -12,7 +12,7 @@ const swaggerDefinition = {
   info: {
     title: config.swagger.title,
     version: config.swagger.version,
-    description: config.swagger.description,
+    description: config.swagger.description + '\n\n**注意事項：**\n- 本文件僅包含前端串接使用的 API v1 路由（`/api/v1/`）\n- 後台管理功能（如攤位管理、兌換券管理等）位於 `/admin/` 路由，為管理 UI 使用，不包含於此 API 文檔中\n- 後台管理功能需要登入驗證，請直接透過管理介面操作',
   },
   servers: [
     {
@@ -165,9 +165,11 @@ const swaggerDefinition = {
 // Swagger 選項配置
 const options = {
   swaggerDefinition,
-  // 掃描包含 Swagger 註解的路由文件（僅前端 API v1）
+  // 掃描包含 Swagger 註解的路由文件
+  // 注意：僅掃描前端串接使用的 API v1 路由，不包含後台管理功能
   apis: [
     './routes/api/v1/*.js'   // API v1 路由（前端串接使用）
+    // 注意：/admin/* 路由為後台管理 UI 使用，不在此 API 文檔範圍內
   ]
 };
 

@@ -24,7 +24,7 @@
     "db:seed:questionnaire": "node scripts/seed-sample-questionnaire.js",
     "generate:qrcodes": "node scripts/generate-test-qrcode.js",
     "generate:registration-qrcode": "node scripts/generate-registration-qrcode.js",
-    "setup": "npm run db:reset && npm run db:seed && npm run db:migrate:gameroom && npm run db:migrate:booths && npm run db:seed:gameroom && npm run db:seed:questionnaire",
+    "setup": "npm run db:reset && npm run db:seed && npm run db:migrate:gameroom && npm run db:migrate:booths && npm run db:seed:gameroom && npm run db:seed:questionnaire && npm run generate:qrcodes && npm run generate:registration-qrcode",
     "analyze:imports": "node scripts/analyze-unused-imports.js",
     "logs": "node scripts/view-logs.js",
     "logs:4xx": "node scripts/view-logs.js 4xx_errors_$(date +%Y-%m-%d).log",
