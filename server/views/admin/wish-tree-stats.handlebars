@@ -5,7 +5,7 @@
     <p class="text-muted">{{project.project_name}} - 互動數據分析與高峰頻率統計</p>
 </div>
 
-<!-- 專案選擇 -->
+<!-- 專案選擇與日期篩選 -->
 <div class="filter-section">
     <form method="GET" action="/admin/wish-tree/stats">
         <div class="form-group">
@@ -19,6 +19,20 @@
             </select>
         </div>
     </form>
+
+    <!-- 日期範圍選擇器 -->
+    <div class="date-filter-section">
+        <label>📅 查看範圍:</label>
+        <div class="date-filter-buttons">
+            <button class="filter-btn active" data-range="today">今日</button>
+            <button class="filter-btn" data-range="yesterday">昨日</button>
+            <button class="filter-btn" data-range="week">本週</button>
+            <button class="filter-btn" data-range="all">全部</button>
+        </div>
+        <div class="date-range-display" id="dateRangeDisplay">
+            <span id="dateRangeText">今日 (2025-11-14)</span>
+        </div>
+    </div>
 </div>
 
 <!-- 統計卡片 -->
@@ -120,10 +134,65 @@
 <script>
 const PROJECT_ID = {{currentProjectId}};
 
+// 當前選擇的日期範圍
+let currentDateRange = 'today';
+let currentStartDate = null;
+let currentEndDate = null;
+
+// 計算日期範圍
+function getDateRange(range) {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+
+    switch (range) {
+        case 'today':
+            return {
+                start: todayStr,
+                end: todayStr,
+                label: `今日 (${todayStr})`
+            };
+
+        case 'yesterday':
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+            return {
+                start: yesterdayStr,
+                end: yesterdayStr,
+                label: `昨日 (${yesterdayStr})`
+            };
+
+        case 'week':
+            const weekAgo = new Date(today);
+            weekAgo.setDate(weekAgo.getDate() - 6);
+            const weekAgoStr = `${weekAgo.getFullYear()}-${String(weekAgo.getMonth() + 1).padStart(2, '0')}-${String(weekAgo.getDate()).padStart(2, '0')}`;
+            return {
+                start: weekAgoStr,
+                end: todayStr,
+                label: `本週 (${weekAgoStr} ~ ${todayStr})`
+            };
+
+        case 'all':
+            return {
+                start: null,
+                end: null,
+                label: '全部時間'
+            };
+    }
+}
+
 // 載入統計數據
 async function loadStats() {
     try {
-        const response = await fetch(`/api/v1/wish-tree/stats?project_id=${PROJECT_ID}`);
+        // 構建 API URL
+        let url = `/api/v1/wish-tree/stats?project_id=${PROJECT_ID}`;
+        if (currentStartDate) url += `&start_date=${currentStartDate}`;
+        if (currentEndDate) url += `&end_date=${currentEndDate}`;
+
+        const response = await fetch(url);
         const result = await response.json();
 
         if (result.success) {
@@ -264,10 +333,16 @@ function drawTimelineChart(recentData) {
 }
 
 // 繪製每小時分佈圖
+let hourlyChartInstance = null;
 function drawHourlyChart(hourlyData) {
     const ctx = document.getElementById('hourlyChart').getContext('2d');
 
-    new Chart(ctx, {
+    // 銷毀舊圖表
+    if (hourlyChartInstance) {
+        hourlyChartInstance.destroy();
+    }
+
+    hourlyChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: hourlyData.map(d => d.hour),
@@ -282,9 +357,38 @@ function drawHourlyChart(hourlyData) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            const hour = context[0].label;
+                            // 顯示完整日期範圍
+                            const dateRange = getDateRange(currentDateRange);
+                            if (currentDateRange === 'today' || currentDateRange === 'yesterday') {
+                                return `${dateRange.label.split(' ')[1]} ${hour}`;
+                            } else {
+                                return `${hour} (${dateRange.label})`;
+                            }
+                        },
+                        label: function(context) {
+                            return `互動次數: ${context.parsed.y}`;
+                        }
+                    }
+                }
+            },
             scales: {
                 y: {
-                    beginAtZero: true
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: '互動次數'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: '時段'
+                    }
                 }
             }
         }
@@ -292,10 +396,16 @@ function drawHourlyChart(hourlyData) {
 }
 
 // 繪製每日分佈圖
+let dailyChartInstance = null;
 function drawDailyChart(dailyData) {
     const ctx = document.getElementById('dailyChart').getContext('2d');
 
-    new Chart(ctx, {
+    // 銷毀舊圖表
+    if (dailyChartInstance) {
+        dailyChartInstance.destroy();
+    }
+
+    dailyChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: dailyData.map(d => d.date),
@@ -305,15 +415,38 @@ function drawDailyChart(dailyData) {
                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                 borderColor: 'rgba(75, 192, 192, 1)',
                 borderWidth: 2,
-                fill: true
+                fill: true,
+                tension: 0.4
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            return `日期: ${context[0].label}`;
+                        },
+                        label: function(context) {
+                            return `互動次數: ${context.parsed.y}`;
+                        }
+                    }
+                }
+            },
             scales: {
                 y: {
-                    beginAtZero: true
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: '互動次數'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: '日期'
+                    }
                 }
             }
         }
@@ -376,22 +509,110 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// 頁面載入時執行
-document.addEventListener('DOMContentLoaded', function() {
+// 更新日期範圍並重新載入數據
+function updateDateRange(range) {
+    currentDateRange = range;
+    const dateRange = getDateRange(range);
+    currentStartDate = dateRange.start;
+    currentEndDate = dateRange.end;
+
+    // 更新 UI 顯示
+    document.getElementById('dateRangeText').textContent = dateRange.label;
+
+    // 更新按鈕狀態
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`[data-range="${range}"]`).classList.add('active');
+
+    // 重新載入數據
     loadStats();
     loadRecentWishes();
-    loadTimelineData(); // 載入時間點數據
+    loadTimelineData();
+}
 
-    // 每 30 秒自動刷新
+// 頁面載入時執行
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化日期範圍（預設為今日）
+    updateDateRange('today');
+
+    // 綁定日期選擇器按鈕事件
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const range = this.getAttribute('data-range');
+            updateDateRange(range);
+        });
+    });
+
+    // 每 30 秒自動刷新（保持當前選擇的日期範圍）
     setInterval(() => {
         loadStats();
         loadRecentWishes();
-        loadTimelineData(); // 刷新時間點圖表
+        loadTimelineData();
     }, 30000);
 });
 </script>
 
 <style>
+/* 日期篩選區 */
+.date-filter-section {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    border: 1px solid #e0e0e0;
+}
+
+.date-filter-section label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: block;
+    color: #2c3e50;
+}
+
+.date-filter-buttons {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 0.5rem 1.25rem;
+    border: 2px solid #667eea;
+    background: white;
+    color: #667eea;
+    border-radius: 0.375rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+}
+
+.filter-btn:hover {
+    background: #f0f1ff;
+    transform: translateY(-1px);
+}
+
+.filter-btn.active {
+    background: #667eea;
+    color: white;
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.date-range-display {
+    padding: 0.75rem 1rem;
+    background: white;
+    border-radius: 0.375rem;
+    border: 1px solid #e0e0e0;
+}
+
+.date-range-display span {
+    font-weight: 600;
+    color: #667eea;
+    font-size: 0.95rem;
+}
+
 /* 統計卡片網格 - 4 個卡片排成一排 */
 .stats-grid {
     display: grid;
