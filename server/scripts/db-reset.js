@@ -12,6 +12,7 @@ const fs = require('fs');
 // 載入環境變數
 require('dotenv').config();
 const config = require('../config');
+const { getGMT8Timestamp } = require('../utils/timezone');
 
 const dbPath = path.resolve(config.database.path);
 const schemaPath = path.join(__dirname, '../database/schema.sql');
@@ -242,10 +243,11 @@ async function resetDatabase() {
 
                 console.log('👤 建立初始用戶...');
 
-                // 插入用戶資料
+                // 插入用戶資料 (使用 GMT+8 時間戳)
+                const now = getGMT8Timestamp();
                 const userStmt = db.prepare(`
-                    INSERT INTO users (username, email, password_hash, full_name, phone, preferences, role, status, created_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NULL)
+                    INSERT INTO users (username, email, password_hash, full_name, phone, preferences, role, status, created_by, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?)
                 `);
 
                 for (let i = 0; i < initialUsers.length; i++) {
@@ -260,7 +262,9 @@ async function resetDatabase() {
                             user.full_name,
                             null, // phone
                             null, // preferences
-                            user.role
+                            user.role,
+                            now,  // created_at (GMT+8)
+                            now   // updated_at (GMT+8)
                         ], function (err) {
                             if (err) reject(err);
                             else {
@@ -274,12 +278,12 @@ async function resetDatabase() {
 
                 console.log('📋 建立初始專案...');
 
-                // 插入專案資料
+                // 插入專案資料 (使用 GMT+8 時間戳)
                 const projectStmt = db.prepare(`
                     INSERT INTO event_projects (
-                        project_name, project_code, description, event_date, 
-                        event_location, event_type, status, created_by
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                        project_name, project_code, description, event_date,
+                        event_location, event_type, status, created_by, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
                 `);
 
                 for (const project of initialProjects) {
@@ -291,7 +295,9 @@ async function resetDatabase() {
                             project.event_date,
                             project.event_location,
                             project.event_type,
-                            project.status
+                            project.status,
+                            now,  // created_at (GMT+8)
+                            now   // updated_at (GMT+8)
                         ], function (err) {
                             if (err) reject(err);
                             else {
@@ -305,12 +311,12 @@ async function resetDatabase() {
 
                 console.log('📄 建立初始模板...');
 
-                // 插入模板資料
+                // 插入模板資料 (使用 GMT+8 時間戳)
                 const templateStmt = db.prepare(`
                     INSERT INTO invitation_templates (
-                        template_name, template_type, template_content, 
-                        css_styles, is_default, created_by
-                    ) VALUES (?, ?, ?, ?, ?, 1)
+                        template_name, template_type, template_content,
+                        css_styles, is_default, created_by, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, 1, ?, ?)
                 `);
 
                 for (const template of initialTemplates) {
@@ -320,7 +326,9 @@ async function resetDatabase() {
                             template.template_type,
                             template.template_content,
                             template.css_styles || null,
-                            template.is_default
+                            template.is_default,
+                            now,  // created_at (GMT+8)
+                            now   // updated_at (GMT+8)
                         ], function (err) {
                             if (err) reject(err);
                             else {

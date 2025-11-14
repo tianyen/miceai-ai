@@ -147,41 +147,7 @@ const seedData = {
     ],
 
     // 額外專案資料
-    projects: [
-        {
-            project_name: '企業數位轉型研討會',
-            project_code: 'DIGITAL2024',
-            description: '探討企業數位轉型策略與實務',
-            event_date: '2025-10-30',
-            event_start_date: '2025-10-10',
-            event_end_date: '2025-10-13',
-            event_highlights: JSON.stringify([
-                { order: 1, title: '大咖雲集', content: '200+ 知識學者和企業的行銷資訊，討論業界動態' },
-                { order: 2, title: '實戰案例', content: '分享成功數位轉型案例與經驗' },
-                { order: 3, title: '互動交流', content: '提供充分的交流與合作機會' }
-            ]),
-            event_location: '台北世貿中心',
-            event_type: 'seminar',
-            status: 'active',
-            template_id: null  // 將在插入模板後更新
-        },
-        {
-            project_name: '綠能科技展示會',
-            project_code: 'GREEN2024',
-            description: '展示最新綠能科技與解決方案',
-            event_date: '2025-09-25',
-            event_start_date: '2025-09-25',
-            event_end_date: '2025-09-27',
-            event_highlights: JSON.stringify([
-                { order: 1, title: '創新技術', content: '展示最新綠能科技成果' },
-                { order: 2, title: '產業交流', content: '促進綠能產業合作與發展' }
-            ]),
-            event_location: '高雄展覽館',
-            event_type: 'exhibition',
-            status: 'completed',
-            template_id: null
-        }
-    ],
+    projects: [],
 
     // 表單提交資料（使用確定性 trace_id）
     submissions: [
@@ -746,8 +712,8 @@ addSeedData()
         console.log('='.repeat(80));
         console.log('\n🎯 專案 Codes:');
         console.log('   - TECH2024 (ID: 1) - 2024年度科技論壇');
-        console.log('   - DIGITAL2024 (ID: 2) - 企業數位轉型研討會');
-        console.log('   - GREEN2024 (ID: 3) - 綠能科技展示會');
+        console.log('   - AI2024 (ID: 2) - AI產業交流會');
+        console.log('   - INFOMONTH2025 (ID: 5) - 資訊月互動許願樹');
 
         console.log('\n🎫 固定的 Trace IDs:');
         console.log(`   - User 1 (張志明): ${idGen.generateTraceId(1)}`);

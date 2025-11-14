@@ -20,7 +20,13 @@ const helpers = {
     and: (a, b) => a && b,
     or: (a, b) => a || b,
     not: (a) => !a,
-    
+
+    // 數學運算
+    plus: (a, b) => Number(a) + Number(b),
+    minus: (a, b) => Number(a) - Number(b),
+    multiply: (a, b) => Number(a) * Number(b),
+    divide: (a, b) => Number(a) / Number(b),
+
     // 日期格式化
     formatDate: (date) => {
         if (!date) return '';

@@ -1,0 +1,174 @@
+{{!-- 許願樹列表頁面 --}}
+
+<div class="content-header">
+    <h1>🌳 許願樹列表</h1>
+    <p>{{project.project_name}} - 所有許願記錄</p>
+</div>
+
+<!-- 專案選擇和統計 -->
+<div class="filter-section">
+    <div class="row">
+        <div class="col-md-6">
+            <form method="GET" action="/admin/wish-tree/list">
+                <div class="form-group">
+                    <label>選擇專案:</label>
+                    <select name="project_id" class="form-control" onchange="this.form.submit()">
+                        {{#each projects}}
+                        <option value="{{this.id}}" {{#if (eq this.id ../currentProjectId)}}selected{{/if}}>
+                            {{this.project_name}} ({{this.project_code}})
+                        </option>
+                        {{/each}}
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="col-md-6 text-right">
+            <div class="stats-summary">
+                <strong>總許願數:</strong> {{totalWishes}}
+            </div>
+            <a href="/admin/wish-tree/stats?project_id={{currentProjectId}}" class="btn btn-primary">
+                📊 查看統計
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- 許願列表 -->
+<div class="card">
+    <div class="card-header">
+        <h3>許願記錄</h3>
+    </div>
+    <div class="card-content">
+        {{#if wishes.length}}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">ID</th>
+                    <th>許願內容</th>
+                    <th style="width: 120px;">攤位</th>
+                    <th style="width: 150px;">IP 地址</th>
+                    <th style="width: 180px;">提交時間</th>
+                    <th style="width: 100px;">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each wishes}}
+                <tr>
+                    <td>{{this.id}}</td>
+                    <td class="wish-content">{{this.wish_text}}</td>
+                    <td>{{#if this.booth_name}}{{this.booth_name}}{{else}}-{{/if}}</td>
+                    <td class="text-muted small">{{this.ip_address}}</td>
+                    <td class="text-muted small">{{this.created_at}}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="viewWishImage({{this.id}})">
+                            查看圖片
+                        </button>
+                    </td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+
+        <!-- 分頁 -->
+        {{#if (gt totalPages 1)}}
+        <div class="pagination">
+            {{#if (gt currentPage 1)}}
+            <a href="?project_id={{currentProjectId}}&page={{minus currentPage 1}}" class="btn btn-secondary">
+                上一頁
+            </a>
+            {{/if}}
+
+            <span class="page-info">
+                第 {{currentPage}} / {{totalPages}} 頁
+            </span>
+
+            {{#if (lt currentPage totalPages)}}
+            <a href="?project_id={{currentProjectId}}&page={{plus currentPage 1}}" class="btn btn-secondary">
+                下一頁
+            </a>
+            {{/if}}
+        </div>
+        {{/if}}
+
+        {{else}}
+        <p class="text-center text-muted">暫無許願記錄</p>
+        {{/if}}
+    </div>
+</div>
+
+<script>
+// 使用全域 modal 系統查看許願卡圖片
+async function viewWishImage(wishId) {
+    // 顯示載入中的 modal
+    window.modalManager.show(
+        '<div class="text-center"><p>載入中...</p><div class="spinner-border" role="status"></div></div>',
+        { title: '許願卡圖片', size: 'lg', showCloseButton: true }
+    );
+
+    try {
+        const response = await fetch(`/api/v1/wish-tree/wish/${wishId}`);
+        const result = await response.json();
+
+        if (result.success && result.data.image_base64) {
+            // 更新 modal 內容為圖片
+            const imageHtml = `
+                <div class="text-center">
+                    <img src="${result.data.image_base64}"
+                         style="max-width: 100%; max-height: 600px; border-radius: 8px;"
+                         alt="許願卡圖片" />
+                </div>
+            `;
+            window.modalManager.show(imageHtml, {
+                title: `許願卡圖片 (ID: ${wishId})`,
+                size: 'lg',
+                showCloseButton: true
+            });
+        } else {
+            // 無圖片
+            window.modalManager.alert('此許願沒有上傳圖片', {
+                title: '提示'
+            });
+        }
+    } catch (error) {
+        console.error('載入圖片失敗:', error);
+        window.modalManager.alert('載入圖片失敗，請稍後再試', {
+            title: '錯誤'
+        });
+    }
+}
+</script>
+
+<style>
+.filter-section {
+    background: white;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.stats-summary {
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+.wish-content {
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding: 1rem;
+}
+
+.page-info {
+    font-weight: bold;
+}
+</style>

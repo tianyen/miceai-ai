@@ -1,0 +1,530 @@
+{{!-- 許願樹統計頁面 --}}
+
+<div class="page-header">
+    <h1>🌳 許願樹統計分析</h1>
+    <p class="text-muted">{{project.project_name}} - 互動數據分析與高峰頻率統計</p>
+</div>
+
+<!-- 專案選擇 -->
+<div class="filter-section">
+    <form method="GET" action="/admin/wish-tree/stats">
+        <div class="form-group">
+            <label>選擇專案:</label>
+            <select name="project_id" class="form-control" onchange="this.form.submit()">
+                {{#each projects}}
+                <option value="{{this.id}}" {{#if (eq this.id ../currentProjectId)}}selected{{/if}}>
+                    {{this.project_name}} ({{this.project_code}})
+                </option>
+                {{/each}}
+            </select>
+        </div>
+    </form>
+</div>
+
+<!-- 統計卡片 -->
+<div class="stats-grid" id="stats-grid">
+    <div class="stat-card primary">
+        <div class="stat-value" id="total-wishes">-</div>
+        <div class="stat-label">總許願數</div>
+    </div>
+
+    <div class="stat-card success">
+        <div class="stat-value" id="today-wishes">-</div>
+        <div class="stat-label">今日許願</div>
+    </div>
+
+    <div class="stat-card warning">
+        <div class="stat-value" id="peak-hour">-</div>
+        <div class="stat-label">最高峰時段</div>
+    </div>
+
+    <div class="stat-card info">
+        <div class="stat-value" id="avg-per-hour">-</div>
+        <div class="stat-label">平均每小時</div>
+    </div>
+</div>
+
+<!-- 圖表區域 -->
+<div class="dashboard-grid">
+    <!-- 時間點分佈圖（新增）-->
+    <div class="dashboard-card full-width">
+        <div class="card-header">
+            <h3>⏰ 許願時間點分佈</h3>
+            <span class="badge">即時更新</span>
+        </div>
+        <div class="card-content">
+            <canvas id="timelineChart" height="300"></canvas>
+        </div>
+    </div>
+
+    <!-- 每小時分佈圖 -->
+    <div class="dashboard-card full-width">
+        <div class="card-header">
+            <h3>📊 每小時互動分佈</h3>
+        </div>
+        <div class="card-content">
+            <canvas id="hourlyChart" height="300"></canvas>
+        </div>
+    </div>
+
+    <!-- 每日分佈圖 -->
+    <div class="dashboard-card full-width">
+        <div class="card-header">
+            <h3>📅 每日互動趨勢</h3>
+        </div>
+        <div class="card-content">
+            <canvas id="dailyChart" height="300"></canvas>
+        </div>
+    </div>
+
+    <!-- 高峰時段排行 -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <h3>🔥 高峰時段 Top 5</h3>
+        </div>
+        <div class="card-content">
+            <table class="data-table" id="peak-hours-table">
+                <thead>
+                    <tr>
+                        <th>排名</th>
+                        <th>時段</th>
+                        <th>互動數</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="3" class="text-center">載入中...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 最近許願 -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <h3>💬 最近許願</h3>
+            <a href="/admin/wish-tree/list?project_id={{currentProjectId}}" class="btn btn-sm btn-primary">
+                查看全部
+            </a>
+        </div>
+        <div class="card-content" id="recent-wishes">
+            <p class="text-center text-muted">載入中...</p>
+        </div>
+    </div>
+</div>
+
+<!-- 引入 Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
+<script>
+const PROJECT_ID = {{currentProjectId}};
+
+// 載入統計數據
+async function loadStats() {
+    try {
+        const response = await fetch(`/api/v1/wish-tree/stats?project_id=${PROJECT_ID}`);
+        const result = await response.json();
+
+        if (result.success) {
+            const data = result.data;
+
+            // 更新統計卡片
+            document.getElementById('total-wishes').textContent = data.total_wishes;
+
+            // 計算今日許願數
+            const today = new Date().toISOString().split('T')[0];
+            const todayData = data.daily_distribution.find(d => d.date === today);
+            document.getElementById('today-wishes').textContent = todayData ? todayData.count : 0;
+
+            // 顯示最高峰時段
+            if (data.peak_hours.length > 0) {
+                document.getElementById('peak-hour').textContent = data.peak_hours[0].hour;
+            }
+
+            // 計算平均每小時
+            const avgPerHour = data.total_wishes > 0 && data.hourly_distribution.length > 0
+                ? Math.round(data.total_wishes / data.hourly_distribution.length)
+                : 0;
+            document.getElementById('avg-per-hour').textContent = avgPerHour;
+
+            // 繪製圖表
+            drawHourlyChart(data.hourly_distribution);
+            drawDailyChart(data.daily_distribution);
+
+            // 顯示高峰時段表格
+            displayPeakHours(data.peak_hours);
+        }
+    } catch (error) {
+        console.error('載入統計數據失敗:', error);
+    }
+}
+
+// 載入時間點數據並繪製
+async function loadTimelineData() {
+    try {
+        const response = await fetch(`/api/v1/wish-tree/recent?project_id=${PROJECT_ID}&limit=100`);
+        const result = await response.json();
+
+        if (result.success && result.data.length > 0) {
+            drawTimelineChart(result.data);
+        }
+    } catch (error) {
+        console.error('載入時間點數據失敗:', error);
+    }
+}
+
+// 繪製時間點分佈圖
+let timelineChartInstance = null;
+function drawTimelineChart(recentData) {
+    const ctx = document.getElementById('timelineChart').getContext('2d');
+
+    // 銷毀舊圖表
+    if (timelineChartInstance) {
+        timelineChartInstance.destroy();
+    }
+
+    // 準備數據：按時間排序
+    const sortedData = [...recentData].sort((a, b) =>
+        new Date(a.created_at) - new Date(b.created_at)
+    );
+
+    // 提取時間標籤和計數（每個點代表一次許願）
+    const labels = sortedData.map(d => d.created_at);
+    const counts = sortedData.map((_, index) => index + 1); // 累積計數
+
+    timelineChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '累積許願數',
+                data: counts,
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                borderColor: 'rgba(102, 126, 234, 1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: 'rgba(102, 126, 234, 1)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const wish = sortedData[context.dataIndex];
+                            return [
+                                `許願 #${context.parsed.y}`,
+                                `時間: ${wish.created_at}`,
+                                `內容: ${wish.wish_text.substring(0, 30)}...`
+                            ];
+                        }
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45,
+                        autoSkip: true,
+                        maxTicksLimit: 15
+                    },
+                    title: {
+                        display: true,
+                        text: '時間'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: '累積數量'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// 繪製每小時分佈圖
+function drawHourlyChart(hourlyData) {
+    const ctx = document.getElementById('hourlyChart').getContext('2d');
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: hourlyData.map(d => d.hour),
+            datasets: [{
+                label: '互動次數',
+                data: hourlyData.map(d => d.count),
+                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// 繪製每日分佈圖
+function drawDailyChart(dailyData) {
+    const ctx = document.getElementById('dailyChart').getContext('2d');
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: dailyData.map(d => d.date),
+            datasets: [{
+                label: '互動次數',
+                data: dailyData.map(d => d.count),
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 2,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// 顯示高峰時段表格
+function displayPeakHours(peakHours) {
+    const tbody = document.querySelector('#peak-hours-table tbody');
+    tbody.innerHTML = '';
+
+    if (peakHours.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center">暫無數據</td></tr>';
+        return;
+    }
+
+    peakHours.forEach((peak, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${peak.hour}</td>
+            <td><strong>${peak.count}</strong></td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// 載入最近許願
+async function loadRecentWishes() {
+    try {
+        const response = await fetch(`/api/v1/wish-tree/recent?project_id=${PROJECT_ID}&limit=10`);
+        const result = await response.json();
+
+        if (result.success) {
+            const container = document.getElementById('recent-wishes');
+
+            if (result.data.length === 0) {
+                container.innerHTML = '<p class="text-center text-muted">暫無許願記錄</p>';
+                return;
+            }
+
+            container.innerHTML = result.data.map(wish => `
+                <div class="list-item">
+                    <div class="list-item-content">
+                        <div class="wish-text">${escapeHtml(wish.wish_text)}</div>
+                        <div class="text-muted small">${wish.created_at}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('載入最近許願失敗:', error);
+    }
+}
+
+// HTML 轉義
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// 頁面載入時執行
+document.addEventListener('DOMContentLoaded', function() {
+    loadStats();
+    loadRecentWishes();
+    loadTimelineData(); // 載入時間點數據
+
+    // 每 30 秒自動刷新
+    setInterval(() => {
+        loadStats();
+        loadRecentWishes();
+        loadTimelineData(); // 刷新時間點圖表
+    }, 30000);
+});
+</script>
+
+<style>
+/* 統計卡片網格 - 4 個卡片排成一排 */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card.primary {
+    border-top: 4px solid #3498db;
+}
+
+.stat-card.success {
+    border-top: 4px solid #27ae60;
+}
+
+.stat-card.warning {
+    border-top: 4px solid #f39c12;
+}
+
+.stat-card.info {
+    border-top: 4px solid #17a2b8;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+/* Dashboard 網格 */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+}
+
+.dashboard-card {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.dashboard-card.full-width {
+    grid-column: 1 / -1;
+}
+
+.card-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.card-content {
+    padding: 1.5rem;
+}
+
+/* 頁面特定樣式 */
+.full-width {
+    grid-column: 1 / -1;
+}
+
+.wish-text {
+    margin-bottom: 0.5rem;
+    word-wrap: break-word;
+}
+
+.list-item {
+    padding: 1rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.list-item:last-child {
+    border-bottom: none;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: #667eea;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* 響應式設計 */
+@media (max-width: 1024px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>

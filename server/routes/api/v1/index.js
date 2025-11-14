@@ -12,6 +12,7 @@ const registrationsRouter = require('./registrations');
 const checkinRouter = require('./checkin');
 const businessCardsRouter = require('./business-cards');
 const gamesRouter = require('./games');
+const wishTreeRouter = require('./wish-tree');
 
 // API 版本信息
 router.get('/', (req, res) => {
@@ -27,7 +28,8 @@ router.get('/', (req, res) => {
                 qr_codes: '/api/v1/qr-codes/:traceId',
                 check_in: '/api/v1/check-in',
                 business_cards: '/api/v1/business-cards',
-                games: '/api/v1/games'
+                games: '/api/v1/games',
+                wish_tree: '/api/v1/wish-tree'
             },
             documentation: '/api-docs',
             status: 'active'
@@ -55,6 +57,7 @@ router.use('/', registrationsRouter);
 router.use('/check-in', checkinRouter);
 router.use('/business-cards', businessCardsRouter);
 router.use('/games', gamesRouter);
+router.use('/wish-tree', wishTreeRouter);
 
 // 404 處理
 router.use('*', (req, res) => {
@@ -81,7 +84,10 @@ router.use('*', (req, res) => {
                 'POST /api/v1/games/:gameId/sessions/start',
                 'POST /api/v1/games/:gameId/logs',
                 'POST /api/v1/games/:gameId/sessions/end',
-                'GET /api/v1/games/:gameId/info'
+                'GET /api/v1/games/:gameId/info',
+                'POST /api/v1/wish-tree/submit',
+                'GET /api/v1/wish-tree/stats',
+                'GET /api/v1/wish-tree/recent'
             ]
         }
     });

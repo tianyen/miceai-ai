@@ -7,19 +7,10 @@ const path = require('path');
 const router = express.Router();
 const config = require('../config');
 
-// 根路徑 - 返回 API 狀態
+// 根路徑 - 返回簡單狀態
 router.get('/', (req, res) => {
     res.status(200).json({
-        status: 'ok',
-        message: 'MICE-AI Backend API Server',
-        version: '1.0.0',
-        timestamp: new Date().toISOString(),
-        endpoints: {
-            admin: '/admin',
-            api_v1: '/api/v1',
-            api_admin: '/api/admin',
-            swagger: '/api-docs'
-        }
+        status: 'ok'
     });
 });
 

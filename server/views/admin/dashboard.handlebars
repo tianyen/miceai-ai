@@ -13,12 +13,6 @@
         <div class="stat-change" id="projects-change">無資料</div>
     </div>
 
-    <div class="stat-card success">
-        <div class="stat-value" id="total-submissions">-</div>
-        <div class="stat-label">總表單提交</div>
-        <div class="stat-change" id="submissions-change">無資料</div>
-    </div>
-
     <div class="stat-card warning">
         <div class="stat-value" id="active-projects">-</div>
         <div class="stat-label">活躍項目</div>
@@ -57,32 +51,6 @@
         <div class="card-content" id="recent-activities">
             <p class="text-center text-muted">暫無活動記錄</p>
         </div>
-    </div>
-</div>
-
-<!-- 快速操作 -->
-<div class="quick-actions">
-    <h3>快速操作</h3>
-    <div class="action-grid">
-        <button class="action-card" data-action="new-project">
-            <i class="fas fa-plus-circle"></i>
-            <span>新增項目</span>
-        </button>
-
-        <button class="action-card" data-action="new-template">
-            <i class="fas fa-file-plus"></i>
-            <span>新增模板</span>
-        </button>
-
-        <button class="action-card" data-action="new-user">
-            <i class="fas fa-user-plus"></i>
-            <span>新增用戶</span>
-        </button>
-
-        <button class="action-card" data-action="export-reports">
-            <i class="fas fa-download"></i>
-            <span>匯出報告</span>
-        </button>
     </div>
 </div>
 
@@ -196,56 +164,6 @@
         color: var(--gray-500);
     }
 
-    .quick-actions {
-        background: white;
-        padding: 2rem;
-        border-radius: var(--border-radius-lg);
-        box-shadow: var(--shadow);
-    }
-
-    .quick-actions h3 {
-        margin: 0 0 1.5rem 0;
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: var(--gray-900);
-    }
-
-    .action-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-    }
-
-    .action-card {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 1.5rem;
-        background: var(--gray-50);
-        border: 1px solid var(--border-color);
-        border-radius: var(--border-radius);
-        cursor: pointer;
-        transition: all var(--transition-fast);
-        text-decoration: none;
-        color: var(--gray-700);
-    }
-
-    .action-card:hover {
-        background: var(--primary-color);
-        color: white;
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-md);
-    }
-
-    .action-card i {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .action-card span {
-        font-weight: 500;
-    }
-
     @media (max-width: 768px) {
         .dashboard-grid {
             grid-template-columns: 1fr;
@@ -253,10 +171,6 @@
 
         .stats-grid {
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        }
-
-        .action-grid {
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
         }
     }
 </style>
@@ -276,10 +190,6 @@
                         const projectsChange = stats.projectsThisMonth > 0 ? '+' + stats.projectsThisMonth : (stats.projectsThisMonth || 0);
                         $('#projects-change').text(projectsChange).addClass(stats.projectsThisMonth > 0 ? 'positive' : 'negative');
 
-                        $('#total-submissions').text(stats.totalSubmissions || 0);
-                        const submissionsChange = stats.submissionsToday > 0 ? '+' + stats.submissionsToday : (stats.submissionsToday || 0);
-                        $('#submissions-change').text(submissionsChange).addClass(stats.submissionsToday > 0 ? 'positive' : 'negative');
-
                         $('#active-projects').text(stats.activeProjects || 0);
                         const activeChange = stats.activeProjectsChange > 0 ? '+' + stats.activeProjectsChange : (stats.activeProjectsChange || 0);
                         $('#active-projects-change').text(activeChange).addClass(stats.activeProjectsChange > 0 ? 'positive' : 'negative');
@@ -293,8 +203,6 @@
                     // 載入失敗時顯示預設值，不顯示錯誤信息
                     $('#total-projects').text('0');
                     $('#projects-change').text('無資料');
-                    $('#total-submissions').text('0');
-                    $('#submissions-change').text('無資料');
                     $('#active-projects').text('0');
                     $('#active-projects-change').text('無資料');
                     $('#total-users').text('0');

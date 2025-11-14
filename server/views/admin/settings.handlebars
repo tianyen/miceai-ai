@@ -9,6 +9,47 @@
 
 <div class="settings-container">
     <div class="row">
+        <!-- 系統資訊卡片 -->
+        <div class="col-md-12">
+            <div class="card info-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-info-circle"></i> 系統資訊</h3>
+                </div>
+                <div class="card-content">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">系統時區</div>
+                            <div class="info-value">
+                                <i class="fas fa-globe"></i>
+                                <strong>Asia/Taipei (GMT+8)</strong>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">當前時間</div>
+                            <div class="info-value">
+                                <i class="fas fa-clock"></i>
+                                <strong id="current-time">載入中...</strong>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">伺服器狀態</div>
+                            <div class="info-value">
+                                <i class="fas fa-check-circle" style="color: #28a745;"></i>
+                                <strong>運行中</strong>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">數據庫</div>
+                            <div class="info-value">
+                                <i class="fas fa-database"></i>
+                                <strong>SQLite (GMT+8)</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 系統設定區塊 -->
         <div class="col-md-12">
             <div class="card">
@@ -21,20 +62,23 @@
                             <label for="system-name">系統名稱</label>
                             <input type="text" id="system-name" class="form-control" value="MICE AI 管理系統">
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="system-email">系統郵件</label>
                             <input type="email" id="system-email" class="form-control" value="admin@miceai.com">
                         </div>
-                        
+
                         <div class="form-group">
-                            <label for="timezone">時區</label>
-                            <select id="timezone" class="form-control">
-                                <option value="Asia/Taipei" selected>Asia/Taipei (GMT+8)</option>
-                                <option value="UTC">UTC</option>
+                            <label for="timezone">時區設定</label>
+                            <select id="timezone" class="form-control" disabled>
+                                <option value="Asia/Taipei" selected>Asia/Taipei (GMT+8) - 台北時間</option>
                             </select>
+                            <small class="form-text text-muted">
+                                <i class="fas fa-info-circle"></i>
+                                系統統一使用 GMT+8 時區，所有時間戳記都會自動轉換為台北時間
+                            </small>
                         </div>
-                        
+
                         <div class="form-actions">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save"></i> 儲存設定
@@ -94,13 +138,78 @@
     padding-top: 1.5rem;
     border-top: 1px solid var(--border-color);
 }
+
+/* 系統資訊卡片樣式 */
+.info-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.info-card .card-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.info-card .card-header h3 {
+    color: white;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+
+.info-item {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 1.25rem;
+    border-radius: var(--border-radius);
+    backdrop-filter: blur(10px);
+}
+
+.info-label {
+    font-size: 0.875rem;
+    opacity: 0.9;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.info-value {
+    font-size: 1.125rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.info-value i {
+    font-size: 1.25rem;
+}
+
+.form-text {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--gray-600);
+}
 </style>
 
 <script>
 $(document).ready(function() {
+    // 更新當前時間 (GMT+8)
+    function updateCurrentTime() {
+        const now = new Date();
+        const gmt8Time = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+        const timeString = gmt8Time.toISOString().replace('T', ' ').substring(0, 19);
+        $('#current-time').text(timeString);
+    }
+
+    // 初始化並每秒更新時間
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+
+    // 表單提交
     $('#settings-form').on('submit', function(e) {
         e.preventDefault();
-        
+
         // 顯示通知
         if (typeof showNotification === 'function') {
             showNotification('設定已儲存', 'success');

@@ -25,6 +25,10 @@ const swaggerAuthRoutes = require('./routes/swagger-auth');
 const app = express();
 
 // ===== 基礎配置 =====
+// 信任 proxy，允許正確讀取 X-Forwarded-For header
+// 只信任 loopback 和 private network（适用于 Nginx 反向代理）
+app.set('trust proxy', 'loopback, linklocal, uniquelocal');
+
 app.set('view engine', 'handlebars');
 app.set('views', config.paths.views);
 app.engine('handlebars', handlebarsConfig.create());

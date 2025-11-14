@@ -72,7 +72,17 @@ class ProjectController {
 
                     projects.forEach(project => {
                         const statusBadge = getStatusBadge(project.status);
-                        const eventDate = project.event_date ? new Date(project.event_date).toLocaleDateString('zh-TW') : '-';
+                        // 優先使用 event_date，如果沒有則使用 event_start_date - event_end_date
+                        let eventDate = '-';
+                        if (project.event_date) {
+                            eventDate = new Date(project.event_date).toLocaleDateString('zh-TW');
+                        } else if (project.event_start_date && project.event_end_date) {
+                            const startDate = new Date(project.event_start_date).toLocaleDateString('zh-TW');
+                            const endDate = new Date(project.event_end_date).toLocaleDateString('zh-TW');
+                            eventDate = `${startDate} - ${endDate}`;
+                        } else if (project.event_start_date) {
+                            eventDate = new Date(project.event_start_date).toLocaleDateString('zh-TW');
+                        }
                         const createdAt = new Date(project.created_at).toLocaleDateString('zh-TW');
 
                         html += `

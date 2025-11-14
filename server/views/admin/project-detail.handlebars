@@ -77,6 +77,7 @@
         <button class="tab-btn" data-tab="business-cards">QR Code 名片</button>
         <button class="tab-btn" data-tab="qr-scanner">QR掃描</button>
         <button class="tab-btn" data-tab="games">遊戲設定</button>
+        <button class="tab-btn" data-tab="wish-tree">🌳 許願樹</button>
     </nav>
 
     <!-- 參加者管理 -->
@@ -290,6 +291,66 @@
                     <tbody id="project-games-table">
                         <tr>
                             <td colspan="7" class="text-center">
+                                <div class="spinner"></div>
+                                <p>載入中...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 許願樹 Tab -->
+    <div class="tab-content" id="wish-tree-tab">
+        <div class="section-header">
+            <h3>🌳 許願樹統計</h3>
+            <div class="section-actions">
+                <a href="/admin/wish-tree/list?project_id={{project.id}}" class="btn btn-primary" target="_blank">
+                    <i class="fas fa-list"></i> 查看所有許願
+                </a>
+                <a href="/admin/wish-tree/stats?project_id={{project.id}}" class="btn btn-success" target="_blank">
+                    <i class="fas fa-chart-bar"></i> 詳細統計
+                </a>
+            </div>
+        </div>
+
+        <!-- 統計卡片 -->
+        <div class="stats-grid-inline" style="margin-bottom: 2rem;">
+            <div class="stat-card-inline primary">
+                <div class="stat-value" id="wish-total">-</div>
+                <div class="stat-label">總許願數</div>
+            </div>
+            <div class="stat-card-inline success">
+                <div class="stat-value" id="wish-today">-</div>
+                <div class="stat-label">今日許願</div>
+            </div>
+            <div class="stat-card-inline warning">
+                <div class="stat-value" id="wish-peak-hour">-</div>
+                <div class="stat-label">最高峰時段</div>
+            </div>
+            <div class="stat-card-inline info">
+                <div class="stat-value" id="wish-avg">-</div>
+                <div class="stat-label">平均每小時</div>
+            </div>
+        </div>
+
+        <!-- 最近許願列表 -->
+        <div class="data-table-container">
+            <h4 style="margin-bottom: 1rem;">最近許願記錄</h4>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">ID</th>
+                            <th>許願內容</th>
+                            <th style="width: 180px;">時間</th>
+                            <th style="width: 150px;">IP 地址</th>
+                        </tr>
+                    </thead>
+                    <tbody id="wish-tree-table">
+                        <tr>
+                            <td colspan="4" class="text-center">
                                 <div class="spinner"></div>
                                 <p>載入中...</p>
                             </td>
@@ -801,6 +862,56 @@
         max-width: 100%;
         margin: 0;
     }
+}
+
+/* 許願樹 Tab 樣式 */
+.stats-grid-inline {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.stat-card-inline {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.stat-card-inline.primary {
+    border-top: 3px solid #007bff;
+}
+
+.stat-card-inline.success {
+    border-top: 3px solid #28a745;
+}
+
+.stat-card-inline.warning {
+    border-top: 3px solid #ffc107;
+}
+
+.stat-card-inline.info {
+    border-top: 3px solid #17a2b8;
+}
+
+.stat-card-inline .stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.stat-card-inline .stat-label {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.wish-text-truncate {
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 </style>
 
@@ -1813,4 +1924,98 @@ function updateProjectGame(bindingId) {
 function viewGameStats(gameId) {
     window.location.href = `/admin/games/${gameId}/stats?project_id=${projectId}`;
 }
+
+// ========== 許願樹功能 ==========
+// 載入許願樹統計
+async function loadWishTreeStats() {
+    try {
+        const response = await fetch(`/api/v1/wish-tree/stats?project_id=${projectId}`);
+        const result = await response.json();
+
+        if (result.success) {
+            const data = result.data;
+
+            // 更新統計卡片
+            $('#wish-total').text(data.total_wishes);
+
+            // 計算今日許願數
+            const today = new Date().toISOString().split('T')[0];
+            const todayData = data.daily_distribution.find(d => d.date === today);
+            $('#wish-today').text(todayData ? todayData.count : 0);
+
+            // 顯示最高峰時段
+            if (data.peak_hours.length > 0) {
+                $('#wish-peak-hour').text(data.peak_hours[0].hour);
+            } else {
+                $('#wish-peak-hour').text('-');
+            }
+
+            // 計算平均每小時
+            const avgPerHour = data.total_wishes > 0 && data.hourly_distribution.length > 0
+                ? Math.round(data.total_wishes / data.hourly_distribution.length)
+                : 0;
+            $('#wish-avg').text(avgPerHour);
+        }
+    } catch (error) {
+        console.error('載入許願樹統計失敗:', error);
+        $('#wish-total, #wish-today, #wish-peak-hour, #wish-avg').text('錯誤');
+    }
+}
+
+// 載入最近許願
+async function loadRecentWishes() {
+    try {
+        const response = await fetch(`/api/v1/wish-tree/recent?project_id=${projectId}&limit=10`);
+        const result = await response.json();
+
+        if (result.success) {
+            const tbody = $('#wish-tree-table');
+            tbody.empty();
+
+            if (result.data.length === 0) {
+                tbody.html('<tr><td colspan="4" class="text-center text-muted">暫無許願記錄</td></tr>');
+                return;
+            }
+
+            result.data.forEach(wish => {
+                const row = `
+                    <tr>
+                        <td>${wish.id}</td>
+                        <td class="wish-text-truncate">${escapeHtml(wish.wish_text)}</td>
+                        <td class="text-muted small">${wish.created_at}</td>
+                        <td class="text-muted small">${wish.ip_address || '-'}</td>
+                    </tr>
+                `;
+                tbody.append(row);
+            });
+        }
+    } catch (error) {
+        console.error('載入最近許願失敗:', error);
+        $('#wish-tree-table').html('<tr><td colspan="4" class="text-center text-danger">載入失敗</td></tr>');
+    }
+}
+
+// HTML 轉義函數
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// 當切換到許願樹 Tab 時載入數據
+$(document).ready(function() {
+    // ... 現有的程式碼 ...
+
+    // 監聽 Tab 切換
+    $('.tab-btn').on('click', function() {
+        const tabName = $(this).data('tab');
+        if (tabName === 'wish-tree') {
+            // 首次載入時才載入數據
+            if ($('#wish-total').text() === '-') {
+                loadWishTreeStats();
+                loadRecentWishes();
+            }
+        }
+    });
+});
 </script>

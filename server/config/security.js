@@ -23,9 +23,29 @@ const helmetConfig = helmet({
 });
 
 // CORS 配置
+const allowedOrigins = [
+    'http://localhost:3000',
+    'https://localhost:3000',
+    'https://localhost:3443',
+    'https://tianyen-service.com:4037',
+    'https://mice-ai.tianyen-service.com'
+];
+
 const corsConfig = cors({
-    origin: process.env.NODE_ENV === 'production' ? false : true,
-    credentials: true
+    origin: function (origin, callback) {
+        // 允許沒有 origin 的請求（例如 Postman 或服務器到服務器）
+        if (!origin) return callback(null, true);
+
+        // 檢查是否在允許列表中
+        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 });
 
 // API 限流配置
@@ -35,7 +55,8 @@ const apiLimiter = rateLimit({
     message: {
         success: false,
         message: 'Too many requests, please try again later'
-    }
+    },
+    validate: { trustProxy: false } // 禁用 trust proxy 验证
 });
 
 // 前端 API 限流配置（更寬鬆）
@@ -45,7 +66,8 @@ const frontendApiLimiter = rateLimit({
     message: {
         success: false,
         message: 'Too many requests, please try again later'
-    }
+    },
+    validate: { trustProxy: false } // 禁用 trust proxy 验证
 });
 
 // 登入限流配置
@@ -55,7 +77,8 @@ const loginLimiter = rateLimit({
     message: {
         success: false,
         message: 'Too many login attempts, please try again after 15 minutes'
-    }
+    },
+    validate: { trustProxy: false } // 禁用 trust proxy 验证
 });
 
 // 創建自定義限流器
