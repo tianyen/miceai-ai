@@ -12,12 +12,7 @@ const router = express.Router();
 const database = require('../../../config/database');
 const responses = require('../../../utils/responses');
 const { body, param, validationResult } = require('express-validator');
-const crypto = require('crypto');
-
-// 生成唯一的 trace_id
-const generateTraceId = () => {
-    return 'TRACE' + Date.now() + crypto.randomBytes(4).toString('hex').toUpperCase();
-};
+const { generateTraceId } = require('../../../utils/traceId');
 
 // 驗證電子郵件格式
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -128,7 +123,7 @@ const phoneRegex = /^[0-9\-\+\s\(\)]{8,20}$/;
  *                     trace_id:
  *                       type: string
  *                       description: 追蹤 ID，用於查詢報名狀態和 QR Code
- *                       example: "TRACED074DD3EE3E27B6B"
+ *                       example: "MICE-d074dd3e-e3e27b6b0"
  *                     event:
  *                       type: object
  *                       properties:
@@ -155,11 +150,11 @@ const phoneRegex = /^[0-9\-\+\s\(\)]{8,20}$/;
  *                       properties:
  *                         data:
  *                           type: string
- *                           example: "TRACED074DD3EE3E27B6B"
+ *                           example: "MICE-d074dd3e-e3e27b6b0"
  *                         url:
  *                           type: string
  *                           description: QR Code 查詢 URL
- *                           example: "/api/v1/qr-codes/TRACED074DD3EE3E27B6B"
+ *                           example: "/api/v1/qr-codes/MICE-d074dd3e-e3e27b6b0"
  *       400:
  *         description: 請求參數錯誤或活動已滿額
  *       404:
@@ -388,7 +383,7 @@ router.post('/events/:eventId/registrations', [
  *         schema:
  *           type: string
  *         description: 報名追蹤 ID（報名時返回）
- *         example: "TRACED074DD3EE3E27B6B"
+ *         example: "MICE-d074dd3e-e3e27b6b0"
  *     responses:
  *       200:
  *         description: 成功獲取報名資訊
@@ -408,7 +403,7 @@ router.post('/events/:eventId/registrations', [
  *                       example: 123
  *                     trace_id:
  *                       type: string
- *                       example: "TRACED074DD3EE3E27B6B"
+ *                       example: "MICE-d074dd3e-e3e27b6b0"
  *                     status:
  *                       type: string
  *                       enum: [pending, approved, confirmed, rejected, cancelled]
@@ -448,7 +443,7 @@ router.post('/events/:eventId/registrations', [
  *                       properties:
  *                         data:
  *                           type: string
- *                           example: "TRACED074DD3EE3E27B6B"
+ *                           example: "MICE-d074dd3e-e3e27b6b0"
  *                         scan_count:
  *                           type: integer
  *                           example: 0
@@ -654,7 +649,7 @@ router.get('/qr-codes/:traceId', [
  *         schema:
  *           type: string
  *         description: 報名追蹤 ID
- *         example: "TRACED074DD3EE3E27B6B"
+ *         example: "MICE-d074dd3e-e3e27b6b0"
  *     responses:
  *       200:
  *         description: 成功獲取 QR Code 數據
@@ -671,10 +666,10 @@ router.get('/qr-codes/:traceId', [
  *                   properties:
  *                     trace_id:
  *                       type: string
- *                       example: "TRACED074DD3EE3E27B6B"
+ *                       example: "MICE-d074dd3e-e3e27b6b0"
  *                     qr_data:
  *                       type: string
- *                       example: "TRACED074DD3EE3E27B6B"
+ *                       example: "MICE-d074dd3e-e3e27b6b0"
  *                     qr_base64:
  *                       type: string
  *                       description: QR Code Base64 編碼，可直接用於 <img src="">

@@ -457,13 +457,14 @@ async function seed() {
 
         if (project) {
             const projectId = project.id;
-            // 使用與 db-seed.js 一致的 trace_id 生成方式
+            // 使用與 db-seed.js 一致的 trace_id 生成方式 (新格式: MICE-xxx-xxx)
             const crypto = require('crypto');
-            const wangTraceId = 'TRACE' + crypto.createHash('sha256')
+            const hash = crypto.createHash('sha256')
                 .update('mice-ai-2025-trace-3')
-                .digest('hex')
-                .substring(0, 16)
-                .toUpperCase(); // 王大明的 trace_id (來自 db-seed.js idGen.generateTraceId(3))
+                .digest('hex');
+            const timestamp = hash.substring(0, 8).toLowerCase();
+            const random = hash.substring(8, 17).toLowerCase();
+            const wangTraceId = `MICE-${timestamp}-${random}`; // 王大明的 trace_id (來自 db-seed.js idGen.generateTraceId(3))
             const wangFinalScore = 850; // 高分
             const wangPlayTime = 45; // 快速完成
 

@@ -17,11 +17,13 @@ const redemptionCode = 'GAME-2025-' + crypto.createHash('sha256')
     .toUpperCase();
 
 // 使用與 db-seed.js 一致的 trace_id 生成方式 (idGen.generateTraceId(3))
-const wangTraceId = 'TRACE' + crypto.createHash('sha256')
+// 新格式: MICE-{timestamp}-{random}
+const hash = crypto.createHash('sha256')
     .update('mice-ai-2025-trace-3')
-    .digest('hex')
-    .substring(0, 16)
-    .toUpperCase();
+    .digest('hex');
+const timestamp = hash.substring(0, 8).toLowerCase();
+const random = hash.substring(8, 17).toLowerCase();
+const wangTraceId = `MICE-${timestamp}-${random}`;
 
 const testData = {
     redemption_code: redemptionCode,

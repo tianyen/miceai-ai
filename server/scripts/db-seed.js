@@ -29,14 +29,20 @@ class DeterministicIdGenerator {
         this.seed = seed;
     }
 
-    // 生成確定性的 trace_id
+    // 生成確定性的 trace_id (新格式: MICE-{timestamp}-{random})
     generateTraceId(index) {
+        // 使用確定性的方式生成 timestamp 和 random 部分
         const hash = crypto.createHash('sha256')
             .update(`${this.seed}-trace-${index}`)
-            .digest('hex')
-            .substring(0, 16)
-            .toUpperCase();
-        return `TRACE${hash}`;
+            .digest('hex');
+
+        // timestamp 部分: 取前 8 個字符（小寫）
+        const timestamp = hash.substring(0, 8).toLowerCase();
+
+        // random 部分: 取接下來的 9 個字符（小寫）
+        const random = hash.substring(8, 17).toLowerCase();
+
+        return `MICE-${timestamp}-${random}`;
     }
 
     // 生成確定性的時間戳（相對於基準日期）

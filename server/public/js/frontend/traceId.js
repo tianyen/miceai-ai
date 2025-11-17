@@ -14,6 +14,9 @@ function generateTraceId() {
 
 /**
  * 驗證 trace_id 格式是否正確
+ * 支援兩種格式:
+ * 1. 標準格式: MICE-{timestamp}-{random} (例如: MICE-m3k5l2-abc123xyz)
+ * 2. 舊格式: TRACE{timestamp}{random} (例如: TRACED074DD3EE3E27B6B)
  * @param {string} traceId - 要驗證的 trace_id
  * @returns {boolean} 是否為有效格式
  */
@@ -21,10 +24,14 @@ function validateTraceId(traceId) {
     if (!traceId || typeof traceId !== 'string') {
         return false;
     }
-    
-    // 檢查格式: MICE-{timestamp}-{random}
-    const pattern = /^MICE-[a-z0-9]+-[a-z0-9]+$/;
-    return pattern.test(traceId);
+
+    // 標準格式: MICE-{timestamp}-{random}
+    const standardPattern = /^MICE-[a-z0-9]+-[a-z0-9]+$/;
+
+    // 舊格式: TRACE{timestamp}{random} (至少 10 個字符)
+    const legacyPattern = /^TRACE[A-Z0-9]{10,}$/;
+
+    return standardPattern.test(traceId) || legacyPattern.test(traceId);
 }
 
 /**
