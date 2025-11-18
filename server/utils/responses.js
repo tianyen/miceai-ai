@@ -2,12 +2,17 @@
  * 統一響應格式工具
  */
 const logger = require('./logger');
+const AppError = require('./app-error');
 
 /**
  * 成功響應
+ * @param {Object} res - Express response object
+ * @param {*} data - 回應數據
+ * @param {string} message - 成功訊息
+ * @param {number} statusCode - HTTP 狀態碼（預設 200）
  */
-const success = (res, data = null, message = 'Success') => {
-    return res.json({
+const success = (res, data = null, message = 'Success', statusCode = 200) => {
+    return res.status(statusCode).json({
         success: true,
         message,
         data
@@ -16,21 +21,49 @@ const success = (res, data = null, message = 'Success') => {
 
 /**
  * 錯誤響應
+ * @param {Object} res - Express response object
+ * @param {string|AppError} messageOrError - 錯誤訊息或 AppError 對象
+ * @param {number} statusCode - HTTP 狀態碼
+ * @param {*} details - 額外的錯誤詳情
+ * @param {number} errorCode - 錯誤碼（可選）
  */
-const error = (res, message = 'Error', statusCode = 500, details = null) => {
+const error = (res, messageOrError = 'Error', statusCode = 500, details = null, errorCode = null) => {
+    let message = messageOrError;
+    let code = errorCode;
+    let errorDetails = details;
+
+    // 如果傳入的是 AppError 對象
+    if (messageOrError instanceof AppError) {
+        message = messageOrError.message;
+        statusCode = messageOrError.statusCode;
+        code = messageOrError.code;
+        errorDetails = messageOrError.details;
+    }
+
     // 自動記錄錯誤日誌
     if (statusCode >= 400 && statusCode < 500) {
         logger.log4xx(res.req, res, statusCode, message);
     } else if (statusCode >= 500) {
-        const error = new Error(message);
-        logger.log5xx(res.req, res, statusCode, error, message);
+        const err = new Error(message);
+        logger.log5xx(res.req, res, statusCode, err, message);
     }
 
-    return res.status(statusCode).json({
+    const response = {
         success: false,
-        message,
-        ...(details && { details })
-    });
+        error: {
+            message
+        }
+    };
+
+    if (code) {
+        response.error.code = code;
+    }
+
+    if (errorDetails) {
+        response.error.details = errorDetails;
+    }
+
+    return res.status(statusCode).json(response);
 };
 
 /**

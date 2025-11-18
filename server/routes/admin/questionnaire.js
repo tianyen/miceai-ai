@@ -353,18 +353,12 @@ router.get('/api/questionnaires', async (req, res) => {
 
             res.send(html);
         } else {
-            res.json({
-                success: true,
-                data: {
-                    questionnaires,
-                    pagination: {
-                        page,
-                        limit,
-                        total,
-                        pages: Math.ceil(total / limit)
-                    }
-                }
-            });
+            return responses.paginated(res, questionnaires, {
+                page,
+                limit,
+                total,
+                pages: Math.ceil(total / limit)
+            }, '獲取問卷列表成功');
         }
 
     } catch (error) {

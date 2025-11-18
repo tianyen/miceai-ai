@@ -771,30 +771,24 @@ router.get('/:id/registration-urls', async (req, res) => {
             FROM form_submissions WHERE project_id = ?
         `, [projectId]);
 
-        res.json({
-            success: true,
-            data: {
-                project: {
-                    id: project.id,
-                    name: project.project_name,
-                    code: project.project_code,
-                    status: project.status,
-                    description: project.description,
-                    event_date: project.event_date,
-                    event_location: project.event_location
-                },
-                registration_urls: registrationUrls,
-                statistics: stats || { total_submissions: 0, pending_submissions: 0, approved_submissions: 0, checked_in_count: 0 },
-                is_open_for_registration: project.status === 'active'
-            }
-        });
+        return responses.success(res, {
+            project: {
+                id: project.id,
+                name: project.project_name,
+                code: project.project_code,
+                status: project.status,
+                description: project.description,
+                event_date: project.event_date,
+                event_location: project.event_location
+            },
+            registration_urls: registrationUrls,
+            statistics: stats || { total_submissions: 0, pending_submissions: 0, approved_submissions: 0, checked_in_count: 0 },
+            is_open_for_registration: project.status === 'active'
+        }, '獲取專案報名連結成功');
 
     } catch (error) {
         console.error('獲取專案報名連結失敗:', error);
-        res.status(500).json({
-            success: false,
-            message: '獲取專案報名連結失敗'
-        });
+        return responses.serverError(res, '獲取專案報名連結失敗');
     }
 });
 

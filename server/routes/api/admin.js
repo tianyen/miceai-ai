@@ -235,7 +235,7 @@ router.post('/templates/:id/duplicate', authenticateSession, templateController.
 router.patch('/templates/:id/toggle-status', authenticateSession, templateController.setDefaultTemplate);
 // 模板匯出（占位）
 router.get('/templates/:id/export', authenticateSession, (req, res) => {
-    return res.json({ success: false, message: '匯出模板功能尚未實現' });
+    return responses.badRequest(res, '匯出模板功能尚未實現');
 });
 router.get('/templates', authenticateSession, templateController.getTemplates);
 router.post('/templates', authenticateSession, templateController.createTemplate);
@@ -270,7 +270,7 @@ router.patch('/submissions/:id/cancel', authenticateSession, (req, res) => {
 });
 // 發送確認郵件（占位實作）
 router.post('/submissions/:id/send-confirmation', authenticateSession, (req, res) => {
-    return res.json({ success: true, message: '確認郵件已排程發送' });
+    return responses.success(res, null, '確認郵件已排程發送');
 });
 router.get('/submissions', authenticateSession, submissionController.getSubmissions);
 router.get('/submissions/:id', authenticateSession, submissionController.getSubmission);

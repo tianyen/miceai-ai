@@ -533,7 +533,7 @@ router.put('/profile/basic', authenticateSession, async (req, res) => {
             [full_name, email, phone || null, userId]
         );
 
-        responses.success(res, { message: '基本資訊更新成功' });
+        responses.success(res, null, '基本資訊更新成功');
     } catch (error) {
         console.error('Update profile basic error:', error);
         responses.error(res, '更新基本資訊失敗', 500);
@@ -571,7 +571,7 @@ router.put('/profile/password', authenticateSession, async (req, res) => {
         const hashedPassword = await bcrypt.hash(new_password, 10);
         await database.run('UPDATE users SET password_hash = ? WHERE id = ?', [hashedPassword, userId]);
 
-        responses.success(res, { message: '密碼更新成功' });
+        responses.success(res, null, '密碼更新成功');
     } catch (error) {
         console.error('Update password error:', error);
         responses.error(res, '更新密碼失敗', 500);
@@ -624,7 +624,7 @@ router.put('/profile/preferences', authenticateSession, async (req, res) => {
         const preferencesJson = JSON.stringify(preferences);
         await database.run('UPDATE users SET preferences = ? WHERE id = ?', [preferencesJson, userId]);
 
-        responses.success(res, { message: '偏好設定更新成功' });
+        responses.success(res, null, '偏好設定更新成功');
     } catch (error) {
         console.error('Update preferences error:', error);
         responses.error(res, '更新偏好設定失敗', 500);

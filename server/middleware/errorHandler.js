@@ -2,11 +2,51 @@
  * 錯誤處理中間件
  */
 const logger = require('../utils/logger');
+const AppError = require('../utils/app-error');
+const ErrorCodes = require('../utils/error-codes');
 
 // 全局錯誤處理中間件
 const errorHandler = (err, req, res, next) => {
-    // 使用新的日誌系統記錄錯誤
-    logger.log5xx(req, res, 500, err, '全局錯誤處理器捕獲的錯誤');
+    let statusCode = 500;
+    let errorCode = ErrorCodes.INTERNAL_SERVER_ERROR.code;
+    let message = '伺服器內部錯誤';
+    let details = null;
+
+    // 如果是 AppError，使用其錯誤碼和訊息
+    if (err instanceof AppError) {
+        statusCode = err.statusCode;
+        errorCode = err.code;
+        message = err.message;
+        details = err.details;
+    }
+    // SQLite 錯誤處理
+    else if (err.code && err.code.startsWith('SQLITE_')) {
+        if (err.code === 'SQLITE_CONSTRAINT') {
+            if (err.message.includes('UNIQUE')) {
+                statusCode = ErrorCodes.DUPLICATE_ENTRY.statusCode;
+                errorCode = ErrorCodes.DUPLICATE_ENTRY.code;
+                message = ErrorCodes.DUPLICATE_ENTRY.message;
+                details = err.message;
+            }
+        } else {
+            statusCode = ErrorCodes.DATABASE_ERROR.statusCode;
+            errorCode = ErrorCodes.DATABASE_ERROR.code;
+            message = ErrorCodes.DATABASE_ERROR.message;
+            details = process.env.NODE_ENV === 'development' ? err.message : null;
+        }
+    }
+    // 其他錯誤
+    else if (err.message) {
+        message = process.env.NODE_ENV === 'production' ? '伺服器內部錯誤' : err.message;
+        details = process.env.NODE_ENV === 'development' ? { stack: err.stack } : null;
+    }
+
+    // 使用日誌系統記錄錯誤
+    if (statusCode >= 500) {
+        logger.log5xx(req, res, statusCode, err, message);
+    } else {
+        logger.log4xx(req, res, statusCode, message);
+    }
 
     // 記錄錯誤到數據庫 (保留原有功能)
     if (req.user) {
@@ -18,7 +58,8 @@ const errorHandler = (err, req, res, next) => {
             req.user.id,
             'system_error',
             JSON.stringify({
-                message: err.message,
+                code: errorCode,
+                message: message,
                 stack: err.stack,
                 url: req.originalUrl,
                 method: req.method,
@@ -28,20 +69,27 @@ const errorHandler = (err, req, res, next) => {
             req.get('User-Agent')
         ]).catch(console.error);
     }
-    
+
     // 根據請求類型返回不同格式的錯誤
     if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest' ||
         req.headers.accept?.indexOf('json') > -1 || req.originalUrl.startsWith('/api/')) {
-        // AJAX 請求返回 JSON
-        res.status(500).json({
+        // AJAX 請求返回 JSON（統一格式）
+        const response = {
             success: false,
-            message: process.env.NODE_ENV === 'production' 
-                ? 'Internal server error' 
-                : err.message
-        });
+            error: {
+                code: errorCode,
+                message: message
+            }
+        };
+
+        if (details) {
+            response.error.details = details;
+        }
+
+        res.status(statusCode).json(response);
     } else {
         // 普通請求返回錯誤頁面
-        res.status(500).send(`
+        res.status(statusCode).send(`
             <!DOCTYPE html>
             <html>
             <head>
@@ -54,10 +102,9 @@ const errorHandler = (err, req, res, next) => {
             </head>
             <body>
                 <div class="error">
-                    <h1>服務器錯誤 (500)</h1>
-                    <p>${process.env.NODE_ENV === 'production'
-                        ? '內部服務器錯誤，請稍後再試。'
-                        : err.message}</p>
+                    <h1>服務器錯誤 (${statusCode})</h1>
+                    <p>${message}</p>
+                    ${details && process.env.NODE_ENV === 'development' ? `<pre>${JSON.stringify(details, null, 2)}</pre>` : ''}
                 </div>
             </body>
             </html>
@@ -67,19 +114,26 @@ const errorHandler = (err, req, res, next) => {
 
 // 404 處理中間件
 const notFoundHandler = (req, res) => {
+    const statusCode = ErrorCodes.NOT_FOUND.statusCode;
+    const errorCode = ErrorCodes.NOT_FOUND.code;
+    const message = `路由 ${req.method} ${req.originalUrl} 不存在`;
+
     // 使用新的日誌系統記錄 404 錯誤
-    logger.log4xx(req, res, 404, `資源不存在: ${req.originalUrl}`);
+    logger.log4xx(req, res, statusCode, message);
 
     if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest' ||
         req.headers.accept?.indexOf('json') > -1 || req.originalUrl.startsWith('/api/')) {
-        // AJAX 請求返回 JSON
-        res.status(404).json({
+        // AJAX 請求返回 JSON（統一格式）
+        res.status(statusCode).json({
             success: false,
-            message: 'Resource not found'
+            error: {
+                code: errorCode,
+                message: message
+            }
         });
     } else {
         // 普通請求返回 404 頁面
-        res.status(404).send(`
+        res.status(statusCode).send(`
             <!DOCTYPE html>
             <html>
             <head>
@@ -102,7 +156,23 @@ const notFoundHandler = (req, res) => {
     }
 };
 
+/**
+ * 異步路由錯誤包裝器
+ * 自動捕獲異步路由中的錯誤並傳遞給錯誤處理中間件
+ *
+ * 使用方式：
+ * router.get('/path', asyncHandler(async (req, res) => {
+ *     // 異步操作
+ * }));
+ */
+const asyncHandler = (fn) => {
+    return (req, res, next) => {
+        Promise.resolve(fn(req, res, next)).catch(next);
+    };
+};
+
 module.exports = {
     errorHandler,
-    notFoundHandler
+    notFoundHandler,
+    asyncHandler
 };
