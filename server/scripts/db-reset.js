@@ -17,6 +17,13 @@ const { getGMT8Timestamp } = require('../utils/timezone');
 const dbPath = path.resolve(config.database.path);
 const schemaPath = path.join(__dirname, '../database/schema.sql');
 
+// 生成動態日期（相對於今天）
+function generateDate(daysOffset = 0) {
+    const date = new Date();
+    date.setDate(date.getDate() + daysOffset);
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+}
+
 console.log('🔄 正在重置資料庫...');
 
 // 刪除現有資料庫文件
@@ -59,13 +66,15 @@ const initialUsers = [
     }
 ];
 
-// 初始專案資料
+// 初始專案資料（使用動態日期）
 const initialProjects = [
     {
         project_name: '2024年度科技論壇',
         project_code: 'TECH2024',
         description: '年度科技趨勢論壇活動',
-        event_date: '2024-12-15',
+        event_date: generateDate(7), // 7天後
+        event_start_date: generateDate(7),
+        event_end_date: generateDate(7),
         event_location: '台北國際會議中心',
         event_type: 'conference',
         status: 'active'
@@ -74,7 +83,9 @@ const initialProjects = [
         project_name: 'AI產業交流會',
         project_code: 'AI2024',
         description: '人工智慧產業交流研討會',
-        event_date: '2024-11-20',
+        event_date: generateDate(14), // 14天後
+        event_start_date: generateDate(14),
+        event_end_date: generateDate(14),
         event_location: '信義區展演廳',
         event_type: 'workshop',
         status: 'draft'
@@ -282,8 +293,9 @@ async function resetDatabase() {
                 const projectStmt = db.prepare(`
                     INSERT INTO event_projects (
                         project_name, project_code, description, event_date,
+                        event_start_date, event_end_date,
                         event_location, event_type, status, created_by, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
                 `);
 
                 for (const project of initialProjects) {
@@ -293,6 +305,8 @@ async function resetDatabase() {
                             project.project_code,
                             project.description,
                             project.event_date,
+                            project.event_start_date,
+                            project.event_end_date,
                             project.event_location,
                             project.event_type,
                             project.status,

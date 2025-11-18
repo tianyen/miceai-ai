@@ -1,21 +1,22 @@
 /**
- * 用戶追蹤路由
+ * 遊戲分析路由
  */
 const express = require('express');
 const router = express.Router();
 const database = require('../../config/database');
 const responses = require('../../utils/responses');
 
-// 用戶追蹤頁面
+// 遊戲分析頁面
 router.get('/', (req, res) => {
-    res.render('admin/user-tracking', {
+    res.render('admin/game-analytics', {
         layout: 'admin',
-        pageTitle: '用戶追蹤',
-        currentPage: 'user-tracking',
+        pageTitle: '遊戲分析',
+        currentPage: 'game-analytics',
         user: req.user,
         breadcrumbs: [
             { name: '首頁', url: '/admin' },
-            { name: '用戶追蹤', url: '/admin/user-tracking' }
+            { name: '遊戲室', url: '/admin/games' },
+            { name: '遊戲分析', url: '/admin/game-analytics' }
         ]
     });
 });
@@ -27,8 +28,9 @@ router.get('/api/daily-users', async (req, res) => {
         const targetDate = date || new Date().toISOString().split('T')[0];
 
         let query = `
-            SELECT 
+            SELECT
                 fs.trace_id,
+                fs.user_id,
                 fs.submitter_name,
                 fs.submitter_email,
                 fs.company_name,
@@ -36,7 +38,7 @@ router.get('/api/daily-users', async (req, res) => {
                 fs.project_id,
                 p.project_name,
                 fs.created_at as registration_time,
-                cr.checked_in_at,
+                cr.checkin_time,
                 COUNT(DISTINCT gs.id) as game_sessions,
                 MAX(gs.final_score) as highest_score,
                 COUNT(DISTINCT vr.id) as vouchers_redeemed
@@ -45,10 +47,14 @@ router.get('/api/daily-users', async (req, res) => {
             LEFT JOIN checkin_records cr ON fs.trace_id = cr.trace_id
             LEFT JOIN game_sessions gs ON fs.trace_id = gs.trace_id
             LEFT JOIN voucher_redemptions vr ON fs.trace_id = vr.trace_id
-            WHERE DATE(fs.created_at) = ?
+            WHERE (
+                DATE(fs.created_at) = ? OR
+                DATE(cr.checkin_time) = ? OR
+                DATE(gs.session_start) = ?
+            )
         `;
 
-        const params = [targetDate];
+        const params = [targetDate, targetDate, targetDate];
 
         if (project_id) {
             query += ' AND fs.project_id = ?';
@@ -59,10 +65,10 @@ router.get('/api/daily-users', async (req, res) => {
 
         const users = await database.query(query, params);
 
-        return responses.success(res, '獲取用戶列表成功', { 
+        return responses.success(res, {
             users,
             date: targetDate
-        });
+        }, '獲取用戶列表成功');
     } catch (error) {
         console.error('獲取用戶列表失敗:', error);
         return responses.serverError(res, '獲取用戶列表失敗');
@@ -76,8 +82,9 @@ router.get('/api/user-journey/:traceId', async (req, res) => {
 
         // 1. 用戶基本資訊
         const userInfo = await database.get(`
-            SELECT 
+            SELECT
                 fs.trace_id,
+                fs.user_id,
                 fs.submitter_name,
                 fs.submitter_email,
                 fs.company_name,
@@ -86,7 +93,7 @@ router.get('/api/user-journey/:traceId', async (req, res) => {
                 fs.project_id,
                 p.project_name,
                 fs.created_at as registration_time,
-                cr.checked_in_at
+                cr.checkin_time
             FROM form_submissions fs
             LEFT JOIN event_projects p ON fs.project_id = p.id
             LEFT JOIN checkin_records cr ON fs.trace_id = cr.trace_id
@@ -144,13 +151,13 @@ router.get('/api/user-journey/:traceId', async (req, res) => {
 
         // 4. 參與者互動記錄
         const interactions = await database.query(`
-            SELECT 
+            SELECT
                 interaction_type,
                 interaction_data,
-                created_at
+                timestamp
             FROM participant_interactions
             WHERE trace_id = ?
-            ORDER BY created_at ASC
+            ORDER BY timestamp ASC
         `, [traceId]);
 
         // 5. 遊戲日誌（最近 20 筆）
@@ -175,13 +182,13 @@ router.get('/api/user-journey/:traceId', async (req, res) => {
             LIMIT 20
         `, [traceId]);
 
-        return responses.success(res, '獲取用戶軌跡成功', {
+        return responses.success(res, {
             user_info: userInfo,
             game_sessions: gameSessions,
             redemptions: redemptions,
             interactions: interactions,
             game_logs: gameLogs
-        });
+        }, '獲取用戶軌跡成功');
     } catch (error) {
         console.error('獲取用戶軌跡失敗:', error);
         return responses.serverError(res, '獲取用戶軌跡失敗');
@@ -197,6 +204,7 @@ router.get('/api/leaderboard', async (req, res) => {
         let query = `
             SELECT
                 gs.trace_id,
+                fs.user_id,
                 fs.submitter_name,
                 fs.company_name,
                 gs.game_id,
@@ -234,10 +242,10 @@ router.get('/api/leaderboard', async (req, res) => {
 
         const leaderboard = await database.query(query, params);
 
-        return responses.success(res, '獲取排行榜成功', { 
+        return responses.success(res, {
             leaderboard,
             date: targetDate
-        });
+        }, '獲取排行榜成功');
     } catch (error) {
         console.error('獲取排行榜失敗:', error);
         return responses.serverError(res, '獲取排行榜失敗');

@@ -1573,8 +1573,9 @@ router.get('/projects/:id/participants', authenticateSession, async (req, res) =
         const projectId = req.params.id;
 
         const participants = await database.query(`
-            SELECT 
+            SELECT
                 s.id,
+                s.user_id,
                 s.submitter_name,
                 s.submitter_email,
                 s.submitter_phone,
@@ -1598,7 +1599,9 @@ router.get('/projects/:id/participants', authenticateSession, async (req, res) =
 
                 html += `
                     <tr>
-                        <td><span class="badge badge-secondary">#${participant.id}</span></td>
+                        <td>
+                            ${participant.user_id ? `<span class="badge badge-info" title="User ID">#${participant.user_id}</span>` : `<span class="badge badge-secondary" title="Submission ID">#${participant.id}</span>`}
+                        </td>
                         <td>${participant.submitter_name || '-'}</td>
                         <td>${participant.submitter_email || '-'}</td>
                         <td>${participant.submitter_phone || '-'}</td>

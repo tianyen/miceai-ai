@@ -84,7 +84,9 @@
         <button class="tab-btn" data-tab="business-cards">QR Code 名片</button>
         <button class="tab-btn" data-tab="qr-scanner">QR掃描</button>
         <button class="tab-btn" data-tab="games">遊戲設定</button>
+        {{#if (eq project.project_code 'INFOMONTH2025')}}
         <button class="tab-btn" data-tab="wish-tree">🌳 許願樹</button>
+        {{/if}}
     </nav>
 
     <!-- 參加者管理 -->
@@ -309,6 +311,7 @@
         </div>
     </div>
 
+    {{#if (eq project.project_code 'INFOMONTH2025')}}
     <!-- 許願樹 Tab -->
     <div class="tab-content" id="wish-tree-tab">
         <div class="section-header">
@@ -368,6 +371,7 @@
             </div>
         </div>
     </div>
+    {{/if}}
 </div>
 
 <!-- 模態框容器 -->

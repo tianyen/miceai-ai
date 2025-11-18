@@ -8,6 +8,14 @@ const { getDbPath } = require('./db-path');
 
 const dbPath = getDbPath();
 
+// 生成動態日期時間（相對於今天）
+function generateDateTime(daysOffset = 0, hours = 0, minutes = 0, seconds = 0) {
+    const date = new Date();
+    date.setDate(date.getDate() + daysOffset);
+    date.setHours(hours, minutes, seconds, 0);
+    return date.toISOString().replace('T', ' ').substring(0, 19);
+}
+
 console.log('🔄 開始新增範例問卷...');
 console.log(`📁 資料庫路徑: ${dbPath}`);
 
@@ -74,8 +82,8 @@ async function seed() {
             '請根據您的實際體驗填寫以下問題，所有標記為必填的問題都需要回答。',
             1, // is_active
             0, // allow_multiple_submissions
-            '2025-01-01 00:00:00',
-            '2025-12-31 23:59:59',
+            generateDateTime(-30, 0, 0, 0), // 30天前開始
+            generateDateTime(30, 23, 59, 59), // 30天後結束
             adminId
         ]);
 

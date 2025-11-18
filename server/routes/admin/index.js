@@ -20,7 +20,7 @@ const gamesRoutes = require('./games');
 const vouchersRoutes = require('./vouchers');
 const projectGamesRoutes = require('./project-games');
 const boothsRoutes = require('./booths');
-const userTrackingRoutes = require('./user-tracking');
+const gameAnalyticsRoutes = require('./game-analytics');
 const wishTreeRoutes = require('./wish-tree');
 
 // 根路徑重定向到登入頁面
@@ -48,7 +48,7 @@ router.use('/profile', authenticateSession, profileRoutes);
 router.use('/games', authenticateSession, gamesRoutes);
 router.use('/vouchers', authenticateSession, vouchersRoutes);
 router.use('/booths', authenticateSession, boothsRoutes);
-router.use('/user-tracking', authenticateSession, userTrackingRoutes);
+router.use('/game-analytics', authenticateSession, gameAnalyticsRoutes);
 router.use('/wish-tree', authenticateSession, wishTreeRoutes);
 
 // 設定頁面

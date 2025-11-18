@@ -1,0 +1,406 @@
+{{!-- 兌換券統計頁面 --}}
+
+<div class="page-header">
+    <h1>🎫 兌換券統計分析</h1>
+    <div class="page-actions">
+        <input type="date" id="date-filter" class="form-control" style="width: 200px;">
+        <button class="btn btn-secondary" onclick="loadStats()">
+            <i class="fas fa-sync-alt"></i> 重新整理
+        </button>
+        <a href="/admin/vouchers" class="btn btn-primary">
+            <i class="fas fa-ticket-alt"></i> 兌換券管理
+        </a>
+    </div>
+</div>
+
+<!-- 統計卡片 -->
+<div class="stats-cards">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #4CAF50;">
+            <i class="fas fa-ticket-alt"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">總發放數</div>
+            <div class="stat-value" id="total-redemptions">0</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #2196F3;">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">已使用數</div>
+            <div class="stat-value" id="used-redemptions">0</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #FF9800;">
+            <i class="fas fa-percentage"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">使用率</div>
+            <div class="stat-value" id="usage-rate">0%</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #9C27B0;">
+            <i class="fas fa-users"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">獨立用戶數</div>
+            <div class="stat-value" id="unique-users">0</div>
+        </div>
+    </div>
+</div>
+
+<!-- 兌換券發放統計 Bar Chart -->
+<div class="data-table-container">
+    <div class="table-header">
+        <h3>📊 各兌換券發放統計</h3>
+    </div>
+    <div class="table-content">
+        <canvas id="voucher-chart" style="max-height: 400px;"></canvas>
+    </div>
+</div>
+
+<!-- 每日兌換趨勢 Line Chart -->
+<div class="data-table-container">
+    <div class="table-header">
+        <h3>📈 每日兌換趨勢（最近 30 天）</h3>
+    </div>
+    <div class="table-content">
+        <canvas id="daily-trend-chart" style="max-height: 300px;"></canvas>
+    </div>
+</div>
+
+<!-- 熱門兌換券排行榜 -->
+<div class="data-table-container">
+    <div class="table-header">
+        <h3>🏆 熱門兌換券排行榜 TOP 10</h3>
+    </div>
+    <div class="table-content">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 60px;">排名</th>
+                    <th>兌換券名稱</th>
+                    <th style="width: 120px;">類別</th>
+                    <th style="width: 100px;">價值</th>
+                    <th style="width: 100px;">發放數</th>
+                    <th style="width: 100px;">已使用</th>
+                    <th style="width: 100px;">使用率</th>
+                </tr>
+            </thead>
+            <tbody id="top-vouchers-table">
+                <tr>
+                    <td colspan="7" class="text-center">載入中...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.stats-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.stat-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+}
+
+.stat-content {
+    flex: 1;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    font-size: 28px;
+    font-weight: bold;
+    color: #333;
+}
+
+.data-table-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+}
+
+.table-header {
+    padding: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.table-header h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+}
+
+.table-content {
+    padding: 20px;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.data-table th {
+    background: #f5f5f5;
+    font-weight: 600;
+    color: #333;
+}
+
+.data-table tbody tr:hover {
+    background: #f9f9f9;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.page-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let voucherChart = null;
+let dailyTrendChart = null;
+
+// 頁面載入時執行
+document.addEventListener('DOMContentLoaded', function() {
+    // 設定今天的日期
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('date-filter').value = today;
+
+    loadStats();
+
+    // 日期變更事件
+    document.getElementById('date-filter').addEventListener('change', loadStats);
+});
+
+// 載入統計資料
+async function loadStats() {
+    try {
+        const date = document.getElementById('date-filter').value;
+        const url = date ? `/admin/vouchers/api/stats?date=${date}` : '/admin/vouchers/api/stats';
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.success) {
+            updateSummary(data.data.summary);
+            updateVoucherChart(data.data.voucher_stats);
+            updateDailyTrendChart(data.data.daily_trend);
+            updateTopVouchersTable(data.data.top_vouchers);
+        } else {
+            showNotification(data.message || '載入統計資料失敗', 'error');
+        }
+    } catch (error) {
+        console.error('載入統計資料失敗:', error);
+        showNotification('載入統計資料失敗', 'error');
+    }
+}
+
+// 更新總覽統計
+function updateSummary(summary) {
+    document.getElementById('total-redemptions').textContent = summary.total_redemptions || 0;
+    document.getElementById('used-redemptions').textContent = summary.used_redemptions || 0;
+    document.getElementById('usage-rate').textContent = (summary.usage_rate || 0) + '%';
+    document.getElementById('unique-users').textContent = summary.unique_users || 0;
+}
+
+// 更新兌換券發放統計圖表
+function updateVoucherChart(voucherStats) {
+    const labels = voucherStats.map(v => v.voucher_name);
+    const redemptionCounts = voucherStats.map(v => v.redemption_count || 0);
+    const usedCounts = voucherStats.map(v => v.used_count || 0);
+
+    if (voucherChart) {
+        voucherChart.destroy();
+    }
+
+    const ctx = document.getElementById('voucher-chart').getContext('2d');
+    voucherChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '發放數',
+                    data: redemptionCounts,
+                    backgroundColor: 'rgba(76, 175, 80, 0.6)',
+                    borderColor: '#4CAF50',
+                    borderWidth: 1
+                },
+                {
+                    label: '已使用',
+                    data: usedCounts,
+                    backgroundColor: 'rgba(33, 150, 243, 0.6)',
+                    borderColor: '#2196F3',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+}
+
+// 更新每日兌換趨勢圖表
+function updateDailyTrendChart(dailyTrend) {
+    const labels = dailyTrend.map(d => d.date);
+    const redemptionCounts = dailyTrend.map(d => d.redemption_count || 0);
+    const usedCounts = dailyTrend.map(d => d.used_count || 0);
+
+    if (dailyTrendChart) {
+        dailyTrendChart.destroy();
+    }
+
+    const ctx = document.getElementById('daily-trend-chart').getContext('2d');
+    dailyTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '發放數',
+                    data: redemptionCounts,
+                    borderColor: '#4CAF50',
+                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                    tension: 0.4
+                },
+                {
+                    label: '已使用',
+                    data: usedCounts,
+                    borderColor: '#2196F3',
+                    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+}
+
+// 更新熱門兌換券排行榜
+function updateTopVouchersTable(topVouchers) {
+    const tbody = document.getElementById('top-vouchers-table');
+
+    if (!topVouchers || topVouchers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">暫無數據</td></tr>';
+        return;
+    }
+
+    let html = '';
+    topVouchers.forEach((voucher, index) => {
+        const usageRate = voucher.redemption_count > 0
+            ? ((voucher.used_count / voucher.redemption_count) * 100).toFixed(1)
+            : 0;
+
+        // 排名圖示
+        let rankIcon = '';
+        if (index === 0) rankIcon = '🥇';
+        else if (index === 1) rankIcon = '🥈';
+        else if (index === 2) rankIcon = '🥉';
+        else rankIcon = `${index + 1}`;
+
+        html += `
+            <tr>
+                <td class="text-center">${rankIcon}</td>
+                <td>${voucher.voucher_name}</td>
+                <td>${voucher.category || '-'}</td>
+                <td>NT$ ${voucher.voucher_value || 0}</td>
+                <td class="text-center">${voucher.redemption_count || 0}</td>
+                <td class="text-center">${voucher.used_count || 0}</td>
+                <td class="text-center">${usageRate}%</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+// 顯示通知
+function showNotification(message, type = 'success') {
+    alert(message);
+}
+</script>
+
+

@@ -47,7 +47,9 @@ class DeterministicIdGenerator {
 
     // 生成確定性的時間戳（相對於基準日期）
     generateTimestamp(daysOffset = 0, hoursOffset = 0, minutesOffset = 0) {
-        const baseDate = new Date('2025-10-01T00:00:00Z');
+        // 使用執行 npm run setup 時的當下日期作為基準
+        const baseDate = new Date();
+        baseDate.setHours(0, 0, 0, 0); // 設定為今天 00:00:00
         baseDate.setDate(baseDate.getDate() + daysOffset);
         baseDate.setHours(baseDate.getHours() + hoursOffset);
         baseDate.setMinutes(baseDate.getMinutes() + minutesOffset);

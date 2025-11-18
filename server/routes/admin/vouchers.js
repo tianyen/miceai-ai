@@ -24,6 +24,103 @@ router.get('/', (req, res) => {
     });
 });
 
+// 兌換券統計頁面
+router.get('/stats', (req, res) => {
+    res.render('admin/voucher-stats', {
+        layout: 'admin',
+        pageTitle: '兌換券統計',
+        currentPage: 'voucher-stats',
+        user: req.user,
+        breadcrumbs: [
+            { name: '儀表板', url: '/admin/dashboard' },
+            { name: '遊戲室', url: '#' },
+            { name: '兌換券統計' }
+        ]
+    });
+});
+
+// 獲取兌換券統計 API
+router.get('/api/stats', async (req, res) => {
+    try {
+        const { date } = req.query;
+
+        // 1. 總覽統計
+        const summary = await database.get(`
+            SELECT
+                COUNT(DISTINCT vr.id) as total_redemptions,
+                COUNT(DISTINCT CASE WHEN vr.is_used = 1 THEN vr.id END) as used_redemptions,
+                COUNT(DISTINCT vr.trace_id) as unique_users,
+                SUM(v.voucher_value) as total_value
+            FROM voucher_redemptions vr
+            LEFT JOIN vouchers v ON vr.voucher_id = v.id
+            ${date ? 'WHERE DATE(vr.redeemed_at) = ?' : ''}
+        `, date ? [date] : []);
+
+        // 計算使用率
+        summary.usage_rate = summary.total_redemptions > 0
+            ? ((summary.used_redemptions / summary.total_redemptions) * 100).toFixed(1)
+            : 0;
+
+        // 2. 各兌換券發放統計（Bar Chart 數據）
+        const voucherStats = await database.query(`
+            SELECT
+                v.id,
+                v.voucher_name,
+                v.category,
+                v.voucher_value,
+                COUNT(vr.id) as redemption_count,
+                COUNT(CASE WHEN vr.is_used = 1 THEN 1 END) as used_count,
+                v.total_quantity,
+                v.remaining_quantity
+            FROM vouchers v
+            LEFT JOIN voucher_redemptions vr ON v.id = vr.voucher_id
+            ${date ? 'AND DATE(vr.redeemed_at) = ?' : ''}
+            GROUP BY v.id
+            ORDER BY redemption_count DESC
+        `, date ? [date] : []);
+
+        // 3. 每日兌換趨勢（最近 30 天）
+        const dailyTrend = await database.query(`
+            SELECT
+                DATE(redeemed_at) as date,
+                COUNT(id) as redemption_count,
+                COUNT(CASE WHEN is_used = 1 THEN 1 END) as used_count
+            FROM voucher_redemptions
+            WHERE DATE(redeemed_at) >= DATE('now', '-30 days')
+            GROUP BY DATE(redeemed_at)
+            ORDER BY date ASC
+        `);
+
+        // 4. 熱門兌換券排行（TOP 10）
+        const topVouchers = await database.query(`
+            SELECT
+                v.voucher_name,
+                v.category,
+                v.voucher_value,
+                COUNT(vr.id) as redemption_count,
+                COUNT(CASE WHEN vr.is_used = 1 THEN 1 END) as used_count
+            FROM voucher_redemptions vr
+            LEFT JOIN vouchers v ON vr.voucher_id = v.id
+            ${date ? 'WHERE DATE(vr.redeemed_at) = ?' : ''}
+            GROUP BY vr.voucher_id
+            ORDER BY redemption_count DESC
+            LIMIT 10
+        `, date ? [date] : []);
+
+        return responses.success(res, {
+            summary,
+            voucher_stats: voucherStats,
+            daily_trend: dailyTrend,
+            top_vouchers: topVouchers,
+            date: date || null
+        }, '獲取兌換券統計成功');
+
+    } catch (error) {
+        console.error('獲取兌換券統計失敗:', error);
+        return responses.serverError(res, '獲取兌換券統計失敗');
+    }
+});
+
 // 獲取兌換券列表 API
 router.get('/api/list', async (req, res) => {
     try {

@@ -1,6 +1,7 @@
 let allUsers = [];
 let allProjects = [];
 let allGames = [];
+let userSessionsChart = null;
 
 // 頁面載入時執行
 document.addEventListener('DOMContentLoaded', function() {
@@ -24,8 +25,8 @@ async function loadProjects() {
         const response = await fetch('/api/admin/projects');
         const data = await response.json();
 
-        if (data.success && data.data) {
-            allProjects = data.data;
+        if (data.success && data.data && data.data.projects) {
+            allProjects = data.data.projects;
 
             const select = document.getElementById('project-filter');
             select.innerHTML = '<option value="">全部專案</option>';
@@ -50,8 +51,8 @@ async function loadGames() {
         const response = await fetch('/admin/games/api/list');
         const data = await response.json();
 
-        if (data.success && data.data && data.data.games) {
-            allGames = data.data.games;
+        if (data.success && data.data) {
+            allGames = data.data;
 
             const select = document.getElementById('game-filter');
             select.innerHTML = '<option value="">全部遊戲</option>';
@@ -84,7 +85,7 @@ async function loadUsers() {
         const date = document.getElementById('date-filter').value;
         const projectId = document.getElementById('project-filter').value;
 
-        let url = `/admin/user-tracking/api/daily-users?date=${date}`;
+        let url = `/admin/game-analytics/api/daily-users?date=${date}`;
         if (projectId) url += `&project_id=${projectId}`;
 
         const response = await fetch(url);
@@ -116,7 +117,7 @@ async function loadLeaderboard() {
         const projectId = document.getElementById('project-filter').value;
         const gameId = document.getElementById('game-filter').value;
 
-        let url = `/admin/user-tracking/api/leaderboard?date=${date}&limit=10`;
+        let url = `/admin/game-analytics/api/leaderboard?date=${date}&limit=10`;
         if (projectId) url += `&project_id=${projectId}`;
         if (gameId) url += `&game_id=${gameId}`;
 
@@ -142,49 +143,98 @@ function updateStats(users) {
     const totalSessions = users.reduce((sum, u) => sum + (u.game_sessions || 0), 0);
     const totalVouchers = users.reduce((sum, u) => sum + (u.vouchers_redeemed || 0), 0);
     const highestScore = Math.max(...users.map(u => u.highest_score || 0), 0);
-    
+
     document.getElementById('total-users').textContent = totalUsers;
     document.getElementById('total-sessions').textContent = totalSessions;
     document.getElementById('total-vouchers').textContent = totalVouchers;
     document.getElementById('highest-score').textContent = highestScore;
+
+    // 更新用戶遊戲會話圖表
+    updateUserSessionsChart(users);
+}
+
+// 更新用戶遊戲會話圖表
+function updateUserSessionsChart(users) {
+    // 只顯示有遊戲會話的用戶，最多顯示前 20 名
+    const usersWithSessions = users
+        .filter(u => u.game_sessions > 0)
+        .sort((a, b) => b.game_sessions - a.game_sessions)
+        .slice(0, 20);
+
+    const labels = usersWithSessions.map(u => u.submitter_name || u.user_id);
+    const sessionCounts = usersWithSessions.map(u => u.game_sessions || 0);
+    const voucherCounts = usersWithSessions.map(u => u.vouchers_redeemed || 0);
+
+    if (userSessionsChart) {
+        userSessionsChart.destroy();
+    }
+
+    const ctx = document.getElementById('user-sessions-chart').getContext('2d');
+    userSessionsChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '遊戲會話',
+                    data: sessionCounts,
+                    backgroundColor: 'rgba(33, 150, 243, 0.6)',
+                    borderColor: '#2196F3',
+                    borderWidth: 1
+                },
+                {
+                    label: '兌換券',
+                    data: voucherCounts,
+                    backgroundColor: 'rgba(255, 152, 0, 0.6)',
+                    borderColor: '#FF9800',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
 }
 
 // 渲染排行榜
 function renderLeaderboard(leaderboard) {
     const container = document.getElementById('leaderboard-container');
-    
+
     if (leaderboard.length === 0) {
-        container.innerHTML = '<p class="text-center text-muted">目前沒有排行榜資料</p>';
+        container.innerHTML = '<tr><td colspan="7" class="text-center">目前沒有排行榜資料</td></tr>';
         return;
     }
-    
-    let html = `
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th width="60">排名</th>
-                    <th>姓名</th>
-                    <th>公司</th>
-                    <th>遊戲</th>
-                    <th>攤位</th>
-                    <th>最高分數</th>
-                    <th>遊戲時長</th>
-                    <th>操作</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-    
+
+    let html = '';
+
     leaderboard.forEach((item, index) => {
         const rank = index + 1;
-        let rankClass = 'rank-other';
-        if (rank === 1) rankClass = 'rank-1';
-        else if (rank === 2) rankClass = 'rank-2';
-        else if (rank === 3) rankClass = 'rank-3';
-        
+
+        // 排名圖示
+        let rankIcon = '';
+        if (rank === 1) rankIcon = '🥇';
+        else if (rank === 2) rankIcon = '🥈';
+        else if (rank === 3) rankIcon = '🥉';
+        else rankIcon = `${rank}`;
+
         html += `
             <tr>
-                <td><span class="rank-badge ${rankClass}">${rank}</span></td>
+                <td class="text-center">${rankIcon}</td>
                 <td>
                     <a href="javascript:void(0)" class="user-link" onclick="viewUserJourney('${item.trace_id}')">
                         ${item.submitter_name || '未提供'}
@@ -193,36 +243,26 @@ function renderLeaderboard(leaderboard) {
                 <td>${item.submitter_company || '-'}</td>
                 <td>${item.game_name_zh || '-'}</td>
                 <td>${item.booth_name || '-'}</td>
-                <td><strong>${item.highest_score || 0}</strong></td>
-                <td>${item.total_play_time || 0} 秒</td>
-                <td>
-                    <button class="btn btn-sm btn-info" onclick="viewUserJourney('${item.trace_id}')">
-                        <i class="fas fa-route"></i> 查看軌跡
-                    </button>
-                </td>
+                <td class="text-center"><strong>${item.highest_score || 0}</strong></td>
+                <td class="text-center">${item.total_play_time || 0} 秒</td>
             </tr>
         `;
     });
-    
-    html += `
-            </tbody>
-        </table>
-    `;
-    
+
     container.innerHTML = html;
 }
 
 // 渲染用戶表格
 function renderUsersTable(users) {
     const container = document.getElementById('users-table-container');
-    
+
     if (users.length === 0) {
-        container.innerHTML = '<p class="text-center text-muted">目前沒有用戶資料</p>';
+        container.innerHTML = '<div class="text-center">目前沒有用戶資料</div>';
         return;
     }
-    
+
     let html = `
-        <table class="table table-hover">
+        <table class="data-table">
             <thead>
                 <tr>
                     <th>姓名</th>
@@ -230,21 +270,21 @@ function renderUsersTable(users) {
                     <th>公司</th>
                     <th>電話</th>
                     <th>專案</th>
-                    <th>報名時間</th>
-                    <th>報到時間</th>
-                    <th>遊戲會話</th>
-                    <th>最高分數</th>
-                    <th>兌換券</th>
-                    <th>操作</th>
+                    <th style="width: 150px;">報名時間</th>
+                    <th style="width: 150px;">報到時間</th>
+                    <th style="width: 100px;">遊戲會話</th>
+                    <th style="width: 100px;">最高分數</th>
+                    <th style="width: 100px;">兌換券</th>
+                    <th style="width: 100px;">操作</th>
                 </tr>
             </thead>
             <tbody>
     `;
-    
+
     users.forEach(user => {
         const registrationTime = user.registration_time ? new Date(user.registration_time).toLocaleString('zh-TW') : '-';
         const checkinTime = user.checked_in_at ? new Date(user.checked_in_at).toLocaleString('zh-TW') : '-';
-        
+
         html += `
             <tr>
                 <td>
@@ -258,30 +298,30 @@ function renderUsersTable(users) {
                 <td>${user.project_name || '-'}</td>
                 <td>${registrationTime}</td>
                 <td>${checkinTime}</td>
-                <td>${user.game_sessions || 0}</td>
-                <td><strong>${user.highest_score || 0}</strong></td>
-                <td>${user.vouchers_redeemed || 0}</td>
-                <td>
-                    <button class="btn btn-sm btn-info" onclick="viewUserJourney('${user.trace_id}')">
-                        <i class="fas fa-route"></i> 查看軌跡
+                <td class="text-center">${user.game_sessions || 0}</td>
+                <td class="text-center"><strong>${user.highest_score || 0}</strong></td>
+                <td class="text-center">${user.vouchers_redeemed || 0}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-info" onclick="viewUserJourney('${user.trace_id}')" style="padding: 4px 8px; font-size: 12px;">
+                        <i class="fas fa-route"></i> 軌跡
                     </button>
                 </td>
             </tr>
         `;
     });
-    
+
     html += `
             </tbody>
         </table>
     `;
-    
+
     container.innerHTML = html;
 }
 
 // 查看用戶軌跡
 async function viewUserJourney(traceId) {
     try {
-        const response = await fetch(`/admin/user-tracking/api/user-journey/${traceId}`);
+        const response = await fetch(`/admin/game-analytics/api/user-journey/${traceId}`);
         const data = await response.json();
         
         if (data.success) {
@@ -417,7 +457,7 @@ function renderRedemptions(redemptions) {
 function renderInteractions(interactions) {
     let html = '<div class="timeline">';
     interactions.forEach(interaction => {
-        const time = new Date(interaction.created_at).toLocaleString('zh-TW');
+        const time = new Date(interaction.timestamp).toLocaleString('zh-TW');
         
         html += `
             <div class="timeline-item">

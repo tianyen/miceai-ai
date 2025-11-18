@@ -11,6 +11,13 @@ const { getDbPath } = require('./db-path');
 
 const dbPath = getDbPath();
 
+// 生成動態日期（相對於今天）
+function generateDate(daysOffset = 0) {
+    const date = new Date();
+    date.setDate(date.getDate() + daysOffset);
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+}
+
 console.log('🔄 開始新增許願樹種子資料...');
 console.log(`📁 資料庫路徑: ${dbPath}`);
 
@@ -78,8 +85,8 @@ async function seed() {
             `, [
                 '資訊月互動許願樹',
                 '2025 資訊月主舞台互動許願樹活動，歡迎所有參加者留下您的願望！',
-                '2025-11-12',
-                '2025-11-15',
+                generateDate(0), // 今天開始
+                generateDate(3), // 3天後結束
                 '台北世貿一館',
                 '互動體驗',
                 'active',
@@ -102,8 +109,8 @@ async function seed() {
                 '資訊月互動許願樹',
                 'INFOMONTH2025',
                 '2025 資訊月主舞台互動許願樹活動，歡迎所有參加者留下您的願望！',
-                '2025-11-12',
-                '2025-11-15',
+                generateDate(0), // 今天開始
+                generateDate(3), // 3天後結束
                 '台北世貿一館',
                 '互動體驗',
                 'active',
@@ -171,7 +178,7 @@ async function seed() {
         console.log('📋 重要資訊:');
         console.log(`   專案 ID: ${projectId}`);
         console.log(`   攤位 ID: ${boothId}`);
-        console.log('   活動日期: 2025-11-12 至 2025-11-15');
+        console.log(`   活動日期: ${generateDate(0)} 至 ${generateDate(3)}`);
         console.log('');
 
     } catch (error) {
