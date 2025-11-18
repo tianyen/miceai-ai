@@ -22,6 +22,7 @@
     "db:migrate:gameroom": "node scripts/migrate-game-room.js",
     "db:migrate:booths": "node scripts/migrate-booths.js",
     "db:migrate:wishtree": "node scripts/migrate-wish-tree.js",
+    "db:migrate:add-user-id": "node scripts/migrate-add-user-id-to-submissions.js",
     "db:seed:gameroom": "node scripts/seed-game-room.js",
     "db:seed:questionnaire": "node scripts/seed-sample-questionnaire.js",
     "db:seed:wishtree": "node scripts/seed-wish-tree.js",

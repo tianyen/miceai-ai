@@ -160,6 +160,7 @@ const seedData = {
         {
             trace_id: idGen.generateTraceId(1),  // 固定的 trace_id
             project_id: 1,
+            user_id: 3,  // 張志明對應 user_id 3
             submitter_name: '張志明',
             submitter_email: 'chang@example.com',
             submitter_phone: '0912345678',
@@ -174,6 +175,7 @@ const seedData = {
         {
             trace_id: idGen.generateTraceId(2),  // 固定的 trace_id
             project_id: 1,
+            user_id: 4,  // 李美玲對應 user_id 4
             submitter_name: '李美玲',
             submitter_email: 'li@example.com',
             submitter_phone: '0923456789',
@@ -188,6 +190,7 @@ const seedData = {
         {
             trace_id: idGen.generateTraceId(3),  // 固定的 trace_id
             project_id: 1,  // 修正為 TECH2024 (與遊戲會話保持一致)
+            user_id: 5,  // 王大明對應 user_id 5
             submitter_name: '王大明',
             submitter_email: 'wang@example.com',
             submitter_phone: '0934567890',
@@ -497,10 +500,10 @@ async function addSeedData() {
                 console.log('📝 添加表單提交資料（使用確定性 trace_id）...');
                 const submissionStmt = db.prepare(`
                     INSERT INTO form_submissions (
-                        trace_id, project_id, submitter_name, submitter_email, submitter_phone,
+                        trace_id, project_id, user_id, submitter_name, submitter_email, submitter_phone,
                         company_name, position, participation_level, activity_notifications, product_updates,
                         status, ip_address, data_consent, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '127.0.0.1', 1, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '127.0.0.1', 1, ?)
                 `);
 
                 const submissionIds = [];
@@ -509,6 +512,7 @@ async function addSeedData() {
                         submissionStmt.run([
                             submission.trace_id,
                             submission.project_id,
+                            submission.user_id,
                             submission.submitter_name,
                             submission.submitter_email,
                             submission.submitter_phone,

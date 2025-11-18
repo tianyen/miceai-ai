@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS form_submissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     trace_id VARCHAR(50) UNIQUE NOT NULL,
     project_id INTEGER NOT NULL,
+    user_id INTEGER,
     submitter_name VARCHAR(100) NOT NULL,
     submitter_email VARCHAR(100) NOT NULL,
     submitter_phone VARCHAR(20),
@@ -116,7 +117,8 @@ CREATE TABLE IF NOT EXISTS form_submissions (
     checkin_notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (project_id) REFERENCES event_projects(id)
+    FOREIGN KEY (project_id) REFERENCES event_projects(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 -- 系統日誌表
@@ -379,6 +381,7 @@ CREATE TABLE IF NOT EXISTS business_cards (
 
 -- 創建索引以提高查詢性能
 CREATE INDEX IF NOT EXISTS idx_form_submissions_checked_in_at ON form_submissions(checked_in_at);
+CREATE INDEX IF NOT EXISTS idx_form_submissions_user_id ON form_submissions(user_id);
 CREATE INDEX IF NOT EXISTS idx_scan_history_participant_id ON scan_history(participant_id);
 CREATE INDEX IF NOT EXISTS idx_scan_history_scan_time ON scan_history(scan_time);
 CREATE INDEX IF NOT EXISTS idx_qr_codes_submission_id ON qr_codes(submission_id);

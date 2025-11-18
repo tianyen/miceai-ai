@@ -17,6 +17,7 @@ router.get('/participants', authenticateSession, async (req, res) => {
         let query = `
             SELECT
                 fs.id,
+                fs.user_id,
                 fs.trace_id,
                 fs.submitter_name,
                 fs.submitter_email,
@@ -103,7 +104,7 @@ router.get('/participants', authenticateSession, async (req, res) => {
                                 <div class="participant-info">
                                     <h4>
                                         ${participant.submitter_name}
-                                        <span class="badge badge-info ml-2" title="Submission ID" style="font-size: 0.75rem;">ID: ${participant.id}</span>
+                                        ${participant.user_id ? `<span class="badge badge-info ml-2" title="User ID" style="font-size: 0.75rem;">ID: ${participant.user_id}</span>` : ''}
                                     </h4>
                                     <div class="participant-meta">
                                         ${participant.submitter_email} • ${participant.project_name}
@@ -245,6 +246,7 @@ router.get('/search', authenticateSession, async (req, res) => {
         let query = `
             SELECT
                 fs.id,
+                fs.user_id,
                 fs.trace_id,
                 fs.submitter_name,
                 fs.submitter_email,
@@ -320,7 +322,7 @@ router.get('/search', authenticateSession, async (req, res) => {
                             <div class="participant-info">
                                 <h4>
                                     ${participant.submitter_name}
-                                    <span class="badge badge-info ml-2" title="Submission ID" style="font-size: 0.75rem;">ID: ${participant.id}</span>
+                                    ${participant.user_id ? `<span class="badge badge-info ml-2" title="User ID" style="font-size: 0.75rem;">ID: ${participant.user_id}</span>` : ''}
                                 </h4>
                                 <div class="participant-meta">
                                     ${participant.submitter_email} • ${participant.project_name}
