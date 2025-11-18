@@ -15,8 +15,9 @@ router.get('/participants', authenticateSession, async (req, res) => {
         const userRole = req.user.role;
         
         let query = `
-            SELECT 
+            SELECT
                 fs.id,
+                fs.trace_id,
                 fs.submitter_name,
                 fs.submitter_email,
                 fs.submitter_phone,
@@ -27,7 +28,7 @@ router.get('/participants', authenticateSession, async (req, res) => {
                 cr.id as checkin_id,
                 p.project_name,
                 p.id as project_id,
-                CASE 
+                CASE
                     WHEN cr.id IS NOT NULL THEN 'checked_in'
                     ELSE 'registered'
                 END as status
@@ -95,14 +96,20 @@ router.get('/participants', authenticateSession, async (req, res) => {
                     const statusClass = participant.status === 'checked_in' ? 'online' : 'offline';
                     const registrationTime = new Date(participant.registration_time).toLocaleString('zh-TW');
                     const checkinTime = participant.checkin_time ? new Date(participant.checkin_time).toLocaleString('zh-TW') : null;
-                    
+
                     html += `
                         <div class="participant-card">
                             <div class="participant-header" onclick="toggleParticipantTimeline(${participant.id})">
                                 <div class="participant-info">
-                                    <h4>${participant.submitter_name}</h4>
+                                    <h4>
+                                        ${participant.submitter_name}
+                                        <span class="badge badge-info ml-2" title="Submission ID" style="font-size: 0.75rem;">ID: ${participant.id}</span>
+                                    </h4>
                                     <div class="participant-meta">
                                         ${participant.submitter_email} • ${participant.project_name}
+                                    </div>
+                                    <div class="participant-meta text-muted" style="font-size: 0.85rem;">
+                                        Trace ID: ${participant.trace_id}
                                     </div>
                                 </div>
                                 <div class="participant-status">
@@ -236,8 +243,9 @@ router.get('/search', authenticateSession, async (req, res) => {
         const userRole = req.user.role;
         
         let query = `
-            SELECT 
+            SELECT
                 fs.id,
+                fs.trace_id,
                 fs.submitter_name,
                 fs.submitter_email,
                 fs.submitter_phone,
@@ -248,7 +256,7 @@ router.get('/search', authenticateSession, async (req, res) => {
                 cr.id as checkin_id,
                 p.project_name,
                 p.id as project_id,
-                CASE 
+                CASE
                     WHEN cr.id IS NOT NULL THEN 'checked_in'
                     ELSE 'registered'
                 END as status
@@ -305,14 +313,20 @@ router.get('/search', authenticateSession, async (req, res) => {
                 const statusClass = participant.status === 'checked_in' ? 'online' : 'offline';
                 const registrationTime = new Date(participant.registration_time).toLocaleString('zh-TW');
                 const checkinTime = participant.checkin_time ? new Date(participant.checkin_time).toLocaleString('zh-TW') : null;
-                
+
                 html += `
                     <div class="participant-card">
                         <div class="participant-header" onclick="toggleParticipantTimeline(${participant.id})">
                             <div class="participant-info">
-                                <h4>${participant.submitter_name}</h4>
+                                <h4>
+                                    ${participant.submitter_name}
+                                    <span class="badge badge-info ml-2" title="Submission ID" style="font-size: 0.75rem;">ID: ${participant.id}</span>
+                                </h4>
                                 <div class="participant-meta">
                                     ${participant.submitter_email} • ${participant.project_name}
+                                </div>
+                                <div class="participant-meta text-muted" style="font-size: 0.85rem;">
+                                    Trace ID: ${participant.trace_id}
                                 </div>
                             </div>
                             <div class="participant-status">
