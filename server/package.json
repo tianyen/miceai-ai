@@ -19,6 +19,8 @@
     "db:verify": "node scripts/verify-schema.js",
     "db:verify-paths": "node scripts/verify-db-paths.js",
     "db:migrate": "node scripts/migrate-api-logs.js",
+    "db:migrate:001": "node scripts/run-migration.js 001_unify_time_field_naming.sql",
+    "db:migrate:002": "node scripts/run-migration.js 002_remove_old_time_fields.sql",
     "db:migrate:gameroom": "node scripts/migrate-game-room.js",
     "db:migrate:booths": "node scripts/migrate-booths.js",
     "db:migrate:wishtree": "node scripts/migrate-wish-tree.js",
