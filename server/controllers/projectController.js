@@ -49,7 +49,7 @@ class ProjectController {
                 if (projects.length === 0) {
                     html = `
                         <tr>
-                            <td colspan="7" class="empty-state">
+                            <td colspan="8" class="empty-state">
                                 <div class="empty-icon">📋</div>
                                 <div class="empty-text">
                                     <h4>尚無專案資料</h4>
@@ -87,6 +87,7 @@ class ProjectController {
 
                         html += `
                             <tr>
+                                <td><span class="badge badge-secondary">#${project.id}</span></td>
                                 <td>
                                     <div class="project-name">
                                         <strong>${project.project_name}</strong>
@@ -95,7 +96,6 @@ class ProjectController {
                                 </td>
                                 <td><code>${project.project_code}</code></td>
                                 <td>${eventDate}</td>
-                                <td>${project.event_location || '-'}</td>
                                 <td>${statusBadge}</td>
                                 <td><span class="participant-count">${project.participant_count || 0}</span></td>
                                 <td>${createdAt}</td>

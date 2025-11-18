@@ -60,6 +60,7 @@
         <table class="data-table">
             <thead>
                 <tr>
+                    <th data-sortable="id">ID</th>
                     <th data-sortable="name">參加者姓名</th>
                     <th data-sortable="email">電子郵件</th>
                     <th data-sortable="phone">聯絡電話</th>
@@ -72,7 +73,7 @@
             </thead>
             <tbody id="submissions-table-body">
                 <tr>
-                    <td colspan="8" class="loading-cell">
+                    <td colspan="9" class="loading-cell">
                         <div class="loading-spinner"></div>
                         載入表單數據中...
                     </td>
@@ -327,7 +328,7 @@
                 $('#submissions-table-body').html(data);
             },
             error: function () {
-                $('#submissions-table-body').html('<tr><td colspan="8" class="text-center text-danger">載入表單數據失敗</td></tr>');
+                $('#submissions-table-body').html('<tr><td colspan="9" class="text-center text-danger">載入表單數據失敗</td></tr>');
             }
         });
     }
@@ -362,7 +363,7 @@
                 $('#submissions-table-body').html(data);
             },
             error: function () {
-                $('#submissions-table-body').html('<tr><td colspan="8" class="text-center text-danger">搜尋失敗</td></tr>');
+                $('#submissions-table-body').html('<tr><td colspan="9" class="text-center text-danger">搜尋失敗</td></tr>');
             }
         });
     }

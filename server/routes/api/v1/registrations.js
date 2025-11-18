@@ -71,7 +71,7 @@ const phoneRegex = /^[0-9\-\+\s\(\)]{8,20}$/;
  *                 minLength: 2
  *                 maxLength: 50
  *                 description: 姓名
- *                 example: "王小明"
+ *                 example: "王大明"
  *               email:
  *                 type: string
  *                 format: email
@@ -81,17 +81,17 @@ const phoneRegex = /^[0-9\-\+\s\(\)]{8,20}$/;
  *                 type: string
  *                 pattern: '^[0-9\-\+\s\(\)]{8,20}$'
  *                 description: 手機號碼
- *                 example: "0912345678"
+ *                 example: "0934567890"
  *               company:
  *                 type: string
  *                 maxLength: 100
  *                 description: 公司名稱
- *                 example: "科技公司"
+ *                 example: "軟體開發公司"
  *               position:
  *                 type: string
  *                 maxLength: 50
  *                 description: 職位
- *                 example: "工程師"
+ *                 example: "資深工程師"
  *               data_consent:
  *                 type: boolean
  *                 description: 資料使用同意（必須為 true）
@@ -119,20 +119,20 @@ const phoneRegex = /^[0-9\-\+\s\(\)]{8,20}$/;
  *                   properties:
  *                     registration_id:
  *                       type: integer
- *                       example: 123
+ *                       example: 3
  *                     trace_id:
  *                       type: string
  *                       description: 追蹤 ID，用於查詢報名狀態和 QR Code
- *                       example: "MICE-d074dd3e-e3e27b6b0"
+ *                       example: "MICE-05207cf7-199967c04"
  *                     event:
  *                       type: object
  *                       properties:
  *                         name:
  *                           type: string
- *                           example: "2024 科技研討會"
+ *                           example: "2024年度科技論壇"
  *                         date:
  *                           type: string
- *                           example: "2024-12-15"
+ *                           example: "2025-09-15"
  *                         location:
  *                           type: string
  *                           example: "台北國際會議中心"
@@ -141,7 +141,7 @@ const phoneRegex = /^[0-9\-\+\s\(\)]{8,20}$/;
  *                       properties:
  *                         name:
  *                           type: string
- *                           example: "王小明"
+ *                           example: "王大明"
  *                         email:
  *                           type: string
  *                           example: "wang@example.com"
@@ -150,11 +150,11 @@ const phoneRegex = /^[0-9\-\+\s\(\)]{8,20}$/;
  *                       properties:
  *                         data:
  *                           type: string
- *                           example: "MICE-d074dd3e-e3e27b6b0"
+ *                           example: "MICE-05207cf7-199967c04"
  *                         url:
  *                           type: string
  *                           description: QR Code 查詢 URL
- *                           example: "/api/v1/qr-codes/MICE-d074dd3e-e3e27b6b0"
+ *                           example: "/api/v1/qr-codes/MICE-05207cf7-199967c04"
  *       400:
  *         description: 請求參數錯誤或活動已滿額
  *       404:
@@ -400,10 +400,10 @@ router.post('/events/:eventId/registrations', [
  *                   properties:
  *                     registration_id:
  *                       type: integer
- *                       example: 123
+ *                       example: 3
  *                     trace_id:
  *                       type: string
- *                       example: "MICE-d074dd3e-e3e27b6b0"
+ *                       example: "MICE-05207cf7-199967c04"
  *                     status:
  *                       type: string
  *                       enum: [pending, approved, confirmed, rejected, cancelled]
@@ -413,10 +413,10 @@ router.post('/events/:eventId/registrations', [
  *                       properties:
  *                         name:
  *                           type: string
- *                           example: "2024 科技研討會"
+ *                           example: "2024年度科技論壇"
  *                         date:
  *                           type: string
- *                           example: "2024-12-15"
+ *                           example: "2025-09-15"
  *                         location:
  *                           type: string
  *                           example: "台北國際會議中心"
@@ -425,25 +425,25 @@ router.post('/events/:eventId/registrations', [
  *                       properties:
  *                         name:
  *                           type: string
- *                           example: "王小明"
+ *                           example: "王大明"
  *                         email:
  *                           type: string
  *                           example: "wang@example.com"
  *                         phone:
  *                           type: string
- *                           example: "0912345678"
+ *                           example: "0934567890"
  *                         company:
  *                           type: string
- *                           example: "科技公司"
+ *                           example: "軟體開發公司"
  *                         position:
  *                           type: string
- *                           example: "工程師"
+ *                           example: "資深工程師"
  *                     qr_code:
  *                       type: object
  *                       properties:
  *                         data:
  *                           type: string
- *                           example: "MICE-d074dd3e-e3e27b6b0"
+ *                           example: "MICE-05207cf7-199967c04"
  *                         scan_count:
  *                           type: integer
  *                           example: 0
@@ -558,7 +558,7 @@ router.get('/registrations/:traceId', [
  *         schema:
  *           type: string
  *         description: 報名追蹤 ID
- *         example: MICE-abc123-xyz789
+ *         example: "MICE-05207cf7-199967c04"
  *     responses:
  *       200:
  *         description: QR Code 圖片（PNG 格式）
@@ -666,20 +666,20 @@ router.get('/qr-codes/:traceId', [
  *                   properties:
  *                     trace_id:
  *                       type: string
- *                       example: "MICE-d074dd3e-e3e27b6b0"
+ *                       example: "MICE-05207cf7-199967c04"
  *                     qr_data:
  *                       type: string
- *                       example: "MICE-d074dd3e-e3e27b6b0"
+ *                       example: "MICE-05207cf7-199967c04"
  *                     qr_base64:
  *                       type: string
  *                       description: QR Code Base64 編碼，可直接用於 <img src="">
  *                       example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
  *                     participant_name:
  *                       type: string
- *                       example: "王小明"
+ *                       example: "王大明"
  *                     event_name:
  *                       type: string
- *                       example: "2024 科技研討會"
+ *                       example: "2024年度科技論壇"
  *                     scan_count:
  *                       type: integer
  *                       example: 0

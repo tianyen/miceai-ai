@@ -2,7 +2,10 @@
 
 <div class="content-header">
     <h1>{{project.project_name}}</h1>
-    <p>專案代碼：{{project.project_code}} | 建立者：{{project.creator_name}}</p>
+    <p>
+        <span class="badge badge-secondary">#{{project.id}}</span>
+        專案代碼：{{project.project_code}} | 建立者：{{project.creator_name}}
+    </p>
 </div>
 
 <!-- 專案資訊卡片 -->
@@ -13,6 +16,10 @@
                 <h3>專案資訊</h3>
             </div>
             <div class="card-content">
+                <div class="info-item">
+                    <label>Project ID：</label>
+                    <span class="badge badge-secondary">#{{project.id}}</span>
+                </div>
                 <div class="info-item">
                     <label>專案名稱：</label>
                     <span>{{project.project_name}}</span>
@@ -99,6 +106,7 @@
                 <table class="table">
                     <thead>
                         <tr>
+                            <th>ID</th>
                             <th>姓名</th>
                             <th>電子郵件</th>
                             <th>電話</th>
@@ -109,7 +117,7 @@
                     </thead>
                     <tbody id="participants-list">
                         <tr>
-                            <td colspan="6" class="text-center">
+                            <td colspan="7" class="text-center">
                                 <div class="loading">載入參加者資料中...</div>
                             </td>
                         </tr>

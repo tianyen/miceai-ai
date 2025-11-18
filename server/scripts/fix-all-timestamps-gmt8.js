@@ -6,11 +6,9 @@
  */
 
 const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { getDbPath } = require('./db-path');
 
-require('dotenv').config();
-
-const dbPath = path.join(__dirname, '../data/mice_ai.db');
+const dbPath = getDbPath();
 
 console.log('🔄 开始修复所有表的时间戳为 GMT+8...');
 console.log(`📁 数据库路径: ${dbPath}`);

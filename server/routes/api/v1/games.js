@@ -51,15 +51,15 @@ function getClientIP(req) {
  *               trace_id:
  *                 type: string
  *                 description: 玩家追蹤 ID（格式 MICE-xxx-xxx 或 TRACExxx）
- *                 example: "MICE-TEST-001"
+ *                 example: "MICE-05207cf7-199967c04"
  *               user_id:
  *                 type: string
  *                 description: 用戶 ID（選填）
- *                 example: "player_001"
+ *                 example: "3"
  *               project_id:
  *                 type: integer
- *                 description: 專案 ID（資料庫中的專案，例如：2 = AI產業交流會）
- *                 example: 2
+ *                 description: 專案 ID（資料庫中的專案，例如：1 = TECH2024）
+ *                 example: 1
  *     responses:
  *       200:
  *         description: 會話已開始
@@ -79,7 +79,7 @@ function getClientIP(req) {
  *                   properties:
  *                     session_id:
  *                       type: integer
- *                       example: 1
+ *                       example: 32
  *                     game_info:
  *                       type: object
  *                       properties:
@@ -88,13 +88,13 @@ function getClientIP(req) {
  *                           example: 1
  *                         name_zh:
  *                           type: string
- *                           example: "太空射擊"
+ *                           example: "幸運飛鏢"
  *                         name_en:
  *                           type: string
- *                           example: "Space Shooter"
+ *                           example: "Lucky Darts"
  *                         game_url:
  *                           type: string
- *                           example: "https://example.com/games/space-shooter"
+ *                           example: "https://example.com/games/lucky-darts"
  *       400:
  *         description: 請求參數錯誤
  *       404:
@@ -188,15 +188,15 @@ router.post('/:gameId/sessions/start', async (req, res) => {
  *               trace_id:
  *                 type: string
  *                 description: 玩家追蹤 ID
- *                 example: "MICE-TEST-001"
+ *                 example: "MICE-05207cf7-199967c04"
  *               user_id:
  *                 type: string
  *                 description: 用戶 ID（選填）
- *                 example: "player_001"
+ *                 example: "3"
  *               project_id:
  *                 type: integer
- *                 description: 專案 ID（資料庫中的專案，例如：2 = AI產業交流會）
- *                 example: 2
+ *                 description: 專案 ID（資料庫中的專案，例如：1 = TECH2024）
+ *                 example: 1
  *               log_level:
  *                 type: string
  *                 enum: [debug, info, warn, error]
@@ -321,23 +321,23 @@ router.post('/:gameId/logs', async (req, res) => {
  *               trace_id:
  *                 type: string
  *                 description: 玩家追蹤 ID
- *                 example: "MICE-TEST-001"
+ *                 example: "MICE-05207cf7-199967c04"
  *               user_id:
  *                 type: string
  *                 description: 用戶 ID（選填）
- *                 example: "player_001"
+ *                 example: "3"
  *               project_id:
  *                 type: integer
- *                 description: 專案 ID（資料庫中的專案，例如：2 = AI產業交流會）
- *                 example: 2
+ *                 description: 專案 ID（資料庫中的專案，例如：1 = TECH2024）
+ *                 example: 1
  *               final_score:
  *                 type: integer
  *                 description: 最終分數
- *                 example: 1200
+ *                 example: 850
  *               total_play_time:
  *                 type: integer
  *                 description: 總遊戲時間（秒）
- *                 example: 180
+ *                 example: 45
  *     responses:
  *       200:
  *         description: 會話已結束
@@ -357,13 +357,13 @@ router.post('/:gameId/logs', async (req, res) => {
  *                   properties:
  *                     session_id:
  *                       type: integer
- *                       example: 1
+ *                       example: 32
  *                     final_score:
  *                       type: integer
- *                       example: 1200
+ *                       example: 850
  *                     total_play_time:
  *                       type: integer
- *                       example: 180
+ *                       example: 45
  *                     voucher_earned:
  *                       type: boolean
  *                       example: true
@@ -387,7 +387,7 @@ router.post('/:gameId/logs', async (req, res) => {
  *                           example: "餐飲"
  *                         redemption_code:
  *                           type: string
- *                           example: "GAME-2025-A3B7C9"
+ *                           example: "GAME-2025-D8E9F1"
  *                         qr_code_base64:
  *                           type: string
  *                           description: QR Code Base64 編碼，包含兌換碼和 trace_id，可直接用於前端顯示
@@ -613,13 +613,13 @@ router.post('/:gameId/sessions/end', async (req, res) => {
  *                       example: 1
  *                     name_zh:
  *                       type: string
- *                       example: "太空射擊"
+ *                       example: "幸運飛鏢"
  *                     name_en:
  *                       type: string
- *                       example: "Space Shooter"
+ *                       example: "Lucky Darts"
  *                     game_url:
  *                       type: string
- *                       example: "https://example.com/games/space-shooter"
+ *                       example: "https://example.com/games/lucky-darts"
  *                     game_version:
  *                       type: string
  *                       example: "1.0.0"

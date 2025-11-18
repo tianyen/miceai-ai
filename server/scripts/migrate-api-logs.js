@@ -10,9 +10,9 @@
  */
 
 const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { getDbPath } = require('./db-path');
 
-const dbPath = path.join(__dirname, '../data/mice_ai.db');
+const dbPath = getDbPath();
 
 console.log('🔄 開始遷移 api_access_logs 表...');
 console.log(`📁 資料庫路徑: ${dbPath}`);

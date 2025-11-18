@@ -26,6 +26,12 @@
             <div class="stats-summary">
                 <strong>總許願數:</strong> {{totalWishes}}
             </div>
+            <a href="/admin/wish-tree/export-csv?project_id={{currentProjectId}}"
+               class="btn btn-success"
+               download
+               title="匯出所有許願記錄為 CSV 檔案">
+                📥 匯出 CSV
+            </a>
             <a href="/admin/wish-tree/stats?project_id={{currentProjectId}}" class="btn btn-primary">
                 📊 查看統計
             </a>

@@ -4,9 +4,9 @@
  */
 
 const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { getDbPath } = require('./db-path');
 
-const dbPath = path.join(__dirname, '../data/mice_ai.db');
+const dbPath = getDbPath();
 
 console.log('🔄 開始新增範例問卷...');
 console.log(`📁 資料庫路徑: ${dbPath}`);

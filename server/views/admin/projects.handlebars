@@ -41,6 +41,7 @@
         <table class="data-table">
             <thead>
                 <tr>
+                    <th data-sortable="id">Project ID</th>
                     <th data-sortable="name">專案名稱</th>
                     <th data-sortable="code">專案代碼</th>
                     <th data-sortable="event_date">活動日期</th>
@@ -52,7 +53,7 @@
             </thead>
             <tbody id="projects-table-body">
                 <tr>
-                    <td colspan="7" class="loading-cell">
+                    <td colspan="8" class="loading-cell">
                         <div class="loading-spinner"></div>
                         載入專案數據中...
                     </td>
@@ -338,7 +339,7 @@
                 console.error('載入專案失敗:', xhr);
                 $('#projects-table-body').html(`
                     <tr>
-                        <td colspan="7" class="text-center text-danger">
+                        <td colspan="8" class="text-center text-danger">
                             <i class="fas fa-exclamation-triangle"></i>
                             載入專案失敗，請稍後重試
                         </td>

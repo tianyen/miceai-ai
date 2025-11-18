@@ -6,11 +6,10 @@
  */
 
 const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-
 require('dotenv').config();
+const { getDbPath } = require('./db-path');
 
-const dbPath = path.join(__dirname, '../data/mice_ai.db');
+const dbPath = getDbPath();
 
 console.log('🔄 開始新增許願樹種子資料...');
 console.log(`📁 資料庫路徑: ${dbPath}`);

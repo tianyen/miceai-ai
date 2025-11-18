@@ -6,12 +6,12 @@
  */
 
 const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
 const QRCode = require('qrcode');
 require('dotenv').config();
 const config = require('../config');
+const { getDbPath } = require('./db-path');
 
-const dbPath = path.join(__dirname, '../data/mice_ai.db');
+const dbPath = getDbPath();
 
 console.log('🌱 正在添加遊戲室模組種子資料...\n');
 

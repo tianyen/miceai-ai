@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database('data/mice_ai.db');
+const { getDbPath } = require('./db-path');
 
+const dbPath = getDbPath();
 console.log('🔄 更新模板添加 agenda 欄位...');
+console.log(`📁 資料庫路徑: ${dbPath}`);
+
+const db = new sqlite3.Database(dbPath);
 
 const content = JSON.stringify({
     schedule: {

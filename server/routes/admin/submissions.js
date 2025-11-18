@@ -56,7 +56,7 @@ router.get('/search', async (req, res) => {
         // 生成 HTML 表格行
         let html = '';
         if (submissions.length === 0) {
-            html = '<tr><td colspan="7" class="text-center">無符合條件的表單提交記錄</td></tr>';
+            html = '<tr><td colspan="9" class="text-center">無符合條件的表單提交記錄</td></tr>';
         } else {
             submissions.forEach(submission => {
                 const statusClass = submission.status === 'confirmed' ? 'success' :
@@ -65,10 +65,15 @@ router.get('/search', async (req, res) => {
 
                 html += `
                 <tr>
+                    <td><span class="badge badge-secondary">#${submission.id}</span></td>
                     <td>${submission.submitter_name}</td>
                     <td>${submission.submitter_email}</td>
                     <td>${submission.submitter_phone || '-'}</td>
-                    <td>${submission.project_name || '-'}</td>
+                    <td>${submission.participation_level || 50}%</td>
+                    <td>
+                        ${submission.project_id ? `<span class="badge badge-secondary">#${submission.project_id}</span> ` : ''}
+                        ${submission.project_name || '-'}
+                    </td>
                     <td><span class="badge badge-${statusClass}">${submission.status || 'pending'}</span></td>
                     <td>${submittedAt}</td>
                     <td>
@@ -90,7 +95,7 @@ router.get('/search', async (req, res) => {
         responses.html(res, html);
     } catch (error) {
         console.error('Search submissions error:', error);
-        responses.html(res, '<tr><td colspan="7" class="text-center text-danger">搜尋失敗</td></tr>');
+        responses.html(res, '<tr><td colspan="9" class="text-center text-danger">搜尋失敗</td></tr>');
     }
 });
 

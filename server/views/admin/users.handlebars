@@ -66,6 +66,7 @@
             <thead>
                 <tr>
                     <th>頭像</th>
+                    <th data-sortable="id">User ID</th>
                     <th data-sortable="username">用戶名稱</th>
                     <th data-sortable="full_name">真實姓名</th>
                     <th data-sortable="email">電子郵件</th>
@@ -77,7 +78,7 @@
             </thead>
             <tbody id="users-table-body">
                 <tr>
-                    <td colspan="8" class="loading-cell">
+                    <td colspan="9" class="loading-cell">
                         <div class="loading-spinner"></div>
                         載入用戶數據中...
                     </td>
@@ -427,6 +428,9 @@
                 <tr>
                     <td>
                         <div class="user-avatar">${avatar}</div>
+                    </td>
+                    <td>
+                        <span class="badge badge-secondary">#${user.id}</span>
                     </td>
                     <td>
                         <div class="user-info">

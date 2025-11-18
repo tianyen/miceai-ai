@@ -97,19 +97,21 @@ router.get('/projects/search', authenticateSession, async (req, res) => {
 
         let html = '';
         if (projects.length === 0) {
-            html = '<tr><td colspan="7" class="text-center">無符合條件的專案</td></tr>';
+            html = '<tr><td colspan="8" class="text-center">無符合條件的專案</td></tr>';
         } else {
             projects.forEach(project => {
                 const statusBadge = project.status === 'active' ?
                     '<span class="badge badge-success">進行中</span>' :
                     '<span class="badge badge-secondary">已結束</span>';
                 const createdDate = new Date(project.created_at).toLocaleDateString('zh-TW');
+                const eventDate = project.event_date ? new Date(project.event_date).toLocaleDateString('zh-TW') : '-';
 
                 html += `
                     <tr>
-                        <td>${project.id}</td>
+                        <td><span class="badge badge-secondary">#${project.id}</span></td>
                         <td>${project.project_name}</td>
                         <td>${project.project_code}</td>
+                        <td>${eventDate}</td>
                         <td>${statusBadge}</td>
                         <td>${project.submission_count || 0}</td>
                         <td>${createdDate}</td>
@@ -181,7 +183,7 @@ router.get('/submissions/search', authenticateSession, async (req, res) => {
 
         let html = '';
         if (submissions.length === 0) {
-            html = '<tr><td colspan="7" class="text-center">無符合條件的表單提交記錄</td></tr>';
+            html = '<tr><td colspan="9" class="text-center">無符合條件的表單提交記錄</td></tr>';
         } else {
             submissions.forEach(submission => {
                 const statusClass = submission.status === 'confirmed' ? 'success' :
@@ -190,9 +192,11 @@ router.get('/submissions/search', authenticateSession, async (req, res) => {
 
                 html += `
                 <tr>
+                    <td><span class="badge badge-secondary">#${submission.id}</span></td>
                     <td>${submission.submitter_name}</td>
                     <td>${submission.submitter_email}</td>
                     <td>${submission.submitter_phone || '-'}</td>
+                    <td>${submission.participation_level || 50}%</td>
                     <td>${submission.project_name || '-'}</td>
                     <td><span class="badge badge-${statusClass}">${submission.status || 'pending'}</span></td>
                     <td>${submittedAt}</td>
@@ -218,7 +222,7 @@ router.get('/submissions/search', authenticateSession, async (req, res) => {
         responses.html(res, html);
     } catch (error) {
         console.error('Search submissions error:', error);
-        responses.html(res, '<tr><td colspan="7" class="text-center text-danger">搜尋失敗</td></tr>');
+        responses.html(res, '<tr><td colspan="9" class="text-center text-danger">搜尋失敗</td></tr>');
     }
 });
 
@@ -1585,7 +1589,7 @@ router.get('/projects/:id/participants', authenticateSession, async (req, res) =
 
         let html = '';
         if (participants.length === 0) {
-            html = '<tr><td colspan="6" class="text-center text-muted">暫無參加者資料</td></tr>';
+            html = '<tr><td colspan="7" class="text-center text-muted">暫無參加者資料</td></tr>';
         } else {
             participants.forEach(participant => {
                 const checkinStatus = participant.checked_in_at ?
@@ -1594,6 +1598,7 @@ router.get('/projects/:id/participants', authenticateSession, async (req, res) =
 
                 html += `
                     <tr>
+                        <td><span class="badge badge-secondary">#${participant.id}</span></td>
                         <td>${participant.submitter_name || '-'}</td>
                         <td>${participant.submitter_email || '-'}</td>
                         <td>${participant.submitter_phone || '-'}</td>
@@ -1623,7 +1628,7 @@ router.get('/projects/:id/participants', authenticateSession, async (req, res) =
 
     } catch (error) {
         console.error('獲取專案參加者失敗:', error);
-        res.send('<tr><td colspan="6" class="text-center text-danger">載入失敗</td></tr>');
+        res.send('<tr><td colspan="7" class="text-center text-danger">載入失敗</td></tr>');
     }
 });
 
