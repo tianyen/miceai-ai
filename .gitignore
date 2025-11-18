@@ -1,7 +1,7 @@
 .DS_Store
 *.md
 !README.md
-
+docs/
 # Project specific
 .env
 .hcl
@@ -164,3 +164,4 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+server/database/README.md

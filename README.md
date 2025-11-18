@@ -1,242 +1,186 @@
-# MICE AI
+# MICE AI Backend
 
-一個完整的MICE-AI ，包含活動管理、報名系統、問卷功能、QR Code 名片等功能。
+專業的 MICE (會議、獎勵旅遊、大型會議、展覽) 活動管理系統後端，提供完整的活動管理、報名系統、遊戲室、問卷、許願樹等功能。
 
 ## 🚀 快速開始
 
-> 💡 **新手用戶**: 請參考 [快速開始指南](./QUICK_START.md) 進行 5 分鐘快速部署
-
-### 第一次使用
-
-1. **安裝依賴套件**
-   ```bash
-   npm install
-   ```
-
-2. **環境變數配置**
-   ```bash
-   # 複製環境變數範例文件
-   cp .env.example .env
-   
-   # 編輯環境變數（可選，預設值適用於開發環境）
-   nano .env
-   ```
-
-3. **資料庫初始化**
-   ```bash
-   # 一鍵初始化（推薦）
-   npm run setup  
-   ```
-
-4. **啟動服務**
-   ```bash
-   # 開發環境
-   npm start
-   
-   # 或使用 nodemon 自動重啟
-   npm run dev
-   
-   # 生產環境
-   npm run production
-   ```
-
-5. **訪問系統**
-   - 後台管理：http://localhost:3000/admin
-   - API 文件：http://localhost:3000/api-docs
-
-## 📋 可用腳本
-
-### 基本運行
-- `npm start` - 啟動服務器（開發環境）
-- `npm run production` - 啟動服務器（生產環境）
-- `npm run dev` - 使用 nodemon 啟動（自動重啟）
-
-### 資料庫管理
-- `npm run setup` - 一鍵初始化（包含架構、種子資料、遊戲室、攤位、問卷）
-- `npm run db:init` - 初始化資料庫結構
-- `npm run db:reset` - 重置資料庫（清空所有資料）
-- `npm run db:seed` - 載入基礎種子資料
-- `npm run db:info` - 查看資料庫資訊
-- `npm run db:check` - 檢查資料庫狀態和數據統計
-- `npm run db:verify` - 驗證資料庫 Schema 結構
-
-### 資料庫遷移
-- `npm run db:migrate` - API 日誌表遷移
-- `npm run db:migrate:gameroom` - 遊戲室模組遷移
-- `npm run db:migrate:booths` - 攤位資料表遷移
-
-### 種子資料
-- `npm run db:seed:gameroom` - 遊戲室模組種子資料
-- `npm run db:seed:questionnaire` - 問卷種子資料
-
-### 測試命令
-- `npm test` - 運行模組測試
-- `npm run test:api` - 測試完整 API 流程
-- `npm run test:setup` - 測試完整設置流程
-- `npm run test:business-cards` - 測試名片功能
-
-### 生成工具
-- `npm run generate:qrcodes` - 生成測試 QR Code
-- `npm run generate:registration-qrcode` - 生成報名 QR Code 測試頁面
-
-### 日誌管理
-- `npm run logs` - 查看所有日誌
-- `npm run logs:4xx` - 查看 4xx 錯誤日誌
-- `npm run logs:5xx` - 查看 5xx 錯誤日誌
-
-### 其他工具
-- `npm run backup` - 備份資料庫
-- `npm run status` - 查看系統狀態
-- `npm run analyze:imports` - 分析未使用的 imports
-- `npm run generate-certs` - 生成 HTTPS 證書
-
-## 🔧 環境配置
-
-### 環境變數
-
-主要環境變數說明（詳細說明請參考 [ENV_CONFIG.md](./ENV_CONFIG.md)）：
-
-| 變數名 | 預設值 | 說明 |
-|--------|--------|------|
-| `PORT` | `3000` | HTTP 服務器端口 |
-| `BASE_URL` | `http://localhost:3000` | 應用程式基礎 URL |
-| `NODE_ENV` | `development` | 運行環境 |
-| `SESSION_SECRET` | 開發用密鑰 | Session 加密密鑰 |
-
-### 不同環境配置
-
-**開發環境**：
 ```bash
+# 1. 安裝依賴
+cd server && npm install
+
+# 2. 環境配置（可選）
+cp .env.example .env
+
+# 3. 初始化資料庫
+npm run setup
+
+# 4. 啟動服務
 npm start
-# 或
-npm run dev
 ```
 
-**生產環境**：
+**訪問系統**:
+- 後台管理: http://localhost:3000/admin (預設帳號: admin / admin123)
+- API 文檔: http://localhost:3000/api-docs
+
+## 📋 常用命令
+
 ```bash
-# 設定生產環境變數
-export NODE_ENV=production
-export BASE_URL=https://your-domain.com
-export SESSION_SECRET=your-strong-secret
+# 開發
+npm start              # 啟動開發服務器
+npm run dev            # 使用 nodemon 自動重啟
 
-# 啟動服務
-npm run production
+# 資料庫
+npm run setup          # 一鍵初始化（推薦）
+npm run db:reset       # 重置資料庫
+npm run db:seed        # 載入測試資料
+npm run db:check       # 檢查資料庫狀態
+npm run backup         # 備份資料庫
+
+# 測試
+npm run test:swagger   # 測試 Swagger 範例
+npm run test:api       # 測試 API 流程
+
+# 生產環境
+npm run production     # 啟動生產服務器
 ```
+
+## ⚙️ 環境配置
+
+主要環境變數（`.env` 文件）：
+
+| 變數 | 預設值 | 說明 |
+|------|--------|------|
+| `PORT` | `3000` | 服務器端口 |
+| `BASE_URL` | `http://localhost:3000` | 基礎 URL（QR Code 使用） |
+| `DATABASE_PATH` | `./data/mice_ai.db` | 資料庫路徑 |
+| `SESSION_SECRET` | 隨機密鑰 | Session 加密密鑰 |
+| `NODE_ENV` | `development` | 運行環境 |
+
+生產環境建議修改：
+- `BASE_URL`: 設定為實際域名
+- `SESSION_SECRET`: 使用強密鑰
+- `NODE_ENV`: 設為 `production`
 
 ## 📁 專案結構
 
 ```
 server/
-├── config/           # 配置文件
-├── controllers/      # 控制器
-├── middleware/       # 中間件
-├── routes/          # 路由
-│   ├── admin/       # 後台路由
-│   ├── api/         # API 路由
-│   └── frontend/    # 前端路由
-├── views/           # 視圖模板
-├── public/          # 靜態文件
-├── scripts/         # 工具腳本
-├── data/            # 資料庫文件
-├── logs/            # 日誌文件
-├── .env.example     # 環境變數範例
-└── server.js        # 主程式入口
+├── config/              # 配置文件
+├── controllers/         # 控制器
+├── middleware/          # 中間件
+├── routes/             # 路由
+│   ├── admin/          # 後台管理路由
+│   ├── api/v1/         # 前端 API (Swagger 文檔)
+│   └── api/admin/      # 後台 API
+├── views/admin/        # 後台 Handlebars 模板
+├── public/             # 靜態文件
+├── scripts/            # 工具腳本
+│   └── db-path.js      # 統一資料庫路徑模組
+├── database/           # 資料庫 Schema 定義
+│   └── schema.sql      # 資料庫結構（僅定義，不存放 .db 文件）
+├── data/               # 資料庫實際存放位置 ⭐
+│   └── mice_ai.db      # SQLite 資料庫文件
+├── logs/               # 日誌文件
+└── .env                # 環境變數配置
 ```
 
-## 🎯 主要功能
+## 🎯 核心功能
 
-### 1. 活動管理
-- 活動專案建立與管理
-- 活動模板系統
-- 參加者管理
+| 模組 | 功能 |
+|------|------|
+| **活動管理** | 專案建立、活動模板、參加者管理 |
+| **報名系統** | 線上報名、QR Code 報到、trace_id 追蹤 |
+| **遊戲室** | 遊戲管理、會話追蹤、兌換券系統、統計報告 |
+| **問卷系統** | 問卷設計、統計分析、QR Code 連結 |
+| **許願樹** | 許願留言、統計分析、CSV 匯出 |
+| **攤位系統** | 攤位管理、遊戲綁定、統計 |
+| **QR Code 名片** | 數位名片、QR Code 生成 |
+| **後台管理** | 三級權限、操作日誌、資料統計 |
 
-### 2. 報名系統
-- 線上報名表單
-- QR Code 報到功能
-- 報名資料管理
+## 📡 API 文檔
 
-### 3. 問卷系統
-- 問卷設計與發布
-- 問卷統計分析
-- QR Code 問卷連結
+**Swagger UI**: http://localhost:3000/api-docs
 
-### 4. QR Code 名片
-- 數位名片建立
-- QR Code 生成與分享
-- 名片交換功能
+主要 API 端點：
+- `/api/v1/*` - 前端 API（完整 Swagger 文檔）
+- `/api/admin/*` - 後台管理 API
+- `/business-card/:traceId` - QR Code 名片展示
 
-### 5. 後台管理
-- 用戶權限管理
-- 系統設定
-- 資料統計
+測試數據（與 Swagger 範例一致）：
+- 測試用戶：王大明 (user_id: 3, trace_id: `MICE-05207cf7-199967c04`)
+- 測試專案：TECH2024 (project_id: 1)
+- 測試遊戲：幸運飛鏢 (game_id: 1)
 
-## 🔗 API 文件
+## 🗄️ 資料庫
 
-### Swagger UI
-訪問 http://localhost:3000/api-docs 查看完整的 API 文件。
+### 資料庫位置
+- **實際文件**: `server/data/mice_ai.db` ⭐
+- **Schema 定義**: `server/database/schema.sql`（僅定義，不存放 .db 文件）
+- **配置**: `.env` 中的 `DATABASE_PATH` 環境變數
 
-### Postman 集合
-導入 `postman-collection.json` 到 Postman 進行 API 測試。
+### 在腳本中使用資料庫
 
-### API 端點概覽
-- `/api/v1/` - 前端 API
-- `/api/admin/` - 後台管理 API
-- `/business-card/` - QR Code 名片展示
+✅ **推薦方式**（統一路徑模組）:
+```javascript
+const { getDbPath } = require('./scripts/db-path');
+const dbPath = getDbPath();
+```
 
-## 🛠️ 開發指南
+❌ **不推薦**（硬編碼路徑）:
+```javascript
+const dbPath = './data/mice_ai.db';  // 不要這樣做！
+```
 
-### 資料庫操作
+### Trace ID 格式
+
+**新格式**（推薦）:
+```
+MICE-{timestamp}-{random}
+範例: MICE-05207cf7-199967c04
+```
+
+**舊格式**（向後相容）:
+```
+TRACE{timestamp}{random}
+範例: TRACED074DD3EE3E27B6B
+```
+
+兩種格式都支援，新建資料自動使用新格式。
+
+## 🔧 常見問題
+
+| 問題 | 解決方案 |
+|------|---------|
+| 端口被佔用 | 修改 `.env` 中的 `PORT` 或執行 `lsof -i :3000` 查看佔用 |
+| 資料庫連接失敗 | 執行 `npm run setup` 重新初始化 |
+| QR Code 掃描失敗 | 檢查 `.env` 中的 `BASE_URL` 設定 |
+| Session 失效 | 檢查 `SESSION_SECRET` 是否設定 |
+| 找不到資料庫 | 確認 `server/data/mice_ai.db` 存在 |
+
+
+## 🎯 技術棧
+
+- **後端**: Node.js 22+ / Express.js 4.x
+- **資料庫**: SQLite3 5.x
+- **模板引擎**: Handlebars 4.x
+- **認證**: express-session + bcrypt
+- **API 文檔**: Swagger/OpenAPI 3.0
+- **QR Code**: qrcode 套件
+- **CSV 匯出**: json2csv 套件
+
+## 🔐 權限系統
+
+三級角色權限：
+- `super_admin` - 超級管理員（完整權限）
+- `project_manager` - 專案管理員（專案管理）
+- `project_user` - 一般用戶（基本權限）
+
+預設管理員帳號：`admin` / `admin123`
+
+### 推薦配置
 ```bash
-# 查看資料庫狀態
-npm run db:info
-
-# 重置開發資料庫
-npm run db:reset
-npm run db:seed
+# 使用 PM2 啟動
+pm2 start server/server.js --name mice-ai
+pm2 save
+pm2 startup
 ```
-
-### 日誌查看
-```bash
-# 即時查看日誌
-tail -f logs/access_$(date +%Y-%m-%d).log
-
-# 查看錯誤日誌
-npm run logs:5xx
-```
-
-### HTTPS 設定
-```bash
-# 生成開發用證書
-npm run generate-certs
-
-# 服務器會自動在 3443 端口啟動 HTTPS
-```
-
-## 🚨 故障排除
-
-### 常見問題
-
-1. **端口被佔用**
-   ```bash
-   # 查看端口使用情況
-   lsof -i :3000
-   
-   # 修改 .env 中的 PORT 變數
-   ```
-
-2. **資料庫連接失敗**
-   ```bash
-   # 檢查資料庫文件權限
-   ls -la data/
-   
-   # 重新初始化資料庫
-   npm run db:init
-   ```
-
-3. **QR Code 掃描失敗**
-   - 檢查 `.env` 中的 `BASE_URL` 設定
-   - 確保 URL 可以從外部訪問
-
-4. **Session 失效**
-   - 檢查 `SESSION_SECRET` 是否設定
-   - 確認 Session 配置正確
