@@ -126,26 +126,26 @@ async function migrate() {
             console.log('ℹ️  voucher_conditions 表已存在，跳過');
         }
 
-        // 4. 專案遊戲綁定表 (project_games)
-        if (!(await tableExists('project_games'))) {
+        // 4. 攤位遊戲綁定表 (booth_games) - 符合 P1-2 業務邏輯
+        if (!(await tableExists('booth_games'))) {
             await runSQL(`
-                CREATE TABLE IF NOT EXISTS project_games (
+                CREATE TABLE IF NOT EXISTS booth_games (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    project_id INTEGER NOT NULL,
+                    booth_id INTEGER NOT NULL,
                     game_id INTEGER NOT NULL,
                     voucher_id INTEGER,
                     is_active BOOLEAN DEFAULT 1,
                     qr_code_base64 TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (project_id) REFERENCES event_projects(id) ON DELETE CASCADE,
-                    FOREIGN KEY (game_id) REFERENCES games(id),
-                    FOREIGN KEY (voucher_id) REFERENCES vouchers(id),
-                    UNIQUE(project_id, game_id)
+                    FOREIGN KEY (booth_id) REFERENCES booths(id) ON DELETE CASCADE,
+                    FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+                    FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE SET NULL,
+                    UNIQUE(booth_id, game_id)
                 )
-            `, '建立 project_games 表');
+            `, '建立 booth_games 表');
         } else {
-            console.log('ℹ️  project_games 表已存在，跳過');
+            console.log('ℹ️  booth_games 表已存在，跳過');
         }
 
         // 5. 遊戲日誌表 (game_logs)
@@ -228,8 +228,9 @@ async function migrate() {
         await runSQL('CREATE INDEX IF NOT EXISTS idx_game_sessions_trace_id ON game_sessions(trace_id)', '建立 game_sessions trace_id 索引');
         await runSQL('CREATE INDEX IF NOT EXISTS idx_game_sessions_project_id ON game_sessions(project_id)', '建立 game_sessions project_id 索引');
         await runSQL('CREATE INDEX IF NOT EXISTS idx_game_sessions_game_id ON game_sessions(game_id)', '建立 game_sessions game_id 索引');
-        await runSQL('CREATE INDEX IF NOT EXISTS idx_project_games_project_id ON project_games(project_id)', '建立 project_games project_id 索引');
-        await runSQL('CREATE INDEX IF NOT EXISTS idx_project_games_game_id ON project_games(game_id)', '建立 project_games game_id 索引');
+        await runSQL('CREATE INDEX IF NOT EXISTS idx_booth_games_booth_id ON booth_games(booth_id)', '建立 booth_games booth_id 索引');
+        await runSQL('CREATE INDEX IF NOT EXISTS idx_booth_games_game_id ON booth_games(game_id)', '建立 booth_games game_id 索引');
+        await runSQL('CREATE INDEX IF NOT EXISTS idx_booth_games_voucher_id ON booth_games(voucher_id)', '建立 booth_games voucher_id 索引');
         await runSQL('CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_trace_id ON voucher_redemptions(trace_id)', '建立 voucher_redemptions trace_id 索引');
         await runSQL('CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_voucher_id ON voucher_redemptions(voucher_id)', '建立 voucher_redemptions voucher_id 索引');
         await runSQL('CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_redemption_code ON voucher_redemptions(redemption_code)', '建立 voucher_redemptions redemption_code 索引');

@@ -253,8 +253,9 @@ function loadVouchers() {
         category: currentCategory,
         is_active: currentStatus
     });
-    
-    fetch(`/admin/vouchers/api/list?${params}`)
+
+    // P1-7: 更新 API 端點
+    fetch(`/api/admin/vouchers?${params}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -472,7 +473,8 @@ function showVoucherModal(voucherId = null) {
 
     // 如果是編輯模式，載入兌換券資料
     if (isEdit) {
-        fetch(`/admin/vouchers/api/${voucherId}`)
+        // P1-7: 更新 API 端點
+        fetch(`/api/admin/vouchers/${voucherId}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -515,7 +517,8 @@ function saveVoucher(voucherId) {
         min_play_time: parseInt(document.getElementById('min_play_time').value)
     };
 
-    const url = voucherId ? `/admin/vouchers/api/${voucherId}` : '/admin/vouchers/api';
+    // P1-7: 更新 API 端點
+    const url = voucherId ? `/api/admin/vouchers/${voucherId}` : '/api/admin/vouchers';
     const method = voucherId ? 'PUT' : 'POST';
 
     fetch(url, {
@@ -547,7 +550,8 @@ function deleteVoucher(voucherId) {
         return;
     }
 
-    fetch(`/admin/vouchers/api/${voucherId}`, {
+    // P1-7: 更新 API 端點
+    fetch(`/api/admin/vouchers/${voucherId}`, {
         method: 'DELETE'
     })
     .then(response => response.json())

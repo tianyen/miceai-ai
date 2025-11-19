@@ -447,7 +447,7 @@ router.post('/events/:eventId/registrations', [
  *                         scan_count:
  *                           type: integer
  *                           example: 0
- *                         last_scanned:
+ *                         last_scanned_at:
  *                           type: string
  *                           format: date-time
  *                           nullable: true
@@ -493,7 +493,7 @@ router.get('/registrations/:traceId', [
                 p.event_location,
                 qr.qr_data,
                 qr.scan_count,
-                qr.last_scanned
+                qr.last_scanned_at
             FROM form_submissions fs
             JOIN event_projects p ON fs.project_id = p.id
             LEFT JOIN qr_codes qr ON fs.id = qr.submission_id
@@ -523,7 +523,7 @@ router.get('/registrations/:traceId', [
             qr_code: {
                 data: registration.qr_data,
                 scan_count: registration.scan_count || 0,
-                last_scanned: registration.last_scanned
+                last_scanned_at: registration.last_scanned_at
             },
             check_in_status: registration.checked_in_at,
             created_at: registration.created_at
@@ -683,7 +683,7 @@ router.get('/qr-codes/:traceId', [
  *                     scan_count:
  *                       type: integer
  *                       example: 0
- *                     last_scanned:
+ *                     last_scanned_at:
  *                       type: string
  *                       format: date-time
  *                       nullable: true
@@ -713,7 +713,7 @@ router.get('/qr-codes/:traceId/data', [
                 qr.qr_data,
                 qr.qr_base64,
                 qr.scan_count,
-                qr.last_scanned,
+                qr.last_scanned_at,
                 qr.created_at,
                 fs.submitter_name as participant_name,
                 p.project_name as event_name
@@ -734,7 +734,7 @@ router.get('/qr-codes/:traceId/data', [
             participant_name: qrRecord.participant_name,
             event_name: qrRecord.event_name,
             scan_count: qrRecord.scan_count || 0,
-            last_scanned: qrRecord.last_scanned,
+            last_scanned_at: qrRecord.last_scanned_at,
             created_at: qrRecord.created_at
         };
 

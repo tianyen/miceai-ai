@@ -179,8 +179,9 @@ function loadGames() {
         search: currentSearch,
         is_active: currentStatus
     });
-    
-    fetch(`/admin/games/api/list?${params}`)
+
+    // P1-7: 更新 API 端點
+    fetch(`/api/admin/games?${params}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -360,7 +361,8 @@ function showGameModal(gameId = null) {
 
     // 如果是編輯模式，載入遊戲資料
     if (isEdit) {
-        fetch(`/admin/games/api/${gameId}`)
+        // P1-7: 更新 API 端點
+        fetch(`/api/admin/games/${gameId}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -391,7 +393,8 @@ function saveGame(gameId) {
         description: document.getElementById('description').value
     };
 
-    const url = gameId ? `/admin/games/api/${gameId}` : '/admin/games/api';
+    // P1-7: 更新 API 端點
+    const url = gameId ? `/api/admin/games/${gameId}` : '/api/admin/games';
     const method = gameId ? 'PUT' : 'POST';
 
     fetch(url, {
@@ -424,8 +427,15 @@ function toggleGameStatus(gameId, currentStatus) {
         return;
     }
 
-    fetch(`/admin/games/api/${gameId}/toggle`, {
-        method: 'PATCH'
+    // P1-7: 更新為 PUT 方法更新 is_active 欄位
+    fetch(`/api/admin/games/${gameId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            is_active: !currentStatus
+        })
     })
     .then(response => response.json())
     .then(data => {
@@ -448,7 +458,8 @@ function deleteGame(gameId) {
         return;
     }
 
-    fetch(`/admin/games/api/${gameId}`, {
+    // P1-7: 更新 API 端點
+    fetch(`/api/admin/games/${gameId}`, {
         method: 'DELETE'
     })
     .then(response => response.json())

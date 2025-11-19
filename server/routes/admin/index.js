@@ -18,7 +18,7 @@ const questionnaireRoutes = require('./questionnaire');
 const profileRoutes = require('./profile');
 const gamesRoutes = require('./games');
 const vouchersRoutes = require('./vouchers');
-const projectGamesRoutes = require('./project-games');
+// P1-2: project-games.js 已刪除，改用 /api/admin/booths/:boothId/games
 const boothsRoutes = require('./booths');
 const gameAnalyticsRoutes = require('./game-analytics');
 const wishTreeRoutes = require('./wish-tree');
@@ -37,7 +37,7 @@ router.use('/', authRoutes);
 // 需要認證的路由
 router.use('/dashboard', authenticateSession, dashboardRoutes);
 router.use('/projects', authenticateSession, projectsRoutes);
-router.use('/projects', authenticateSession, projectGamesRoutes);
+// P1-2: project-games 路由已移除，改用 /api/admin/booths/:boothId/games
 router.use('/templates', authenticateSession, templatesRoutes);
 router.use('/users', authenticateSession, usersRoutes);
 router.use('/submissions', authenticateSession, submissionsRoutes);

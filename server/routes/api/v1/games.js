@@ -105,11 +105,11 @@ function getClientIP(req) {
 router.post('/:gameId/sessions/start', async (req, res) => {
     try {
         const { gameId } = req.params;
-        const { trace_id, user_id, project_id } = req.body;
+        const { trace_id, user_id, project_id, booth_id } = req.body;
 
-        // 驗證必填欄位
-        if (!trace_id || !project_id) {
-            return responses.badRequest(res, '缺少必填欄位: trace_id, project_id');
+        // 驗證必填欄位（支持 booth_id 或 project_id）
+        if (!trace_id || (!booth_id && !project_id)) {
+            return responses.badRequest(res, '缺少必填欄位: trace_id, booth_id 或 project_id');
         }
 
         // 驗證 trace_id 格式
@@ -117,17 +117,39 @@ router.post('/:gameId/sessions/start', async (req, res) => {
             return responses.badRequest(res, '無效的 trace_id 格式');
         }
 
-        // 驗證專案和遊戲綁定關係
-        const binding = await database.get(
-            `SELECT pg.*, g.game_name_zh, g.game_name_en, g.game_url
-             FROM project_games pg
-             JOIN games g ON pg.game_id = g.id
-             WHERE pg.project_id = ? AND pg.game_id = ? AND pg.is_active = 1`,
-            [project_id, gameId]
-        );
+        let binding;
+        let actualBoothId = booth_id;
+
+        // 如果提供 booth_id，直接查詢攤位遊戲綁定
+        if (booth_id) {
+            binding = await database.get(
+                `SELECT bg.*, g.game_name_zh, g.game_name_en, g.game_url, b.project_id
+                 FROM booth_games bg
+                 JOIN games g ON bg.game_id = g.id
+                 JOIN booths b ON bg.booth_id = b.id
+                 WHERE bg.booth_id = ? AND bg.game_id = ? AND bg.is_active = 1`,
+                [booth_id, gameId]
+            );
+        }
+        // 向後兼容：如果只提供 project_id，查找該專案的第一個攤位
+        else if (project_id) {
+            binding = await database.get(
+                `SELECT bg.*, g.game_name_zh, g.game_name_en, g.game_url, b.project_id, b.id as booth_id
+                 FROM booth_games bg
+                 JOIN games g ON bg.game_id = g.id
+                 JOIN booths b ON bg.booth_id = b.id
+                 WHERE b.project_id = ? AND bg.game_id = ? AND bg.is_active = 1
+                 ORDER BY b.id ASC
+                 LIMIT 1`,
+                [project_id, gameId]
+            );
+            if (binding) {
+                actualBoothId = binding.booth_id;
+            }
+        }
 
         if (!binding) {
-            return responses.notFound(res, '專案未綁定此遊戲或遊戲未啟用');
+            return responses.notFound(res, '攤位未綁定此遊戲或遊戲未啟用');
         }
 
         // 創建遊戲會話
@@ -136,13 +158,13 @@ router.post('/:gameId/sessions/start', async (req, res) => {
 
         const result = await database.run(
             `INSERT INTO game_sessions (
-                project_id, game_id, trace_id, user_id,
+                project_id, game_id, booth_id, trace_id, user_id,
                 ip_address, user_agent
-            ) VALUES (?, ?, ?, ?, ?, ?)`,
-            [project_id, gameId, trace_id, user_id, ip_address, user_agent]
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [binding.project_id, gameId, actualBoothId, trace_id, user_id, ip_address, user_agent]
         );
 
-        console.log(`✅ 遊戲會話已開始: session_id=${result.lastID}, trace_id=${trace_id}, game_id=${gameId}`);
+        console.log(`✅ 遊戲會話已開始: session_id=${result.lastID}, trace_id=${trace_id}, game_id=${gameId}, booth_id=${actualBoothId}`);
 
         return responses.success(res, {
             session_id: result.lastID,
@@ -444,11 +466,11 @@ router.post('/:gameId/sessions/end', async (req, res) => {
             [final_score, total_play_time, session.id]
         );
 
-        // 查詢專案綁定的兌換券
+        // 查詢攤位綁定的兌換券（使用會話中的 booth_id）
         const binding = await database.get(
-            `SELECT * FROM project_games
-             WHERE project_id = ? AND game_id = ? AND is_active = 1`,
-            [project_id, gameId]
+            `SELECT * FROM booth_games
+             WHERE booth_id = ? AND game_id = ? AND is_active = 1`,
+            [session.booth_id, gameId]
         );
 
         let voucherEarned = false;
@@ -663,7 +685,7 @@ router.post('/:gameId/sessions/end', async (req, res) => {
 router.get('/:gameId/info', async (req, res) => {
     try {
         const { gameId } = req.params;
-        const { project_id } = req.query;
+        const { project_id, booth_id } = req.query;
 
         // 查詢遊戲資訊
         const game = await database.get(
@@ -684,43 +706,54 @@ router.get('/:gameId/info', async (req, res) => {
             is_active: game.is_active
         };
 
-        // 如果提供了 project_id，查詢專案綁定資訊和兌換券
-        if (project_id) {
-            const binding = await database.get(
-                `SELECT * FROM project_games
-                 WHERE project_id = ? AND game_id = ? AND is_active = 1`,
+        // 如果提供了 booth_id 或 project_id，查詢綁定資訊和兌換券
+        let binding;
+        if (booth_id) {
+            binding = await database.get(
+                `SELECT * FROM booth_games
+                 WHERE booth_id = ? AND game_id = ? AND is_active = 1`,
+                [booth_id, gameId]
+            );
+        } else if (project_id) {
+            // 向後兼容：查找該專案的第一個攤位
+            binding = await database.get(
+                `SELECT bg.* FROM booth_games bg
+                 JOIN booths b ON bg.booth_id = b.id
+                 WHERE b.project_id = ? AND bg.game_id = ? AND bg.is_active = 1
+                 ORDER BY b.id ASC
+                 LIMIT 1`,
                 [project_id, gameId]
             );
+        }
 
-            if (binding) {
-                responseData.is_bound = true;
+        if (binding) {
+            responseData.is_bound = true;
 
-                // 如果有綁定兌換券，返回兌換券資訊
-                if (binding.voucher_id) {
-                    const voucher = await database.get(
-                        `SELECT v.*, vc.min_score, vc.min_play_time
-                         FROM vouchers v
-                         LEFT JOIN voucher_conditions vc ON v.id = vc.voucher_id
-                         WHERE v.id = ? AND v.is_active = 1`,
-                        [binding.voucher_id]
-                    );
+            // 如果有綁定兌換券，返回兌換券資訊
+            if (binding.voucher_id) {
+                const voucher = await database.get(
+                    `SELECT v.*, vc.min_score, vc.min_play_time
+                     FROM vouchers v
+                     LEFT JOIN voucher_conditions vc ON v.id = vc.voucher_id
+                     WHERE v.id = ? AND v.is_active = 1`,
+                    [binding.voucher_id]
+                );
 
-                    if (voucher) {
-                        responseData.voucher = {
-                            id: voucher.id,
-                            name: voucher.voucher_name,
-                            value: voucher.voucher_value,
-                            current_stock: voucher.remaining_quantity,
-                            conditions: {
-                                min_score: voucher.min_score,
-                                min_play_time: voucher.min_play_time
-                            }
-                        };
-                    }
+                if (voucher) {
+                    responseData.voucher = {
+                        id: voucher.id,
+                        name: voucher.voucher_name,
+                        value: voucher.voucher_value,
+                        current_stock: voucher.remaining_quantity,
+                        conditions: {
+                            min_score: voucher.min_score,
+                            min_play_time: voucher.min_play_time
+                        }
+                    };
                 }
-            } else {
-                responseData.is_bound = false;
             }
+        } else if (booth_id || project_id) {
+            responseData.is_bound = false;
         }
 
         return responses.success(res, responseData);

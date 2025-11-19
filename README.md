@@ -102,14 +102,28 @@ server/
 **Swagger UI**: http://localhost:3000/api-docs
 
 主要 API 端點：
-- `/api/v1/*` - 前端 API（完整 Swagger 文檔）
-- `/api/admin/*` - 後台管理 API
+- `/api/v1/*` - 前端 API（14 個端點，完整 Swagger 文檔）
+  - Check-in: 報到管理（2 個端點）
+  - Events: 活動管理（4 個端點）
+  - Registrations: 報名管理（3 個端點）
+  - Games: 遊戲管理（4 個端點）
+  - Business Cards: 名片管理（2 個端點）
+  - Wish Tree: 許願樹（2 個端點）
+- `/api/admin/*` - 後台管理 API（16 個端點）
+  - Games: 遊戲管理（6 個端點）
+  - Vouchers: 兌換券管理（6 個端點）
+  - Booth Games: 攤位遊戲綁定（4 個端點）
 - `/business-card/:traceId` - QR Code 名片展示
 
 測試數據（與 Swagger 範例一致）：
 - 測試用戶：王大明 (user_id: 3, trace_id: `MICE-05207cf7-199967c04`)
 - 測試專案：TECH2024 (project_id: 1)
-- 測試遊戲：幸運飛鏢 (game_id: 1)
+- 測試攤位：BOOTH-A1 (booth_id: 4)
+- 測試遊戲：幸運飛鏢 (game_id: 2)
+
+**詳細文檔**:
+- [API v1 端點清單](./claude/docs/API_V1_ENDPOINTS.md)
+- [Swagger 整合指南](./claude/docs/SWAGGER_INTEGRATION_GUIDE.md)
 
 ## 🗄️ 資料庫
 
@@ -117,6 +131,17 @@ server/
 - **實際文件**: `server/data/mice_ai.db` ⭐
 - **Schema 定義**: `server/database/schema.sql`（僅定義，不存放 .db 文件）
 - **配置**: `.env` 中的 `DATABASE_PATH` 環境變數
+
+### 核心資料表
+- `event_projects` - 活動專案表
+- `booths` - 攤位表
+- `booth_games` - 攤位遊戲綁定表（P1-2: 從 project_games 重構）
+- `form_submissions` - 報名記錄表
+- `qr_codes` - QR Code 表
+- `game_sessions` - 遊戲會話表
+- `business_cards` - 名片表
+
+**詳細文檔**: [資料庫 Schema 快速參考](./claude/docs/DATABASE_SCHEMA_REFERENCE.md)
 
 ### 在腳本中使用資料庫
 
@@ -130,6 +155,11 @@ const dbPath = getDbPath();
 ```javascript
 const dbPath = './data/mice_ai.db';  // 不要這樣做！
 ```
+
+### 欄位命名規範（P1-6）
+- 時間欄位：使用 `_at` 後綴（如 `created_at`, `updated_at`, `last_scanned_at`）
+- 布林欄位：使用 `is_` 前綴（如 `is_active`, `is_required`）
+- 外鍵欄位：使用 `_id` 後綴（如 `user_id`, `project_id`, `booth_id`）
 
 ### Trace ID 格式
 
@@ -177,6 +207,33 @@ TRACE{timestamp}{random}
 
 預設管理員帳號：`admin` / `admin123`
 
+## 📚 文檔
+
+### 核心文檔
+- [技術規格文檔](./claude/docs/spec.md) - 完整的系統架構和技術規格
+- [系統改進計劃](./claude/docs/plan.md) - 優化計劃和 TODO 追蹤
+- [用戶旅程文檔](./claude/docs/user-journey.md) - 四種角色的完整用戶旅程
+
+### API 文檔
+- [API v1 端點清單](./claude/docs/API_V1_ENDPOINTS.md) - 前端 API 完整清單
+- [API 路由重構](./claude/docs/API_ROUTING_REFACTOR.md) - API 路由設計規範
+- [Swagger 整合指南](./claude/docs/SWAGGER_INTEGRATION_GUIDE.md) - Swagger 使用指南
+
+### 資料庫文檔
+- [資料庫 Schema 參考](./claude/docs/DATABASE_SCHEMA_REFERENCE.md) - 資料表快速參考
+- [命名規範](./claude/docs/NAMING_CONVENTIONS.md) - 欄位命名規範
+
+### 開發規範
+- [錯誤處理指南](./claude/docs/ERROR_HANDLING_GUIDE.md) - 統一錯誤處理
+- [日誌系統指南](./claude/docs/LOGGING_GUIDE.md) - 集中式日誌
+- [API 回應標準](./claude/docs/API_RESPONSE_STANDARD.md) - 統一回應格式
+
+### 完成報告
+- [P1-2: 攤位遊戲重構](./claude/docs/P1-2_BOOTH_GAMES_REFACTOR.md)
+- [P1-7: API 路由重構](./claude/docs/P1-7_COMPLETION_REPORT.md)
+
+## 🚀 生產環境部署
+
 ### 推薦配置
 ```bash
 # 使用 PM2 啟動
@@ -184,3 +241,16 @@ pm2 start server/server.js --name mice-ai
 pm2 save
 pm2 startup
 ```
+
+### 環境變數檢查清單
+- [ ] `BASE_URL` 設定為實際域名
+- [ ] `SESSION_SECRET` 使用強密鑰
+- [ ] `NODE_ENV` 設為 `production`
+- [ ] `DATABASE_PATH` 確認正確
+- [ ] 資料庫已備份
+
+---
+
+**版本**: 2.0
+**最後更新**: 2025-11-19
+**維護者**: MICE-AI Team

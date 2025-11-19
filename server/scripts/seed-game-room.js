@@ -60,7 +60,8 @@ async function seed() {
         await runSQL('DELETE FROM voucher_redemptions');
         await runSQL('DELETE FROM game_logs');
         await runSQL('DELETE FROM game_sessions');
-        await runSQL('DELETE FROM project_games');
+        // P1-2: project_games 已改為 booth_games
+        await runSQL('DELETE FROM booth_games');
         await runSQL('DELETE FROM voucher_conditions');
         await runSQL('DELETE FROM vouchers');
         await runSQL('DELETE FROM games');
@@ -231,23 +232,24 @@ async function seed() {
             console.log('⚠️  找不到專案，跳過攤位建立');
         }
 
-        // 5. 綁定遊戲到專案
-        console.log('\n🔗 綁定遊戲到專案...');
+        // 5. 綁定遊戲到攤位
+        console.log('\n🔗 綁定遊戲到攤位...');
 
-        if (project) {
-            const projectId = project.id;
-
-            // 先插入綁定記錄
+        if (boothsTableExists && booth1Id && project) {
+            // P1-2: 綁定遊戲到攤位（而非專案）
+            // 將遊戲綁定到 A區攤位
             const bindingId = await runSQL(`
-                INSERT INTO project_games (project_id, game_id, voucher_id, is_active)
+                INSERT INTO booth_games (booth_id, game_id, voucher_id, is_active)
                 VALUES (?, ?, ?, ?)
-            `, [projectId, game1Id, voucher1Id, 1]);
+            `, [booth1Id, game1Id, voucher1Id, 1]);
 
             // 生成 QR Code
             const qrData = {
                 type: 'game',
-                project_id: projectId,
+                project_id: project.id,
                 project_code: project.project_code,
+                booth_id: booth1Id,
+                booth_code: 'BOOTH-A1',
                 game_id: game1Id,
                 game_name: '幸運飛鏢',
                 binding_id: bindingId,
@@ -266,15 +268,15 @@ async function seed() {
 
             // 更新 QR Code
             await runSQL(`
-                UPDATE project_games
+                UPDATE booth_games
                 SET qr_code_base64 = ?
                 WHERE id = ?
             `, [qrCodeBase64, bindingId]);
 
-            console.log(`✅ 綁定: 幸運飛鏢 → 專案 ${projectId} (兌換券: 星巴克咖啡券)`);
+            console.log(`✅ 綁定: 幸運飛鏢 → 攤位 A區 (BOOTH-A1) (兌換券: 星巴克咖啡券)`);
             console.log(`   QR Code 已生成 (Base64 長度: ${qrCodeBase64.length})`);
         } else {
-            console.log('⚠️  找不到專案，跳過遊戲綁定');
+            console.log('⚠️  攤位尚未建立，跳過遊戲綁定');
         }
 
         // 6. 新增測試遊戲會話和日誌

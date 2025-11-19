@@ -228,7 +228,8 @@ document.addEventListener('DOMContentLoaded', function() {
 async function loadStats() {
     try {
         const date = document.getElementById('date-filter').value;
-        const url = date ? `/admin/vouchers/api/stats?date=${date}` : '/admin/vouchers/api/stats';
+        // P1-7: 更新 API 端點
+        const url = date ? `/api/admin/vouchers/stats?date=${date}` : '/api/admin/vouchers/stats';
 
         const response = await fetch(url);
         const data = await response.json();

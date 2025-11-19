@@ -33,8 +33,8 @@ const { body, validationResult } = require('express-validator');
  *                 type: string
  *                 minLength: 1
  *                 maxLength: 50
- *                 description: 報名追蹤 ID（報名時返回）
- *                 example: "TRACED074DD3EE3E27B6B"
+ *                 description: 報名追蹤 ID（報名時返回，格式：MICE-{timestamp}-{random}）
+ *                 example: "MICE-d074dd3e-e3e27b6b0"
  *               scanner_location:
  *                 type: string
  *                 maxLength: 100
@@ -68,8 +68,8 @@ const { body, validationResult } = require('express-validator');
  *                       example: 123
  *                     trace_id:
  *                       type: string
- *                       description: 追蹤 ID
- *                       example: "TRACED074DD3EE3E27B6B"
+ *                       description: 追蹤 ID（格式：MICE-{timestamp}-{random}）
+ *                       example: "MICE-d074dd3e-e3e27b6b0"
  *                     participant_name:
  *                       type: string
  *                       description: 參與者姓名
@@ -212,9 +212,9 @@ router.post('/', [
 
         // 更新 QR Code 掃描次數
         await database.run(`
-            UPDATE qr_codes 
+            UPDATE qr_codes
             SET scan_count = scan_count + 1,
-                last_scanned = CURRENT_TIMESTAMP,
+                last_scanned_at = CURRENT_TIMESTAMP,
                 updated_at = CURRENT_TIMESTAMP
             WHERE submission_id = ?
         `, [registration.submission_id]);
@@ -297,8 +297,8 @@ router.post('/', [
  *           type: string
  *           minLength: 1
  *           maxLength: 50
- *         description: 報名追蹤 ID
- *         example: "TRACED074DD3EE3E27B6B"
+ *         description: 報名追蹤 ID（格式：MICE-{timestamp}-{random}）
+ *         example: "MICE-d074dd3e-e3e27b6b0"
  *     responses:
  *       200:
  *         description: 成功獲取報到記錄
@@ -319,8 +319,8 @@ router.post('/', [
  *                       example: 123
  *                     trace_id:
  *                       type: string
- *                       description: 追蹤 ID
- *                       example: "TRACED074DD3EE3E27B6B"
+ *                       description: 追蹤 ID（格式：MICE-{timestamp}-{random}）
+ *                       example: "MICE-d074dd3e-e3e27b6b0"
  *                     participant:
  *                       type: object
  *                       properties:
