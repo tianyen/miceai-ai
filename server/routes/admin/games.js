@@ -94,5 +94,30 @@ router.get('/:gameId/stats', async (req, res) => {
 // 請使用新的 API 端點
 // ============================================================
 
+// 獲取遊戲列表（API，用於下拉選單）
+router.get('/api/list', async (req, res) => {
+    try {
+        const { is_active, limit = 100 } = req.query;
+
+        let query = 'SELECT id, game_name_zh, game_name_en, is_active FROM games WHERE 1=1';
+        const params = [];
+
+        if (is_active !== undefined && is_active !== '') {
+            query += ' AND is_active = ?';
+            params.push(is_active);
+        }
+
+        query += ' ORDER BY game_name_zh LIMIT ?';
+        params.push(parseInt(limit));
+
+        const games = await database.query(query, params);
+
+        return responses.success(res, games, '獲取遊戲列表成功');
+    } catch (error) {
+        console.error('獲取遊戲列表失敗:', error);
+        return responses.serverError(res, '獲取遊戲列表失敗');
+    }
+});
+
 module.exports = router;
 

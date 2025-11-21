@@ -209,6 +209,7 @@ async function migrate() {
                     trace_id VARCHAR(50) NOT NULL,
                     redeemed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     redemption_code VARCHAR(50) UNIQUE,
+                    qr_code_base64 TEXT,
                     is_used BOOLEAN DEFAULT 0,
                     used_at TIMESTAMP,
                     FOREIGN KEY (voucher_id) REFERENCES vouchers(id),
@@ -216,7 +217,23 @@ async function migrate() {
                 )
             `, '建立 voucher_redemptions 表');
         } else {
-            console.log('ℹ️  voucher_redemptions 表已存在，跳過');
+            console.log('ℹ️  voucher_redemptions 表已存在，檢查 qr_code_base64 欄位...');
+
+            // 檢查是否有 qr_code_base64 欄位
+            const hasQrCodeBase64 = await new Promise((resolve, reject) => {
+                db.all(`PRAGMA table_info(voucher_redemptions)`, (err, columns) => {
+                    if (err) reject(err);
+                    else resolve(columns.some(col => col.name === 'qr_code_base64'));
+                });
+            });
+
+            if (!hasQrCodeBase64) {
+                await runSQL(`
+                    ALTER TABLE voucher_redemptions ADD COLUMN qr_code_base64 TEXT
+                `, '新增 qr_code_base64 欄位');
+            } else {
+                console.log('ℹ️  qr_code_base64 欄位已存在');
+            }
         }
 
         console.log('\n📋 開始建立索引...\n');

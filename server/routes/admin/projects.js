@@ -399,7 +399,7 @@ router.get('/new', async (req, res) => {
         const database = require('../../config/database');
 
         // 獲取可用的模板
-        const templates = await database.all(
+        const templates = await database.query(
             'SELECT id, template_name, category FROM invitation_templates WHERE status = "active" ORDER BY category, template_name'
         );
 
@@ -789,6 +789,198 @@ router.get('/:id/registration-urls', async (req, res) => {
     } catch (error) {
         console.error('獲取專案報名連結失敗:', error);
         return responses.serverError(res, '獲取專案報名連結失敗');
+    }
+});
+
+// 獲取專案綁定的遊戲列表（HTML 片段）
+router.get('/:id/games', async (req, res) => {
+    try {
+        const projectId = req.params.id;
+
+        // 查詢專案綁定的遊戲（透過 booth_games）
+        const games = await database.query(`
+            SELECT DISTINCT
+                g.id as game_id,
+                g.game_name_zh,
+                g.game_name_en,
+                g.is_active,
+                bg.id as binding_id,
+                bg.voucher_id,
+                v.voucher_name,
+                v.remaining_quantity,
+                v.total_quantity,
+                b.booth_name,
+                b.id as booth_id
+            FROM booth_games bg
+            INNER JOIN games g ON bg.game_id = g.id
+            INNER JOIN booths b ON bg.booth_id = b.id
+            LEFT JOIN vouchers v ON bg.voucher_id = v.id
+            WHERE b.project_id = ?
+            ORDER BY g.game_name_zh
+        `, [projectId]);
+
+        if (!games || games.length === 0) {
+            return responses.html(res, `
+                <tr>
+                    <td colspan="6" class="text-center text-muted">
+                        <i class="fas fa-info-circle"></i> 尚未綁定任何遊戲
+                    </td>
+                </tr>
+            `);
+        }
+
+        let html = '';
+        games.forEach(game => {
+            const statusBadge = game.is_active
+                ? '<span class="badge bg-success">啟用</span>'
+                : '<span class="badge bg-secondary">停用</span>';
+
+            const voucherInfo = game.voucher_id
+                ? `${game.voucher_name} (${game.remaining_quantity}/${game.total_quantity})`
+                : '<span class="text-muted">未設定</span>';
+
+            html += `
+                <tr>
+                    <td>${game.game_id}</td>
+                    <td>
+                        <strong>${game.game_name_zh}</strong><br>
+                        <small class="text-muted">${game.game_name_en}</small><br>
+                        <small class="text-info">攤位: ${game.booth_name}</small>
+                    </td>
+                    <td>${statusBadge}</td>
+                    <td>${voucherInfo}</td>
+                    <td>${game.remaining_quantity || 0}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="editProjectGame(${game.binding_id})">
+                            <i class="fas fa-edit"></i> 編輯
+                        </button>
+                        <button class="btn btn-sm btn-info" onclick="viewGameQR(${game.binding_id})">
+                            <i class="fas fa-qrcode"></i> QR Code
+                        </button>
+                        <button class="btn btn-sm btn-success" onclick="viewGameStats(${game.game_id})">
+                            <i class="fas fa-chart-bar"></i> 統計
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="unbindGame(${game.binding_id})">
+                            <i class="fas fa-unlink"></i> 解綁
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        return responses.html(res, html);
+
+    } catch (error) {
+        console.error('獲取專案遊戲列表失敗:', error);
+        return responses.html(res, `
+            <tr>
+                <td colspan="6" class="text-center text-danger">
+                    <i class="fas fa-exclamation-triangle"></i> 載入失敗：${error.message}
+                </td>
+            </tr>
+        `);
+    }
+});
+
+// 獲取遊戲綁定的 QR Code
+router.get('/:projectId/games/:bindingId/qr', async (req, res) => {
+    try {
+        const { projectId, bindingId } = req.params;
+
+        // 查詢綁定資訊
+        const binding = await database.get(`
+            SELECT
+                bg.*,
+                g.game_name_zh,
+                g.game_name_en,
+                v.voucher_name,
+                b.booth_name
+            FROM booth_games bg
+            INNER JOIN games g ON bg.game_id = g.id
+            INNER JOIN booths b ON bg.booth_id = b.id
+            LEFT JOIN vouchers v ON bg.voucher_id = v.id
+            WHERE bg.id = ? AND b.project_id = ?
+        `, [bindingId, projectId]);
+
+        if (!binding) {
+            return responses.error(res, { message: '綁定不存在' }, 404);
+        }
+
+        return responses.success(res, {
+            id: binding.id,
+            game_id: binding.game_id,
+            game_name_zh: binding.game_name_zh,
+            game_name_en: binding.game_name_en,
+            booth_name: binding.booth_name,
+            voucher_id: binding.voucher_id,
+            voucher_name: binding.voucher_name,
+            qr_code_base64: binding.qr_code_base64
+        });
+
+    } catch (error) {
+        console.error('獲取 QR Code 失敗:', error);
+        return responses.serverError(res, '獲取 QR Code 失敗');
+    }
+});
+
+// 更新遊戲綁定
+router.put('/:projectId/games/:bindingId', async (req, res) => {
+    try {
+        const { projectId, bindingId } = req.params;
+        const { voucher_id } = req.body;
+
+        // 檢查綁定是否存在
+        const binding = await database.get(`
+            SELECT bg.*
+            FROM booth_games bg
+            INNER JOIN booths b ON bg.booth_id = b.id
+            WHERE bg.id = ? AND b.project_id = ?
+        `, [bindingId, projectId]);
+
+        if (!binding) {
+            return responses.error(res, { message: '綁定不存在' }, 404);
+        }
+
+        // 更新兌換券
+        await database.run(`
+            UPDATE booth_games
+            SET voucher_id = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `, [voucher_id || null, bindingId]);
+
+        return responses.success(res, null, '更新成功');
+
+    } catch (error) {
+        console.error('更新綁定失敗:', error);
+        return responses.serverError(res, '更新綁定失敗');
+    }
+});
+
+// 解除遊戲綁定
+router.delete('/:projectId/games/:bindingId', async (req, res) => {
+    try {
+        const { projectId, bindingId } = req.params;
+
+        // 檢查綁定是否存在
+        const binding = await database.get(`
+            SELECT bg.*
+            FROM booth_games bg
+            INNER JOIN booths b ON bg.booth_id = b.id
+            WHERE bg.id = ? AND b.project_id = ?
+        `, [bindingId, projectId]);
+
+        if (!binding) {
+            return responses.error(res, { message: '綁定不存在' }, 404);
+        }
+
+        // 刪除綁定
+        await database.run('DELETE FROM booth_games WHERE id = ?', [bindingId]);
+
+        return responses.success(res, null, '解除綁定成功');
+
+    } catch (error) {
+        console.error('解除綁定失敗:', error);
+        return responses.serverError(res, '解除綁定失敗');
     }
 });
 

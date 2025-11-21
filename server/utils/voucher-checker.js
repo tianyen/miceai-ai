@@ -75,30 +75,30 @@ function checkVoucherEligibility(session, conditions) {
 /**
  * 檢查兌換券庫存
  * @param {Object} voucher - 兌換券資料
- * @param {number} voucher.current_stock - 當前庫存
- * @param {number} voucher.total_stock - 總庫存
+ * @param {number} voucher.remaining_quantity - 剩餘數量
+ * @param {number} voucher.total_quantity - 總數量
  * @returns {Object} { available: boolean, reason: string }
  */
 function checkVoucherStock(voucher) {
-    const { current_stock, total_stock } = voucher;
-    
-    if (current_stock === null || current_stock === undefined) {
+    const { remaining_quantity, total_quantity } = voucher;
+
+    if (remaining_quantity === null || remaining_quantity === undefined) {
         return {
             available: false,
             reason: '兌換券庫存資料不完整'
         };
     }
-    
-    if (current_stock <= 0) {
+
+    if (remaining_quantity <= 0) {
         return {
             available: false,
             reason: '兌換券已售罄'
         };
     }
-    
+
     return {
         available: true,
-        reason: `剩餘庫存: ${current_stock}/${total_stock}`
+        reason: `剩餘庫存: ${remaining_quantity}/${total_quantity}`
     };
 }
 

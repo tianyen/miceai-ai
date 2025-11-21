@@ -210,7 +210,7 @@ async function scanQRCode() {
             data = { code: input };
         }
         
-        const response = await fetch('/admin/vouchers/scan', {
+        const response = await fetch('/api/admin/vouchers/scan', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -274,9 +274,9 @@ function clearInput() {
 // 載入兌換記錄
 async function loadRedemptions() {
     try {
-        const response = await fetch('/admin/vouchers/redemptions');
+        const response = await fetch('/api/admin/vouchers/redemptions');
         const result = await response.json();
-        
+
         if (result.success) {
             renderRedemptions(result.data);
         } else {
@@ -332,14 +332,14 @@ async function markAsUsed(id) {
     if (!confirm('確定要標記此兌換券為已使用嗎？')) {
         return;
     }
-    
+
     try {
-        const response = await fetch(`/admin/vouchers/redemptions/${id}/use`, {
+        const response = await fetch(`/api/admin/vouchers/redemptions/${id}/use`, {
             method: 'POST'
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             alert('標記成功');
             loadRedemptions();

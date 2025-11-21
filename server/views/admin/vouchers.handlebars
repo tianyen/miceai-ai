@@ -259,9 +259,10 @@ function loadVouchers() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                renderVouchersTable(data.data);
-                renderPagination(data.pagination);
-                updateStats(data.data);
+                // API 返回的資料結構: { success, data: { vouchers, pagination } }
+                renderVouchersTable(data.data.vouchers || []);
+                renderPagination(data.data.pagination);
+                updateStats(data.data.vouchers || []);
             } else {
                 showNotification('載入兌換券列表失敗', 'error');
             }
@@ -326,17 +327,27 @@ function renderVouchersTable(vouchers) {
 // 渲染分頁
 function renderPagination(pagination) {
     const container = document.getElementById('pagination-container');
-    const { page, limit, total, totalPages } = pagination;
-    
+
+    if (!pagination) {
+        container.innerHTML = '<div class="pagination-info"><span>無分頁資訊</span></div>';
+        return;
+    }
+
+    // API 返回的欄位: current_page, total_pages, total_items, items_per_page
+    const page = pagination.current_page || 1;
+    const limit = pagination.items_per_page || 20;
+    const total = pagination.total_items || 0;
+    const totalPages = pagination.total_pages || 1;
+
     let html = `
         <div class="pagination-info">
             <span>顯示第 ${(page - 1) * limit + 1} - ${Math.min(page * limit, total)} 筆，共 ${total} 筆</span>
         </div>
         <div class="pagination-buttons">
     `;
-    
+
     html += `<button class="btn btn-sm btn-secondary" ${page === 1 ? 'disabled' : ''} onclick="changePage(${page - 1})">上一頁</button>`;
-    
+
     for (let i = 1; i <= totalPages; i++) {
         if (i === 1 || i === totalPages || (i >= page - 2 && i <= page + 2)) {
             html += `<button class="btn btn-sm ${i === page ? 'btn-primary' : 'btn-secondary'}" onclick="changePage(${i})">${i}</button>`;
@@ -344,7 +355,7 @@ function renderPagination(pagination) {
             html += `<span>...</span>`;
         }
     }
-    
+
     html += `<button class="btn btn-sm btn-secondary" ${page === totalPages ? 'disabled' : ''} onclick="changePage(${page + 1})">下一頁</button>`;
     html += '</div>';
     container.innerHTML = html;
@@ -479,20 +490,23 @@ function showVoucherModal(voucherId = null) {
             .then(data => {
                 if (data.success) {
                     const voucher = data.data;
-                    document.getElementById('voucher_name').value = voucher.voucher_name;
+                    document.getElementById('voucher_name').value = voucher.voucher_name || '';
                     document.getElementById('vendor_name').value = voucher.vendor_name || '';
                     document.getElementById('sponsor_name').value = voucher.sponsor_name || '';
                     document.getElementById('category').value = voucher.category || '';
-                    document.getElementById('total_quantity').value = voucher.total_quantity;
-                    document.getElementById('voucher_value').value = voucher.voucher_value;
+                    document.getElementById('total_quantity').value = voucher.total_quantity || 0;
+                    document.getElementById('voucher_value').value = voucher.voucher_value || 0;
                     document.getElementById('description').value = voucher.description || '';
                     document.getElementById('is_active').value = voucher.is_active ? '1' : '0';
 
-                    if (voucher.condition) {
-                        document.getElementById('min_score').value = voucher.condition.min_score || 0;
-                        document.getElementById('min_play_time').value = voucher.condition.min_play_time || 0;
-                    }
+                    // 兌換條件欄位直接在 voucher 物件中
+                    document.getElementById('min_score').value = voucher.min_score || 0;
+                    document.getElementById('min_play_time').value = voucher.min_play_time || 0;
                 }
+            })
+            .catch(error => {
+                console.error('載入兌換券資料失敗:', error);
+                showNotification('載入兌換券資料失敗', 'error');
             });
     }
 }

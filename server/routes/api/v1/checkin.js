@@ -197,17 +197,18 @@ router.post('/', [
 
         // 創建報到記錄
         const checkInResult = await database.run(`
-            INSERT INTO check_in_records (
-                trace_id, project_id, participant_name, check_in_time,
-                scanner_location, scanner_user_id, check_in_method, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 'qr_scanner', CURRENT_TIMESTAMP)
+            INSERT INTO checkin_records (
+                project_id, submission_id, trace_id, attendee_name,
+                scanned_by, scanner_location, checkin_time
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `, [
-            trace_id,
             registration.project_id,
+            registration.submission_id,
+            trace_id,
             registration.submitter_name,
-            checkInTime,
+            scanner_user_id,
             scanner_location,
-            scanner_user_id
+            checkInTime
         ]);
 
         // 更新 QR Code 掃描次數
@@ -391,24 +392,24 @@ router.get('/:traceId', async (req, res) => {
         const traceId = req.params.traceId;
 
         const checkInRecord = await database.get(`
-            SELECT 
+            SELECT
                 cr.id as check_in_id,
                 cr.trace_id,
-                cr.participant_name,
-                cr.check_in_time,
+                cr.attendee_name as participant_name,
+                cr.checkin_time as check_in_time,
                 cr.scanner_location,
-                cr.check_in_method,
-                cr.notes,
-                cr.created_at,
+                'qr_scanner' as check_in_method,
+                '' as notes,
+                cr.checkin_time as created_at,
                 p.project_name as event_name,
                 p.event_location,
                 fs.submitter_email,
                 fs.company_name,
                 u.full_name as scanner_name
-            FROM check_in_records cr
+            FROM checkin_records cr
             JOIN event_projects p ON cr.project_id = p.id
             LEFT JOIN form_submissions fs ON cr.trace_id = fs.trace_id
-            LEFT JOIN users u ON cr.scanner_user_id = u.id
+            LEFT JOIN users u ON cr.scanned_by = u.id
             WHERE cr.trace_id = ?
         `, [traceId]);
 

@@ -413,7 +413,7 @@ function renderGameSessions(sessions) {
                     ${session.booth_name ? `<span class="badge-info">${session.booth_name}</span>` : ''}
                     <br>
                     分數: <strong>${score}</strong> | 時長: ${duration} 秒
-                    ${session.voucher_earned ? `<br><span class="badge-success">獲得兌換券: ${session.voucher_name}</span>` : ''}
+                    ${session.voucher_earned && session.voucher_name ? `<br><span class="badge-success">獲得兌換券: ${session.voucher_name}</span>` : ''}
                 </div>
             </div>
         `;

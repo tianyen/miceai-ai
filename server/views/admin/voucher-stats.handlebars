@@ -258,6 +258,10 @@ function updateSummary(summary) {
 
 // 更新兌換券發放統計圖表
 function updateVoucherChart(voucherStats) {
+    if (!voucherStats || !Array.isArray(voucherStats) || voucherStats.length === 0) {
+        voucherStats = [];
+    }
+
     const labels = voucherStats.map(v => v.voucher_name);
     const redemptionCounts = voucherStats.map(v => v.redemption_count || 0);
     const usedCounts = voucherStats.map(v => v.used_count || 0);
@@ -310,6 +314,10 @@ function updateVoucherChart(voucherStats) {
 
 // 更新每日兌換趨勢圖表
 function updateDailyTrendChart(dailyTrend) {
+    if (!dailyTrend || !Array.isArray(dailyTrend) || dailyTrend.length === 0) {
+        dailyTrend = [];
+    }
+
     const labels = dailyTrend.map(d => d.date);
     const redemptionCounts = dailyTrend.map(d => d.redemption_count || 0);
     const usedCounts = dailyTrend.map(d => d.used_count || 0);

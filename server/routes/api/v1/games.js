@@ -412,7 +412,15 @@ router.post('/:gameId/logs', async (req, res) => {
  *                           example: "GAME-2025-D8E9F1"
  *                         qr_code_base64:
  *                           type: string
- *                           description: QR Code Base64 編碼，包含兌換碼和 trace_id，可直接用於前端顯示
+ *                           description: |
+ *                             QR Code Base64 編碼，包含兌換碼和 trace_id，可直接用於前端顯示。
+ *                             QR Code 內容為 JSON 格式：
+ *                             {
+ *                               "redemption_code": "GAME-2025-XXXXXX",
+ *                               "trace_id": "MICE-xxx-xxx",
+ *                               "voucher_id": 1,
+ *                               "voucher_name": "星巴克咖啡券"
+ *                             }
  *                           example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
  *       400:
  *         description: 請求參數錯誤
@@ -508,33 +516,6 @@ router.post('/:gameId/sessions/end', async (req, res) => {
                         await database.run('BEGIN TRANSACTION');
 
                         try {
-                            // 插入兌換記錄
-                            const redemptionResult = await database.run(
-                                `INSERT INTO voucher_redemptions (
-                                    voucher_id, session_id, trace_id,
-                                    redemption_code
-                                ) VALUES (?, ?, ?, ?)`,
-                                [voucher.id, session.id, trace_id, redemption_code]
-                            );
-
-                            // 更新兌換券庫存
-                            await database.run(
-                                `UPDATE vouchers
-                                 SET current_stock = current_stock - 1
-                                 WHERE id = ?`,
-                                [voucher.id]
-                            );
-
-                            // 更新會話記錄
-                            await database.run(
-                                `UPDATE game_sessions
-                                 SET voucher_earned = 1, voucher_id = ?
-                                 WHERE id = ?`,
-                                [voucher.id, session.id]
-                            );
-
-                            await database.run('COMMIT');
-
                             // 生成 QR Code Base64（包含兌換碼）
                             const qrCodeData = JSON.stringify({
                                 redemption_code: redemption_code,
@@ -548,6 +529,33 @@ router.post('/:gameId/sessions/end', async (req, res) => {
                                 width: 300,
                                 margin: 2
                             });
+
+                            // 插入兌換記錄（包含 QR Code Base64）
+                            const redemptionResult = await database.run(
+                                `INSERT INTO voucher_redemptions (
+                                    voucher_id, session_id, trace_id,
+                                    redemption_code, qr_code_base64
+                                ) VALUES (?, ?, ?, ?, ?)`,
+                                [voucher.id, session.id, trace_id, redemption_code, qrCodeBase64]
+                            );
+
+                            // 更新兌換券庫存
+                            await database.run(
+                                `UPDATE vouchers
+                                 SET remaining_quantity = remaining_quantity - 1
+                                 WHERE id = ?`,
+                                [voucher.id]
+                            );
+
+                            // 更新會話記錄
+                            await database.run(
+                                `UPDATE game_sessions
+                                 SET voucher_earned = 1, voucher_id = ?
+                                 WHERE id = ?`,
+                                [voucher.id, session.id]
+                            );
+
+                            await database.run('COMMIT');
 
                             voucherEarned = true;
                             voucherData = {

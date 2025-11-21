@@ -364,6 +364,115 @@ router.get('/logs', authenticateSession, async (req, res) => {
     }
 });
 
+// 日誌分頁 API
+router.get('/logs/pagination', authenticateSession, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+
+        const database = require('../../config/database');
+        const countQuery = 'SELECT COUNT(*) as count FROM system_logs';
+        const totalResult = await database.get(countQuery);
+        const total = totalResult?.count || 0;
+        const pages = Math.ceil(total / limit);
+
+        res.json({
+            success: true,
+            data: {
+                total,
+                pages,
+                current_page: page,
+                per_page: limit
+            }
+        });
+    } catch (error) {
+        console.error('獲取日誌分頁失敗:', error);
+        res.status(500).json({
+            success: false,
+            message: '獲取日誌分頁失敗'
+        });
+    }
+});
+
+// 日誌搜尋 API
+router.get('/logs/search', authenticateSession, async (req, res) => {
+    try {
+        const { search, level, 'date-filter': dateFilter } = req.query;
+        const database = require('../../config/database');
+
+        let query = `
+            SELECT l.*, u.full_name as user_name
+            FROM system_logs l
+            LEFT JOIN users u ON l.user_id = u.id
+            WHERE 1=1
+        `;
+        const params = [];
+
+        if (search && search.trim()) {
+            query += ` AND (l.action LIKE ? OR l.resource_type LIKE ? OR u.full_name LIKE ?)`;
+            const searchTerm = `%${search.trim()}%`;
+            params.push(searchTerm, searchTerm, searchTerm);
+        }
+
+        if (level && level.trim()) {
+            if (level === 'error') {
+                query += ` AND (l.action LIKE '%error%' OR l.action LIKE '%failed%')`;
+            } else if (level === 'warning') {
+                query += ` AND l.action LIKE '%warning%'`;
+            } else if (level === 'info') {
+                query += ` AND l.action NOT LIKE '%error%' AND l.action NOT LIKE '%failed%' AND l.action NOT LIKE '%warning%'`;
+            }
+        }
+
+        if (dateFilter && dateFilter.trim()) {
+            query += ` AND DATE(l.created_at) = ?`;
+            params.push(dateFilter);
+        }
+
+        query += ` ORDER BY l.created_at DESC LIMIT 100`;
+
+        const logs = await database.query(query, params);
+
+        let html = '';
+        if (logs.length === 0) {
+            html = `
+                <tr>
+                    <td colspan="6" class="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <div class="empty-text">
+                            <h4>無符合條件的日誌</h4>
+                            <p>請調整搜尋條件</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        } else {
+            logs.forEach(log => {
+                const createdAt = new Date(log.created_at).toLocaleString('zh-TW');
+                html += `
+                    <tr>
+                        <td>${log.id}</td>
+                        <td>${log.action || '-'}</td>
+                        <td>${log.user_name || '系統'}</td>
+                        <td>${log.resource_type || '-'}</td>
+                        <td>${createdAt}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-info" onclick="viewLogDetails(${log.id})" title="查看詳情">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        res.send(html);
+    } catch (error) {
+        console.error('搜尋日誌失敗:', error);
+        res.status(500).send('<tr><td colspan="6" class="text-center text-danger">搜尋失敗</td></tr>');
+    }
+});
+
 // 掛載子路由
 router.use('/business-cards', authenticateSession, businessCardsRouter);
 

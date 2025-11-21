@@ -3,6 +3,8 @@
  */
 const express = require('express');
 const router = express.Router();
+const responses = require('../../utils/responses');
+const database = require('../../config/database');
 
 // 用戶管理頁面
 router.get('/', (req, res) => {
@@ -22,7 +24,6 @@ router.get('/', (req, res) => {
 router.get('/search', async (req, res) => {
     try {
         const { search, role, status } = req.query;
-        const database = require('../../config/database');
 
         let searchQuery = `
             SELECT * FROM users 
@@ -101,11 +102,9 @@ router.get('/search', async (req, res) => {
             });
         }
 
-        const responses = require('../../utils/responses');
         responses.html(res, html);
     } catch (error) {
         console.error('Search users error:', error);
-        const responses = require('../../utils/responses');
         responses.html(res, '<tr><td colspan="8" class="text-center text-danger">搜尋失敗</td></tr>');
     }
 });
@@ -292,11 +291,9 @@ router.get('/pagination', async (req, res) => {
             paginationHtml += '</div>';
         }
 
-        const responses = require('../../utils/responses');
         responses.html(res, paginationHtml);
     } catch (error) {
         console.error('Get users pagination error:', error);
-        const responses = require('../../utils/responses');
         responses.html(res, '<div class="pagination-info"><span class="text-danger">載入分頁失敗</span></div>');
     }
 });
@@ -459,7 +456,6 @@ router.get('/new', async (req, res) => {
 router.get('/:id/view', async (req, res) => {
     try {
         const userId = req.params.id;
-        const database = require('../../config/database');
 
         const user = await database.get('SELECT * FROM users WHERE id = ?', [userId]);
 
@@ -563,7 +559,6 @@ router.get('/:id/view', async (req, res) => {
 router.get('/:id/edit', async (req, res) => {
     try {
         const userId = req.params.id;
-        const database = require('../../config/database');
 
         const user = await database.get('SELECT * FROM users WHERE id = ?', [userId]);
 
@@ -684,206 +679,6 @@ router.get('/:id/edit', async (req, res) => {
     } catch (error) {
         console.error('載入編輯用戶模態框失敗:', error);
         return responses.html(res, '<div class="alert alert-danger">載入失敗</div>');
-    }
-});
-
-// 编辑用户模态框
-router.get('/:id/edit', async (req, res) => {
-    try {
-        const userId = req.params.id;
-        const database = require('../../config/database');
-
-        const user = await database.get(`
-            SELECT * FROM users WHERE id = ?
-        `, [userId]);
-
-        if (!user) {
-            return res.status(404).send(`
-                <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h4 class="modal-title">错误</h4>
-                                <button type="button" class="close" onclick="closeModal()" aria-label="Close">
-                                    <span aria-hidden="true">&times;</span>
-                                </button>
-                            </div>
-                            <div class="modal-body">
-                                <p>找不到指定的用户</p>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" onclick="closeModal()">关闭</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `);
-        }
-
-        const html = `
-            <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h4 class="modal-title">编辑用户</h4>
-                            <button type="button" class="close" onclick="closeModal()" aria-label="Close">
-                                <span aria-hidden="true">&times;</span>
-                            </button>
-                        </div>
-                        <div class="modal-body">
-                            <form id="edit-user-form">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="username">用户名 <span class="text-danger">*</span></label>
-                                            <input type="text" id="username" name="username" class="form-control" 
-                                                   value="${user.username || ''}" required>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="full_name">全名 <span class="text-danger">*</span></label>
-                                            <input type="text" id="full_name" name="full_name" class="form-control" 
-                                                   value="${user.full_name || ''}" required>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="email">电子邮件 <span class="text-danger">*</span></label>
-                                    <input type="email" id="email" name="email" class="form-control" 
-                                           value="${user.email || ''}" required>
-                                </div>
-                                
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="role">角色 <span class="text-danger">*</span></label>
-                                            <select id="role" name="role" class="form-control" required>
-                                                <option value="">请选择角色</option>
-                                                <option value="super_admin" ${user.role === 'super_admin' ? 'selected' : ''}>超级管理员</option>
-                                                <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>管理员</option>
-                                                <option value="project_manager" ${user.role === 'project_manager' ? 'selected' : ''}>项目经理</option>
-                                                <option value="vendor" ${user.role === 'vendor' ? 'selected' : ''}>供应商</option>
-                                                <option value="user" ${user.role === 'user' ? 'selected' : ''}>普通用户</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="status">状态</label>
-                                            <select id="status" name="status" class="form-control">
-                                                <option value="active" ${user.status === 'active' ? 'selected' : ''}>启用</option>
-                                                <option value="inactive" ${user.status === 'inactive' ? 'selected' : ''}>禁用</option>
-                                                <option value="suspended" ${user.status === 'suspended' ? 'selected' : ''}>暂停</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="password">新密码 <small>(留空则不修改)</small></label>
-                                    <input type="password" id="password" name="password" class="form-control" 
-                                           placeholder="输入新密码...">
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="confirm_password">确认密码</label>
-                                    <input type="password" id="confirm_password" name="confirm_password" class="form-control" 
-                                           placeholder="再次输入新密码...">
-                                </div>
-                                
-
-                            </form>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
-                            <button type="button" class="btn btn-primary" onclick="submitEditUser(${user.id})">
-                                <i class="fas fa-save"></i> 保存修改
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <script>
-                function submitEditUser(id) {
-                    const form = document.getElementById('edit-user-form');
-                    const formData = new FormData(form);
-                    const data = {};
-                    
-                    for (let [key, value] of formData.entries()) {
-                        data[key] = value;
-                    }
-                    
-                    // 验证密码
-                    if (data.password && data.password !== data.confirm_password) {
-                        showNotification('密码和确认密码不匹配', 'error');
-                        return;
-                    }
-                    
-                    // 如果密码为空，删除密码字段
-                    if (!data.password) {
-                        delete data.password;
-                        delete data.confirm_password;
-                    }
-                    
-                    $.ajax({
-                        url: '/api/admin/users/' + id,
-                        method: 'PUT',
-                        data: JSON.stringify(data),
-                        contentType: 'application/json',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        success: function(response) {
-                            if (response.success) {
-                                closeModal();
-                                showNotification('用户已更新', 'success');
-                                loadUsers();
-                                loadUserStats();
-                            } else {
-                                showNotification(response.message || '更新失败', 'error');
-                            }
-                        },
-                        error: function(xhr) {
-                            console.error('更新用户失败:', xhr);
-                            showNotification('更新用户失败', 'error');
-                        }
-                    });
-                }
-                
-                function closeModal() {
-                    document.getElementById('modal-container').innerHTML = '';
-                    $('body').removeClass('modal-open');
-                }
-            </script>
-        `;
-
-        const responses = require('../../utils/responses');
-        responses.html(res, html);
-    } catch (error) {
-        console.error('获取编辑表单失败:', error);
-        res.status(500).send(`
-            <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h4 class="modal-title">错误</h4>
-                            <button type="button" class="close" onclick="closeModal()" aria-label="Close">
-                                <span aria-hidden="true">&times;</span>
-                            </button>
-                        </div>
-                        <div class="modal-body">
-                            <p>加载编辑表单失败</p>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" onclick="closeModal()">关闭</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `);
     }
 });
 

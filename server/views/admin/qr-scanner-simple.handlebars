@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code 掃描器 - MICE-AI</title>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    <!-- jsQR 庫 -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .scanner-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            font-size: 24px;
+            margin: 0;
+        }
+        
+        .header h1 i {
+            color: #3498db;
+            margin-right: 10px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #229954;
+        }
+        
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #e67e22;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .camera-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .camera-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .camera-header h3 {
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #95a5a6;
+        }
+        
+        .status-dot.online {
+            background: #27ae60;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .camera-container {
+            position: relative;
+            margin-bottom: 15px;
+            background: #000;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        #video {
+            width: 100%;
+            height: 450px;
+            object-fit: cover;
+        }
+        
+        .scan-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 250px;
+            height: 250px;
+            border: 3px solid #3498db;
+            border-radius: 10px;
+            pointer-events: none;
+        }
+
+        .scan-line {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 230px;
+            height: 3px;
+            background: #3498db;
+            animation: scan 2s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { transform: translate(-50%, -50%) translateY(-115px); }
+            100% { transform: translate(-50%, -50%) translateY(115px); }
+        }
+
+        .camera-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .result-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-section h3 {
+            color: #27ae60;
+            margin: 0 0 15px 0;
+        }
+
+        .result-data {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-family: monospace;
+            word-break: break-all;
+            color: #2c3e50;
+        }
+
+        .result-actions {
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanner-container">
+        <div class="header">
+            <h1><i class="fas fa-qrcode"></i> QR Code 掃描器</h1>
+            {{#if project_id}}
+            <a href="/admin/projects/{{project_id}}/detail" class="btn btn-primary">
+                <i class="fas fa-arrow-left"></i> 返回專案
+            </a>
+            {{else}}
+            <a href="/admin/checkin-management" class="btn btn-primary">
+                <i class="fas fa-arrow-left"></i> 返回報到管理
+            </a>
+            {{/if}}
+        </div>
+
+        <div class="camera-section">
+            <div class="camera-header">
+                <h3>攝影機預覽</h3>
+                <div class="status">
+                    <span class="status-dot" id="status-dot"></span>
+                    <span id="status-text">攝影機未啟動</span>
+                </div>
+            </div>
+
+            <div class="camera-container">
+                <video id="video" autoplay muted playsinline></video>
+                <div class="scan-overlay">
+                    <div class="scan-line"></div>
+                </div>
+            </div>
+
+            <div class="camera-controls">
+                <button class="btn btn-success" id="start-camera">
+                    <i class="fas fa-video"></i> 啟動攝影機
+                </button>
+                <button class="btn btn-success" id="start-scan" disabled>
+                    <i class="fas fa-play"></i> 開始掃描
+                </button>
+                <button class="btn btn-warning" id="stop-scan" disabled>
+                    <i class="fas fa-stop"></i> 停止掃描
+                </button>
+            </div>
+        </div>
+
+        <div class="result-section" id="result-section">
+            <h3><i class="fas fa-check-circle"></i> 掃描成功</h3>
+            <div class="result-data" id="result-data"></div>
+            <div class="result-actions">
+                <button class="btn btn-primary" id="process-btn">
+                    <i class="fas fa-check"></i> 確認報到
+                </button>
+                <button class="btn btn-warning" id="clear-btn">
+                    <i class="fas fa-times"></i> 清除結果
+                </button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const projectId = {{#if project_id}}{{project_id}}{{else}}null{{/if}};
+    let video, canvas, context, stream, scanning = false, scannedData = null;
+
+    $(document).ready(function() {
+        video = document.getElementById('video');
+        canvas = document.createElement('canvas');
+        context = canvas.getContext('2d');
+
+        $('#start-camera').click(startCamera);
+        $('#start-scan').click(startScanning);
+        $('#stop-scan').click(stopScanning);
+        $('#clear-btn').click(clearResult);
+        $('#process-btn').click(processCheckin);
+    });
+
+    async function startCamera() {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment' }
+            });
+            video.srcObject = stream;
+
+            $('#status-dot').addClass('online');
+            $('#status-text').text('攝影機已啟動');
+            $('#start-camera').prop('disabled', true);
+            $('#start-scan').prop('disabled', false);
+        } catch (error) {
+            alert('無法啟動攝影機：' + error.message);
+        }
+    }
+
+    function startScanning() {
+        scanning = true;
+        $('#start-scan').prop('disabled', true);
+        $('#stop-scan').prop('disabled', false);
+        $('#status-text').text('掃描中...');
+        scan();
+    }
+
+    function stopScanning() {
+        scanning = false;
+        $('#start-scan').prop('disabled', false);
+        $('#stop-scan').prop('disabled', true);
+        $('#status-text').text('攝影機已啟動');
+    }
+
+    function scan() {
+        if (!scanning) return;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+        if (code) {
+            scannedData = code.data;
+            stopScanning();
+            showResult(scannedData);
+        } else {
+            requestAnimationFrame(scan);
+        }
+    }
+
+    function showResult(data) {
+        // 嘗試解析 QR Code 數據
+        let displayText = data;
+        try {
+            const parsed = JSON.parse(data);
+            if (parsed.traceId) {
+                displayText = `Trace ID: ${parsed.traceId}`;
+            } else if (parsed.submissionId) {
+                displayText = `Submission ID: ${parsed.submissionId}`;
+            }
+        } catch (e) {
+            // 如果不是 JSON，顯示原始數據
+            displayText = `Trace ID: ${data}`;
+        }
+
+        $('#result-data').text(displayText);
+        $('#result-section').addClass('show');
+    }
+
+    function clearResult() {
+        scannedData = null;
+        $('#result-section').removeClass('show');
+        $('#result-data').text('');
+    }
+
+    function processCheckin() {
+        if (!scannedData) return;
+
+        // 禁用按鈕防止重複點擊
+        $('#process-btn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 處理中...');
+
+        // 處理報到邏輯
+        $.ajax({
+            url: '/api/admin/qr-scanner/checkin',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                qrData: scannedData
+            }),
+            success: function(response) {
+                if (response.success) {
+                    const participant = response.data.participant;
+                    const message = `✅ 報到成功！\n\n` +
+                                  `姓名：${participant.name}\n` +
+                                  `Email：${participant.email || '無'}\n` +
+                                  `報到時間：${new Date(participant.checkinTime).toLocaleString('zh-TW')}`;
+                    alert(message);
+                    clearResult();
+                } else {
+                    alert('❌ 報到失敗：' + response.message);
+                    $('#process-btn').prop('disabled', false).html('<i class="fas fa-check"></i> 確認報到');
+                }
+            },
+            error: function(xhr) {
+                let errorMsg = '報到失敗，請稍後再試';
+
+                if (xhr.responseJSON?.message) {
+                    errorMsg = xhr.responseJSON.message;
+                } else if (xhr.status === 400) {
+                    errorMsg = '請求格式錯誤或參與者已報到';
+                } else if (xhr.status === 404) {
+                    errorMsg = '找不到對應的參與者記錄';
+                } else if (xhr.status === 500) {
+                    errorMsg = '伺服器錯誤，請聯繫管理員';
+                }
+
+                alert('❌ 報到失敗：' + errorMsg);
+                $('#process-btn').prop('disabled', false).html('<i class="fas fa-check"></i> 確認報到');
+            }
+        });
+    }
+
+    // 頁面離開時清理資源
+    window.addEventListener('beforeunload', function() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+    });
+</script>
+</body>
+</html>
+

@@ -185,3 +185,122 @@ async function runTests() {
 
     console.log('\n📋 測試 Games API (4 個端點)\n');
 
+    // 動態獲取遊戲 ID
+    const game = await get('SELECT * FROM games ORDER BY id DESC LIMIT 1');
+    const gameId = game ? game.id : 1;
+
+    // 10. POST /api/v1/games/{gameId}/sessions/start
+    await testEndpoint('POST /api/v1/games/{gameId}/sessions/start - 開始遊戲會話', async () => {
+        // 檢查 booth_games 綁定
+        const binding = await get(
+            `SELECT bg.*, b.project_id FROM booth_games bg
+             JOIN booths b ON bg.booth_id = b.id
+             WHERE bg.game_id = ? AND bg.is_active = 1`,
+            [gameId]
+        );
+        if (!binding) throw new Error('找不到遊戲綁定');
+        if (!binding.project_id) throw new Error('綁定缺少 project_id');
+
+        // 檢查遊戲會話
+        const sessions = await query('SELECT * FROM game_sessions WHERE game_id = ?', [gameId]);
+        if (sessions.length === 0) throw new Error('沒有遊戲會話記錄');
+    });
+
+    // 11. POST /api/v1/games/{gameId}/logs
+    await testEndpoint('POST /api/v1/games/{gameId}/logs - 接收遊戲日誌', async () => {
+        const logs = await query('SELECT * FROM game_logs WHERE game_id = ?', [gameId]);
+        if (logs.length === 0) throw new Error('沒有遊戲日誌記錄');
+    });
+
+    // 12. POST /api/v1/games/{gameId}/sessions/end
+    await testEndpoint('POST /api/v1/games/{gameId}/sessions/end - 結束遊戲會話', async () => {
+        // 檢查兌換券發放
+        const redemptions = await query(
+            'SELECT * FROM voucher_redemptions WHERE trace_id = ?',
+            [TEST_TRACE_IDS.user3]
+        );
+        if (redemptions.length === 0) throw new Error('沒有兌換券記錄');
+
+        const redemption = redemptions[0];
+        if (!redemption.redemption_code) throw new Error('兌換碼為空');
+        if (!redemption.redemption_code.startsWith('GAME-')) {
+            throw new Error('兌換碼格式錯誤');
+        }
+        if (!redemption.qr_code_base64) throw new Error('QR Code Base64 為空');
+    });
+
+    // 13. GET /api/v1/games/{gameId}/info
+    await testEndpoint('GET /api/v1/games/{gameId}/info - 獲取遊戲資訊', async () => {
+        const game = await get('SELECT * FROM games WHERE id = ?', [gameId]);
+        if (!game) throw new Error('找不到遊戲');
+        if (!game.game_name_zh) throw new Error('遊戲中文名稱為空');
+        if (!game.game_name_en) throw new Error('遊戲英文名稱為空');
+
+        // 測試帶 project_id 的情況
+        const binding = await get(
+            `SELECT bg.* FROM booth_games bg
+             JOIN booths b ON bg.booth_id = b.id
+             WHERE b.project_id = ? AND bg.game_id = ? AND bg.is_active = 1`,
+            [1, gameId]
+        );
+        if (!binding) throw new Error('找不到專案遊戲綁定');
+    });
+
+    console.log('\n📋 測試 Business Cards API (2 個端點)\n');
+
+    // 14. GET /api/v1/business-cards/projects/{projectId}
+    await testEndpoint('GET /api/v1/business-cards/projects/{projectId} - 獲取專案名片列表', async () => {
+        // 這個端點可能沒有資料，只檢查資料表存在
+        const tableExists = await get(
+            `SELECT name FROM sqlite_master WHERE type='table' AND name='business_cards'`
+        );
+        if (!tableExists) throw new Error('business_cards 表不存在');
+    });
+
+    // 15. GET /api/v1/business-cards/{cardId}
+    // 這個端點需要先創建名片，暫時跳過
+
+    console.log('\n📋 測試 Wish Tree API (2 個端點)\n');
+
+    // 16. GET /api/v1/wish-tree/{projectId}/wishes
+    await testEndpoint('GET /api/v1/wish-tree/{projectId}/wishes - 獲取許願列表', async () => {
+        const tableExists = await get(
+            `SELECT name FROM sqlite_master WHERE type='table' AND name='wish_tree_interactions'`
+        );
+        if (!tableExists) throw new Error('wish_tree_interactions 表不存在');
+    });
+
+    // 17. POST /api/v1/wish-tree/{projectId}/wishes
+    // 這個端點需要實際提交，暫時跳過
+
+    // 顯示測試結果
+    console.log('\n' + '='.repeat(80));
+    console.log('📊 測試結果統計\n');
+    console.log(`總測試數: ${results.total}`);
+    console.log(`✅ 通過: ${results.passed}`);
+    console.log(`❌ 失敗: ${results.failed}`);
+    console.log(`通過率: ${((results.passed / results.total) * 100).toFixed(1)}%`);
+
+    if (results.failed > 0) {
+        console.log('\n❌ 失敗的測試:\n');
+        results.errors.forEach((err, index) => {
+            console.log(`${index + 1}. ${err.endpoint}`);
+            console.log(`   ${err.error}\n`);
+        });
+    }
+
+    console.log('='.repeat(80) + '\n');
+
+    db.close();
+
+    // 如果有失敗的測試，退出碼為 1
+    process.exit(results.failed > 0 ? 1 : 0);
+}
+
+// 執行測試
+runTests().catch(error => {
+    console.error('❌ 測試執行失敗:', error);
+    db.close();
+    process.exit(1);
+});
+

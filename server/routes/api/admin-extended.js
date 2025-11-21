@@ -938,7 +938,11 @@ router.post('/qr-scanner/checkin', authenticateSession, async (req, res) => {
             return responses.error(res, '找不到對應的參與者記錄', 404);
         }
 
-        // 檢查是否已經報到
+        // 檢查是否已經報到（檢查兩個表）
+        if (participant.checked_in_at) {
+            return responses.error(res, '此參與者已經完成報到', 400);
+        }
+
         const existingCheckin = await database.get(`
             SELECT * FROM checkin_records WHERE submission_id = ?
         `, [participant.id]);
@@ -951,7 +955,7 @@ router.post('/qr-scanner/checkin', authenticateSession, async (req, res) => {
         const checkinTime = new Date().toISOString();
         await database.run(`
             INSERT INTO checkin_records (
-                project_id, submission_id, trace_id, attendee_name, 
+                project_id, submission_id, trace_id, attendee_name,
                 scanned_by, scanner_location, checkin_time
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `, [
@@ -963,6 +967,17 @@ router.post('/qr-scanner/checkin', authenticateSession, async (req, res) => {
             'qr_scanner',
             checkinTime
         ]);
+
+        // 更新 form_submissions 表的報到狀態
+        await database.run(`
+            UPDATE form_submissions
+            SET checked_in_at = ?,
+                checkin_method = 'qr_scanner',
+                checkin_location = 'qr_scanner',
+                status = 'confirmed',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `, [checkinTime, participant.id]);
 
         // 記錄系統日誌
         await database.run(`
@@ -1397,12 +1412,32 @@ router.post('/participants/:id/checkin', authenticateSession, async (req, res) =
         }
 
         // 更新簽到狀態
+        const checkinTime = new Date().toISOString();
         await database.run(`
-            UPDATE form_submissions 
-            SET checked_in_at = CURRENT_TIMESTAMP, 
-                checkin_method = 'manual'
+            UPDATE form_submissions
+            SET checked_in_at = ?,
+                checkin_method = 'manual',
+                checkin_location = 'admin_panel',
+                status = 'confirmed',
+                updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
-        `, [participantId]);
+        `, [checkinTime, participantId]);
+
+        // 創建報到記錄
+        await database.run(`
+            INSERT INTO checkin_records (
+                project_id, submission_id, trace_id, attendee_name,
+                scanned_by, scanner_location, checkin_time
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [
+            projectId || participant.project_id,
+            participantId,
+            participant.trace_id,
+            participant.submitter_name,
+            req.user.id,
+            'admin_panel',
+            checkinTime
+        ]);
 
         // 記錄簽到互動
         await database.run(`
@@ -1450,10 +1485,18 @@ router.post('/participants/:id/cancel-checkin', authenticateSession, async (req,
 
         // 取消簽到
         await database.run(`
-            UPDATE form_submissions 
-            SET checked_in_at = NULL, 
-                checkin_method = NULL
+            UPDATE form_submissions
+            SET checked_in_at = NULL,
+                checkin_method = NULL,
+                checkin_location = NULL,
+                updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
+        `, [participantId]);
+
+        // 刪除報到記錄
+        await database.run(`
+            DELETE FROM checkin_records
+            WHERE submission_id = ?
         `, [participantId]);
 
         // 記錄取消簽到互動

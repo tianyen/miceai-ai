@@ -1216,6 +1216,21 @@ function createQuestionnaire() {
     window.location.href = `/admin/questionnaire/new?project_id=${projectId}`;
 }
 
+// 查看問卷
+function viewQuestionnaire(questionnaireId) {
+    window.open(`/questionnaire/${questionnaireId}`, '_blank');
+}
+
+// 編輯問卷
+function editQuestionnaire(questionnaireId) {
+    window.location.href = `/admin/questionnaire/design?id=${questionnaireId}`;
+}
+
+// 查看問卷統計
+function viewQuestionnaireStats(questionnaireId) {
+    window.location.href = `/admin/questionnaire/stats?id=${questionnaireId}`;
+}
+
 // 格式化日期時間
 function formatDateTime(dateString) {
     if (!dateString) return '-';
@@ -1802,12 +1817,14 @@ function viewGameQR(bindingId) {
                                 <button class="modal-close" onclick="closeQRModal()">&times;</button>
                             </div>
                             <div class="modal-body" style="text-align: center;">
-                                <h4>${data.game_name}</h4>
-                                <p class="text-muted">${data.project_name}</p>
+                                <h4>${data.game_name_zh}</h4>
+                                <p class="text-muted">${data.game_name_en || ''}</p>
+                                <p class="text-info">攤位：${data.booth_name || ''}</p>
+                                ${data.voucher_name ? `<p class="text-success">兌換券：${data.voucher_name}</p>` : ''}
                                 <div style="margin: 20px 0;">
                                     <img src="${data.qr_code_base64}" alt="QR Code" style="max-width: 300px; width: 100%;">
                                 </div>
-                                <button class="btn btn-primary" onclick="downloadGameQR('${data.qr_code_base64}', '${data.game_name}')">
+                                <button class="btn btn-primary" onclick="downloadGameQR('${data.qr_code_base64}', '${data.game_name_zh}')">
                                     <i class="fas fa-download"></i> 下載 QR Code
                                 </button>
                             </div>
@@ -1876,7 +1893,7 @@ function editProjectGame(bindingId) {
                         <form id="edit-game-form">
                             <div class="form-group">
                                 <label>遊戲名稱</label>
-                                <input type="text" class="form-control" value="${binding.game_name}" disabled>
+                                <input type="text" class="form-control" value="${binding.game_name_zh}" disabled>
                             </div>
                             <div class="form-group">
                                 <label for="edit_voucher_id">關聯兌換券</label>

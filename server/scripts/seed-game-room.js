@@ -569,22 +569,36 @@ async function seed() {
                 .substring(0, 6)
                 .toUpperCase(); // GAME-2025-XXXXXX (6位16進制)
 
+            // 生成兌換券 QR Code Base64
+            const voucherQrData = JSON.stringify({
+                redemption_code: wangRedemptionCode,
+                trace_id: wangTraceId,
+                voucher_id: voucher1Id,
+                voucher_name: '星巴克咖啡券'
+            });
+            const voucherQrBase64 = await QRCode.toDataURL(voucherQrData, {
+                errorCorrectionLevel: 'M',
+                type: 'image/png',
+                width: 300,
+                margin: 2
+            });
+
             if (boothsTableExists) {
                 await runSQL(`
                     INSERT INTO voucher_redemptions (
                         voucher_id, session_id, trace_id, booth_id, redemption_code,
-                        redeemed_at, is_used, used_at
-                    ) VALUES (?, ?, ?, ?, ?, datetime('now', '-25 minutes'), ?, NULL)
-                `, [voucher1Id, wangSessionId, wangTraceId, wangBoothId, wangRedemptionCode, 0]);
+                        qr_code_base64, redeemed_at, is_used, used_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-25 minutes'), ?, NULL)
+                `, [voucher1Id, wangSessionId, wangTraceId, wangBoothId, wangRedemptionCode, voucherQrBase64, 0]);
                 console.log(`✅ 王大明兌換記錄: ${wangRedemptionCode} (未使用)`);
                 console.log(`   攤位: A區攤位 (ID: ${booth1Id})`);
             } else {
                 await runSQL(`
                     INSERT INTO voucher_redemptions (
                         voucher_id, session_id, trace_id, redemption_code,
-                        redeemed_at, is_used, used_at
-                    ) VALUES (?, ?, ?, ?, datetime('now', '-25 minutes'), ?, NULL)
-                `, [voucher1Id, wangSessionId, wangTraceId, wangRedemptionCode, 0]);
+                        qr_code_base64, redeemed_at, is_used, used_at
+                    ) VALUES (?, ?, ?, ?, ?, datetime('now', '-25 minutes'), ?, NULL)
+                `, [voucher1Id, wangSessionId, wangTraceId, wangRedemptionCode, voucherQrBase64, 0]);
                 console.log(`✅ 王大明兌換記錄: ${wangRedemptionCode} (未使用)`);
             }
         } else {

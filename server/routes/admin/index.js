@@ -65,13 +65,14 @@ router.get('/settings', authenticateSession, (req, res) => {
     });
 });
 
-// QR 掃描器頁面
+// QR 掃描器頁面（獨立視窗，無 sidebar）
 router.get('/qr-scanner', authenticateSession, (req, res) => {
-    res.render('admin/qr-scanner', {
-        layout: 'admin',
+    res.render('admin/qr-scanner-simple', {
+        layout: false,  // 不使用 admin layout，獨立頁面
         pageTitle: 'QR Code 掃描器',
         currentPage: 'qr-scanner',
         user: req.user,
+        project_id: req.query.project_id || null,  // 從 query string 獲取 project_id
         breadcrumbs: [
             { name: '儀表板', url: '/admin/dashboard' },
             { name: '報到管理', url: '/admin/checkin-management' },

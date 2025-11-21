@@ -1,0 +1,345 @@
+{{!-- 問卷填寫頁面 --}}
+
+<div class="questionnaire-container">
+    <div class="questionnaire-header">
+        <h1 id="questionnaire-title">載入中...</h1>
+        <p id="questionnaire-description"></p>
+        <p id="questionnaire-instructions"></p>
+    </div>
+
+    <div id="questionnaire-content">
+        <div class="loading">
+            <i class="fas fa-spinner fa-spin"></i> 載入問卷中...
+        </div>
+    </div>
+
+    <div id="questionnaire-form" style="display: none;">
+        <form id="survey-form">
+            <div id="questions-container"></div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fas fa-paper-plane"></i> 提交問卷
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div id="success-message" style="display: none;">
+        <div class="success-card">
+            <i class="fas fa-check-circle"></i>
+            <h2>感謝您的填寫！</h2>
+            <p>您的回應已成功提交</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.questionnaire-container {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+.questionnaire-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.questionnaire-header h1 {
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.questionnaire-header p {
+    color: #666;
+    margin: 5px 0;
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+#questions-container {
+    margin-bottom: 30px;
+}
+
+.question-item {
+    background: #f9f9f9;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+}
+
+.question-text {
+    font-weight: bold;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.question-required {
+    color: #e74c3c;
+    margin-left: 5px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+textarea.form-control {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.form-actions {
+    text-align: center;
+    margin-top: 30px;
+}
+
+.btn {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.success-card {
+    text-align: center;
+    padding: 60px 20px;
+    background: #f0f9ff;
+    border-radius: 12px;
+}
+
+.success-card i {
+    font-size: 64px;
+    color: #10b981;
+    margin-bottom: 20px;
+}
+
+.success-card h2 {
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.success-card p {
+    color: #666;
+}
+
+.alert {
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+.alert-danger {
+    background-color: #fee;
+    color: #c33;
+    border: 1px solid #fcc;
+}
+
+.radio-option,
+.checkbox-option {
+    margin: 10px 0;
+}
+
+.radio-option label,
+.checkbox-option label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.radio-option label:hover,
+.checkbox-option label:hover {
+    background-color: #f0f0f0;
+}
+
+.radio-option input,
+.checkbox-option input {
+    margin-right: 10px;
+    cursor: pointer;
+}
+</style>
+
+<script src="/js/frontend/traceId.js"></script>
+<script>
+const questionnaireId = {{questionnaireId}};
+let questionnaireData = null;
+let traceId = null;
+
+$(document).ready(function() {
+    // 獲取或生成 trace_id
+    traceId = getOrGenerateTraceId();
+    console.log('使用 trace_id:', traceId);
+
+    // 載入問卷
+    loadQuestionnaire();
+});
+
+// 載入問卷
+function loadQuestionnaire() {
+    $.ajax({
+        url: `/api/questionnaire/${questionnaireId}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                questionnaireData = response.data;
+                renderQuestionnaire(questionnaireData);
+            } else {
+                showError(response.message || '載入問卷失敗');
+            }
+        },
+        error: function(xhr) {
+            const message = xhr.responseJSON?.message || '載入問卷失敗';
+            showError(message);
+        }
+    });
+}
+
+// 渲染問卷
+function renderQuestionnaire(data) {
+    $('#questionnaire-title').text(data.title);
+    $('#questionnaire-description').text(data.description || '');
+    $('#questionnaire-instructions').text(data.instructions || '');
+
+    const questionsHtml = data.questions.map((q, index) => {
+        return renderQuestion(q, index + 1);
+    }).join('');
+
+    $('#questions-container').html(questionsHtml);
+    $('#questionnaire-content').hide();
+    $('#questionnaire-form').show();
+}
+
+// 渲染單個問題
+function renderQuestion(question, number) {
+    const required = question.is_required ? '<span class="question-required">*</span>' : '';
+    let inputHtml = '';
+
+    // options 已經在 API 中解析為陣列
+    const options = Array.isArray(question.options) ? question.options : [];
+
+    switch(question.question_type) {
+        case 'text':
+        case 'short_text':
+            inputHtml = `<input type="text" class="form-control" name="q_${question.id}" ${question.is_required ? 'required' : ''}>`;
+            break;
+        case 'long_text':
+        case 'textarea':
+            inputHtml = `<textarea class="form-control" name="q_${question.id}" ${question.is_required ? 'required' : ''}></textarea>`;
+            break;
+        case 'single_choice':
+        case 'radio':
+            inputHtml = options.map(opt => `
+                <div class="radio-option">
+                    <label>
+                        <input type="radio" name="q_${question.id}" value="${opt}" ${question.is_required ? 'required' : ''}>
+                        ${opt}
+                    </label>
+                </div>
+            `).join('');
+            break;
+        case 'multiple_choice':
+        case 'checkbox':
+            inputHtml = options.map(opt => `
+                <div class="checkbox-option">
+                    <label>
+                        <input type="checkbox" name="q_${question.id}[]" value="${opt}">
+                        ${opt}
+                    </label>
+                </div>
+            `).join('');
+            break;
+        default:
+            inputHtml = `<input type="text" class="form-control" name="q_${question.id}">`;
+    }
+
+    return `
+        <div class="question-item">
+            <div class="question-text">
+                ${number}. ${question.question_text}${required}
+            </div>
+            ${inputHtml}
+        </div>
+    `;
+}
+
+// 提交問卷
+$('#survey-form').on('submit', function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+    const responses = {};
+
+    // 收集答案
+    questionnaireData.questions.forEach(q => {
+        const name = `q_${q.id}`;
+        if (q.question_type === 'multiple_choice' || q.question_type === 'checkbox') {
+            const values = formData.getAll(`${name}[]`);
+            responses[q.id] = values.length > 0 ? values : null;
+        } else {
+            responses[q.id] = formData.get(name);
+        }
+    });
+
+    // 提交
+    $.ajax({
+        url: `/api/questionnaire/${questionnaireId}/submit`,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            trace_id: traceId,
+            responses: responses
+        }),
+        success: function(response) {
+            if (response.success) {
+                $('#questionnaire-form').hide();
+                $('#success-message').show();
+            } else {
+                showError(response.message || '提交失敗');
+            }
+        },
+        error: function(xhr) {
+            const message = xhr.responseJSON?.message || '提交失敗';
+            showError(message);
+        }
+    });
+});
+
+// 顯示錯誤
+function showError(message) {
+    $('#questionnaire-content').html(`
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle"></i> ${message}
+        </div>
+    `);
+}
+</script>
+

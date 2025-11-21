@@ -70,7 +70,7 @@ router.get('/', async (req, res) => {
         query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
         params.push(parseInt(limit), parseInt(offset));
 
-        const games = await database.all(query, params);
+        const games = await database.query(query, params);
 
         // 獲取總數
         let countQuery = `SELECT COUNT(*) as total FROM games WHERE 1=1`;
@@ -470,7 +470,7 @@ router.get('/:id/sessions', async (req, res) => {
         query += ` ORDER BY gs.session_start DESC LIMIT ? OFFSET ?`;
         params.push(parseInt(limit), parseInt(offset));
 
-        const sessions = await database.all(query, params);
+        const sessions = await database.query(query, params);
         const totalResult = await database.get(countQuery, countParams);
         const total = totalResult.total;
 

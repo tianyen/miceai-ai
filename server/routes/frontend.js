@@ -46,7 +46,12 @@ router.get('/success', (req, res) => {
 
 // 問卷頁面
 router.get('/questionnaire/:id', (req, res) => {
-    res.sendFile(path.join(config.paths.views, 'frontend/questionnaire.html'));
+    const questionnaireId = req.params.id;
+    res.render('questionnaire', {
+        layout: 'main',
+        pageTitle: '問卷填寫',
+        questionnaireId: questionnaireId
+    });
 });
 
 module.exports = router;
