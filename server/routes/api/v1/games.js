@@ -33,11 +33,12 @@ function getClientIP(req) {
  *     tags: [遊戲室]
  *     parameters:
  *       - in: path
- *         name: game_id
+ *         name: gameId
  *         required: true
  *         description: 遊戲 ID
  *         schema:
  *           type: integer
+ *         example: 1
  *     requestBody:
  *       required: true
  *       content:
@@ -191,11 +192,12 @@ router.post('/:gameId/sessions/start', async (req, res) => {
  *     tags: [遊戲室]
  *     parameters:
  *       - in: path
- *         name: game_id
+ *         name: gameId
  *         required: true
  *         description: 遊戲 ID
  *         schema:
  *           type: integer
+ *         example: 1
  *     requestBody:
  *       required: true
  *       content:
@@ -325,11 +327,12 @@ router.post('/:gameId/logs', async (req, res) => {
  *     tags: [遊戲室]
  *     parameters:
  *       - in: path
- *         name: game_id
+ *         name: gameId
  *         required: true
  *         description: 遊戲 ID
  *         schema:
  *           type: integer
+ *         example: 1
  *     requestBody:
  *       required: true
  *       content:
@@ -613,11 +616,12 @@ router.post('/:gameId/sessions/end', async (req, res) => {
  *     tags: [遊戲室]
  *     parameters:
  *       - in: path
- *         name: game_id
+ *         name: gameId
  *         required: true
  *         description: 遊戲 ID
  *         schema:
  *           type: integer
+ *         example: 1
  *       - in: query
  *         name: project_id
  *         required: false
