@@ -26,7 +26,7 @@ CREATE TABLE qr_codes_new (
     qr_data TEXT,
     qr_base64 TEXT,
     scan_count INTEGER DEFAULT 0,
-    last_scanned_at TIMESTAMP,
+    last_scanned TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES event_projects(id),
@@ -34,9 +34,9 @@ CREATE TABLE qr_codes_new (
 );
 
 -- 複製數據
-INSERT INTO qr_codes_new SELECT 
-    id, project_id, submission_id, qr_code, qr_data, qr_base64, 
-    scan_count, last_scanned_at, created_at, updated_at
+INSERT INTO qr_codes_new SELECT
+    id, project_id, submission_id, qr_code, qr_data, qr_base64,
+    scan_count, last_scanned, created_at, updated_at
 FROM qr_codes;
 
 -- 刪除舊表

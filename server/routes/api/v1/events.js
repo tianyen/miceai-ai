@@ -185,19 +185,19 @@ router.get('/', [
         let params = [];
 
         if (status) {
-            whereClause += ' AND status = ?';
+            whereClause += ' AND p.status = ?';
             params.push(status);
         }
 
         if (type) {
-            whereClause += ' AND event_type = ?';
+            whereClause += ' AND p.event_type = ?';
             params.push(type);
         }
 
         // 獲取總數
         const countQuery = `
-            SELECT COUNT(*) as total 
-            FROM event_projects 
+            SELECT COUNT(*) as total
+            FROM event_projects p
             ${whereClause}
         `;
         const countResult = await database.get(countQuery, params);

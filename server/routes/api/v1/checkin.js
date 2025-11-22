@@ -215,7 +215,7 @@ router.post('/', [
         await database.run(`
             UPDATE qr_codes
             SET scan_count = scan_count + 1,
-                last_scanned_at = CURRENT_TIMESTAMP,
+                last_scanned = CURRENT_TIMESTAMP,
                 updated_at = CURRENT_TIMESTAMP
             WHERE submission_id = ?
         `, [registration.submission_id]);

@@ -299,7 +299,7 @@ router.post('/', [
  *     description: 獲取指定專案下的所有名片列表，支援分頁和搜尋
  *     parameters:
  *       - in: path
- *         name: project_id
+ *         name: projectId
  *         required: true
  *         schema:
  *           type: integer
@@ -419,7 +419,7 @@ router.get('/project/:projectId', [
  *     description: 根據名片 ID 獲取完整的名片資訊，返回 JSON 格式供前端串接使用
  *     parameters:
  *       - in: path
- *         name: card_id
+ *         name: cardId
  *         required: true
  *         schema:
  *           type: string
