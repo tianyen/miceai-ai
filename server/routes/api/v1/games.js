@@ -33,12 +33,11 @@ function getClientIP(req) {
  *     tags: [遊戲室]
  *     parameters:
  *       - in: path
- *         name: gameId
+ *         name: game_id
  *         required: true
  *         description: 遊戲 ID
  *         schema:
  *           type: integer
- *         example: 1
  *     requestBody:
  *       required: true
  *       content:
@@ -192,12 +191,11 @@ router.post('/:gameId/sessions/start', async (req, res) => {
  *     tags: [遊戲室]
  *     parameters:
  *       - in: path
- *         name: gameId
+ *         name: game_id
  *         required: true
  *         description: 遊戲 ID
  *         schema:
  *           type: integer
- *         example: 1
  *     requestBody:
  *       required: true
  *       content:
@@ -327,12 +325,11 @@ router.post('/:gameId/logs', async (req, res) => {
  *     tags: [遊戲室]
  *     parameters:
  *       - in: path
- *         name: gameId
+ *         name: game_id
  *         required: true
  *         description: 遊戲 ID
  *         schema:
  *           type: integer
- *         example: 1
  *     requestBody:
  *       required: true
  *       content:
@@ -628,6 +625,7 @@ router.post('/:gameId/sessions/end', async (req, res) => {
  *         description: 專案 ID（可選）。提供時會返回專案綁定狀態和兌換券資訊
  *         schema:
  *           type: integer
+ *         example: 1
  *     responses:
  *       200:
  *         description: 成功獲取遊戲資訊
