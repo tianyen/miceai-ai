@@ -156,10 +156,20 @@ const dbPath = getDbPath();
 const dbPath = './data/mice_ai.db';  // 不要這樣做！
 ```
 
-### 欄位命名規範（P1-6）
-- 時間欄位：使用 `_at` 後綴（如 `created_at`, `updated_at`, `last_scanned_at`）
-- 布林欄位：使用 `is_` 前綴（如 `is_active`, `is_required`）
-- 外鍵欄位：使用 `_id` 後綴（如 `user_id`, `project_id`, `booth_id`）
+### 欄位命名規範（v2.6）
+
+**時間欄位**: 使用 `_at` 後綴（如 `created_at`, `updated_at`）
+- ⚠️ **例外**: `qr_codes.last_scanned` 不使用 `_at` 後綴
+- ✅ `business_cards.last_scanned_at` 使用 `_at` 後綴
+
+**庫存欄位**: 使用 `_quantity` 後綴（如 `remaining_quantity`, `total_quantity`）
+- ❌ 不要使用 ~~`current_stock`~~ 或 ~~`total_stock`~~（已廢棄）
+
+**布林欄位**: 使用 `is_` 前綴（如 `is_active`, `is_required`）
+
+**外鍵欄位**: 使用 `_id` 後綴（如 `user_id`, `project_id`, `booth_id`）
+
+> 📖 詳細規範請參閱 [spec.md v2.6 - 資料庫欄位命名規範](./claude/docs/spec.md#資料庫欄位命名規範-v26)
 
 ### Trace ID 格式
 
