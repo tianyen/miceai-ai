@@ -404,6 +404,11 @@ router.post('/events/:eventId/registrations', [
  *                     trace_id:
  *                       type: string
  *                       example: "MICE-05207cf7-199967c04"
+ *                     user_id:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: 關聯的後台用戶 ID（前端報名時為 null）
+ *                       example: null
  *                     status:
  *                       type: string
  *                       enum: [pending, approved, confirmed, rejected, cancelled]
@@ -480,6 +485,7 @@ router.get('/registrations/:traceId', [
             SELECT
                 fs.id as registration_id,
                 fs.trace_id,
+                fs.user_id,
                 fs.status,
                 fs.submitter_name,
                 fs.submitter_email,
@@ -507,6 +513,7 @@ router.get('/registrations/:traceId', [
         const responseData = {
             registration_id: registration.registration_id,
             trace_id: registration.trace_id,
+            user_id: registration.user_id,
             status: registration.status,
             event: {
                 name: registration.event_name,
