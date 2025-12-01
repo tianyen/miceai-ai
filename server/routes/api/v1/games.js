@@ -6,12 +6,9 @@
 
 const express = require('express');
 const router = express.Router();
-const database = require('../../../config/database');
+const { gameService } = require('../../../services');
 const responses = require('../../../utils/responses');
 const { validateTraceId } = require('../../../utils/traceId');
-const { generateRedemptionCode } = require('../../../utils/redemption-code-generator');
-const { checkVoucherRedemption } = require('../../../utils/voucher-checker');
-const QRCode = require('qrcode');
 
 /**
  * 獲取客戶端 IP
@@ -22,6 +19,20 @@ function getClientIP(req) {
            req.connection.remoteAddress ||
            req.socket.remoteAddress ||
            req.ip;
+}
+
+/**
+ * 處理 Service 層錯誤
+ */
+function handleServiceError(res, error, defaultMessage) {
+    console.error(`${defaultMessage}:`, error);
+
+    if (error.errorCode) {
+        // AppError
+        return responses.error(res, error.errorCode.httpStatus || 500, error.message);
+    }
+
+    return responses.serverError(res, defaultMessage);
 }
 
 /**
@@ -80,6 +91,10 @@ function getClientIP(req) {
  *                     session_id:
  *                       type: integer
  *                       example: 32
+ *                     trace_id:
+ *                       type: string
+ *                       description: 追蹤 ID（與請求中的 trace_id 相同）
+ *                       example: "MICE-05207cf7-199967c04"
  *                     game_info:
  *                       type: object
  *                       properties:
@@ -107,78 +122,35 @@ router.post('/:gameId/sessions/start', async (req, res) => {
         const { gameId } = req.params;
         const { trace_id, user_id, project_id, booth_id } = req.body;
 
-        // 驗證必填欄位（支持 booth_id 或 project_id）
+        // 驗證必填欄位
         if (!trace_id || (!booth_id && !project_id)) {
             return responses.badRequest(res, '缺少必填欄位: trace_id, booth_id 或 project_id');
         }
 
-        // 驗證 trace_id 格式
         if (!validateTraceId(trace_id)) {
             return responses.badRequest(res, '無效的 trace_id 格式');
         }
 
-        let binding;
-        let actualBoothId = booth_id;
+        const result = await gameService.startSession({
+            gameId,
+            traceId: trace_id,
+            userId: user_id,
+            projectId: project_id,
+            boothId: booth_id,
+            ipAddress: getClientIP(req),
+            userAgent: req.get('User-Agent') || ''
+        });
 
-        // 如果提供 booth_id，直接查詢攤位遊戲綁定
-        if (booth_id) {
-            binding = await database.get(
-                `SELECT bg.*, g.game_name_zh, g.game_name_en, g.game_url, b.project_id
-                 FROM booth_games bg
-                 JOIN games g ON bg.game_id = g.id
-                 JOIN booths b ON bg.booth_id = b.id
-                 WHERE bg.booth_id = ? AND bg.game_id = ? AND bg.is_active = 1`,
-                [booth_id, gameId]
-            );
-        }
-        // 向後兼容：如果只提供 project_id，查找該專案的第一個攤位
-        else if (project_id) {
-            binding = await database.get(
-                `SELECT bg.*, g.game_name_zh, g.game_name_en, g.game_url, b.project_id, b.id as booth_id
-                 FROM booth_games bg
-                 JOIN games g ON bg.game_id = g.id
-                 JOIN booths b ON bg.booth_id = b.id
-                 WHERE b.project_id = ? AND bg.game_id = ? AND bg.is_active = 1
-                 ORDER BY b.id ASC
-                 LIMIT 1`,
-                [project_id, gameId]
-            );
-            if (binding) {
-                actualBoothId = binding.booth_id;
-            }
-        }
-
-        if (!binding) {
-            return responses.notFound(res, '攤位未綁定此遊戲或遊戲未啟用');
-        }
-
-        // 創建遊戲會話
-        const ip_address = getClientIP(req);
-        const user_agent = req.get('User-Agent') || '';
-
-        const result = await database.run(
-            `INSERT INTO game_sessions (
-                project_id, game_id, booth_id, trace_id, user_id,
-                ip_address, user_agent
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [binding.project_id, gameId, actualBoothId, trace_id, user_id, ip_address, user_agent]
-        );
-
-        console.log(`✅ 遊戲會話已開始: session_id=${result.lastID}, trace_id=${trace_id}, game_id=${gameId}, booth_id=${actualBoothId}`);
+        console.log(`✅ 遊戲會話已開始: session_id=${result.sessionId}, trace_id=${trace_id}, game_id=${gameId}`);
 
         return responses.success(res, {
-            session_id: result.lastID,
-            game_info: {
-                id: binding.game_id,
-                name_zh: binding.game_name_zh,
-                name_en: binding.game_name_en,
-                game_url: binding.game_url
-            }
+            session_id: result.sessionId,
+            trace_id: result.traceId,
+            game_info: result.gameInfo
         }, '會話已開始');
 
     } catch (error) {
-        console.error('開始遊戲會話失敗:', error);
-        return responses.serverError(res, '開始遊戲會話失敗', error);
+        return handleServiceError(res, error, '開始遊戲會話失敗');
     }
 });
 
@@ -260,6 +232,10 @@ router.post('/:gameId/sessions/start', async (req, res) => {
  *                     log_id:
  *                       type: integer
  *                       example: 1
+ *                     trace_id:
+ *                       type: string
+ *                       description: 追蹤 ID（與請求中的 trace_id 相同）
+ *                       example: "MICE-05207cf7-199967c04"
  *       400:
  *         description: 請求參數錯誤
  *       500:
@@ -284,35 +260,31 @@ router.post('/:gameId/logs', async (req, res) => {
             return responses.badRequest(res, '缺少必填欄位: trace_id, project_id');
         }
 
-        // 驗證 trace_id 格式
         if (!validateTraceId(trace_id)) {
             return responses.badRequest(res, '無效的 trace_id 格式');
         }
 
-        // 插入日誌
-        const ip_address = getClientIP(req);
-        const user_agent = req.get('User-Agent') || '';
-
-        const result = await database.run(
-            `INSERT INTO game_logs (
-                project_id, game_id, trace_id, user_id,
-                log_level, message, user_action, score, play_time,
-                ip_address, user_agent
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                project_id, gameId, trace_id, user_id,
-                log_level, message, user_action, score, play_time,
-                ip_address, user_agent
-            ]
-        );
+        const result = await gameService.logEvent({
+            gameId,
+            traceId: trace_id,
+            userId: user_id,
+            projectId: project_id,
+            logLevel: log_level,
+            message,
+            userAction: user_action,
+            score,
+            playTime: play_time,
+            ipAddress: getClientIP(req),
+            userAgent: req.get('User-Agent') || ''
+        });
 
         return responses.success(res, {
-            log_id: result.lastID
+            log_id: result.logId,
+            trace_id: result.traceId
         }, '日誌已記錄');
 
     } catch (error) {
-        console.error('記錄遊戲日誌失敗:', error);
-        return responses.serverError(res, '記錄遊戲日誌失敗', error);
+        return handleServiceError(res, error, '記錄遊戲日誌失敗');
     }
 });
 
@@ -380,11 +352,16 @@ router.post('/:gameId/logs', async (req, res) => {
  *                     session_id:
  *                       type: integer
  *                       example: 32
+ *                     trace_id:
+ *                       type: string
+ *                       description: 追蹤 ID（與請求中的 trace_id 相同）
+ *                       example: "MICE-05207cf7-199967c04"
  *                     final_score:
  *                       type: integer
  *                       example: 850
- *                     total_play_time:
+ *                     play_time:
  *                       type: integer
+ *                       description: 遊戲時間（秒）
  *                       example: 45
  *                     voucher_earned:
  *                       type: boolean
@@ -434,7 +411,6 @@ router.post('/:gameId/sessions/end', async (req, res) => {
         const { gameId } = req.params;
         const {
             trace_id,
-            user_id,
             project_id,
             final_score = 0,
             total_play_time = 0
@@ -445,162 +421,39 @@ router.post('/:gameId/sessions/end', async (req, res) => {
             return responses.badRequest(res, '缺少必填欄位: trace_id, project_id');
         }
 
-        // 驗證 trace_id 格式
         if (!validateTraceId(trace_id)) {
             return responses.badRequest(res, '無效的 trace_id 格式');
         }
 
-        // 查找最近的會話
-        const session = await database.get(
-            `SELECT * FROM game_sessions
-             WHERE trace_id = ? AND game_id = ? AND project_id = ?
-             AND session_end IS NULL
-             ORDER BY session_start DESC
-             LIMIT 1`,
-            [trace_id, gameId, project_id]
-        );
-
-        if (!session) {
-            return responses.notFound(res, '找不到進行中的遊戲會話');
-        }
-
-        // 更新會話結束資訊
-        await database.run(
-            `UPDATE game_sessions
-             SET session_end = CURRENT_TIMESTAMP,
-                 final_score = ?,
-                 total_play_time = ?
-             WHERE id = ?`,
-            [final_score, total_play_time, session.id]
-        );
-
-        // 查詢攤位綁定的兌換券（使用會話中的 booth_id）
-        const binding = await database.get(
-            `SELECT * FROM booth_games
-             WHERE booth_id = ? AND game_id = ? AND is_active = 1`,
-            [session.booth_id, gameId]
-        );
-
-        let voucherEarned = false;
-        let voucherData = null;
-        let reason = '';
-
-        // 如果有綁定兌換券，檢查條件
-        if (binding && binding.voucher_id) {
-            // 查詢兌換券資訊
-            const voucher = await database.get(
-                `SELECT * FROM vouchers WHERE id = ? AND is_active = 1`,
-                [binding.voucher_id]
-            );
-
-            if (voucher) {
-                // 查詢兌換條件
-                const conditions = await database.get(
-                    `SELECT * FROM voucher_conditions WHERE voucher_id = ?`,
-                    [voucher.id]
-                );
-
-                if (conditions) {
-                    // 檢查兌換條件和庫存
-                    const checkResult = checkVoucherRedemption(
-                        { final_score, total_play_time },
-                        voucher,
-                        conditions
-                    );
-
-                    if (checkResult.canRedeem) {
-                        // 生成兌換碼
-                        const redemption_code = generateRedemptionCode();
-
-                        // 開始資料庫交易
-                        await database.run('BEGIN TRANSACTION');
-
-                        try {
-                            // 生成 QR Code Base64（包含兌換碼）
-                            const qrCodeData = JSON.stringify({
-                                redemption_code: redemption_code,
-                                trace_id: trace_id,
-                                voucher_id: voucher.id,
-                                voucher_name: voucher.voucher_name
-                            });
-                            const qrCodeBase64 = await QRCode.toDataURL(qrCodeData, {
-                                errorCorrectionLevel: 'M',
-                                type: 'image/png',
-                                width: 300,
-                                margin: 2
-                            });
-
-                            // 插入兌換記錄（包含 QR Code Base64）
-                            const redemptionResult = await database.run(
-                                `INSERT INTO voucher_redemptions (
-                                    voucher_id, session_id, trace_id,
-                                    redemption_code, qr_code_base64
-                                ) VALUES (?, ?, ?, ?, ?)`,
-                                [voucher.id, session.id, trace_id, redemption_code, qrCodeBase64]
-                            );
-
-                            // 更新兌換券庫存
-                            await database.run(
-                                `UPDATE vouchers
-                                 SET remaining_quantity = remaining_quantity - 1
-                                 WHERE id = ?`,
-                                [voucher.id]
-                            );
-
-                            // 更新會話記錄
-                            await database.run(
-                                `UPDATE game_sessions
-                                 SET voucher_earned = 1, voucher_id = ?
-                                 WHERE id = ?`,
-                                [voucher.id, session.id]
-                            );
-
-                            await database.run('COMMIT');
-
-                            voucherEarned = true;
-                            voucherData = {
-                                id: voucher.id,
-                                name: voucher.voucher_name,
-                                value: voucher.voucher_value,
-                                vendor: voucher.vendor_name,
-                                category: voucher.category,
-                                redemption_code: redemption_code,
-                                qr_code_base64: qrCodeBase64
-                            };
-
-                            console.log(`🎁 兌換券已發放: ${redemption_code}, trace_id=${trace_id}`);
-
-                        } catch (error) {
-                            await database.run('ROLLBACK');
-                            throw error;
-                        }
-                    } else {
-                        reason = checkResult.reason;
-                    }
-                }
-            }
-        }
+        const result = await gameService.endSession({
+            gameId,
+            traceId: trace_id,
+            projectId: project_id,
+            finalScore: final_score,
+            totalPlayTime: total_play_time
+        });
 
         const responseData = {
-            session_id: session.id,
-            final_score,
-            play_time: total_play_time,
-            voucher_earned: voucherEarned
+            session_id: result.sessionId,
+            trace_id: result.traceId,
+            final_score: result.finalScore,
+            play_time: result.playTime,
+            voucher_earned: result.voucherEarned
         };
 
-        if (voucherEarned) {
-            responseData.voucher = voucherData;
-        } else if (reason) {
-            responseData.reason = reason;
+        if (result.voucherEarned && result.voucher) {
+            responseData.voucher = result.voucher;
+            console.log(`🎁 兌換券已發放: ${result.voucher.redemption_code}, trace_id=${trace_id}`);
+        } else if (result.reason) {
+            responseData.reason = result.reason;
         }
 
-        console.log(`✅ 遊戲會話已結束: session_id=${session.id}, score=${final_score}, voucher=${voucherEarned}`);
+        console.log(`✅ 遊戲會話已結束: session_id=${result.sessionId}, score=${final_score}, voucher=${result.voucherEarned}`);
 
         return responses.success(res, responseData, '遊戲結束');
 
     } catch (error) {
-        console.error('結束遊戲會話失敗:', error);
-        return responses.serverError(res, '結束遊戲會話失敗', error);
+        return handleServiceError(res, error, '結束遊戲會話失敗');
     }
 });
 
@@ -697,80 +550,16 @@ router.get('/:gameId/info', async (req, res) => {
         const { gameId } = req.params;
         const { project_id, booth_id } = req.query;
 
-        // 查詢遊戲資訊
-        const game = await database.get(
-            `SELECT * FROM games WHERE id = ? AND is_active = 1`,
-            [gameId]
-        );
+        const result = await gameService.getGameInfo({
+            gameId,
+            projectId: project_id,
+            boothId: booth_id
+        });
 
-        if (!game) {
-            return responses.notFound(res, '遊戲不存在或未啟用');
-        }
-
-        const responseData = {
-            id: game.id,
-            name_zh: game.game_name_zh,
-            name_en: game.game_name_en,
-            game_url: game.game_url,
-            game_version: game.game_version,
-            is_active: game.is_active
-        };
-
-        // 如果提供了 booth_id 或 project_id，查詢綁定資訊和兌換券
-        let binding;
-        if (booth_id) {
-            binding = await database.get(
-                `SELECT * FROM booth_games
-                 WHERE booth_id = ? AND game_id = ? AND is_active = 1`,
-                [booth_id, gameId]
-            );
-        } else if (project_id) {
-            // 向後兼容：查找該專案的第一個攤位
-            binding = await database.get(
-                `SELECT bg.* FROM booth_games bg
-                 JOIN booths b ON bg.booth_id = b.id
-                 WHERE b.project_id = ? AND bg.game_id = ? AND bg.is_active = 1
-                 ORDER BY b.id ASC
-                 LIMIT 1`,
-                [project_id, gameId]
-            );
-        }
-
-        if (binding) {
-            responseData.is_bound = true;
-
-            // 如果有綁定兌換券，返回兌換券資訊
-            if (binding.voucher_id) {
-                const voucher = await database.get(
-                    `SELECT v.*, vc.min_score, vc.min_play_time
-                     FROM vouchers v
-                     LEFT JOIN voucher_conditions vc ON v.id = vc.voucher_id
-                     WHERE v.id = ? AND v.is_active = 1`,
-                    [binding.voucher_id]
-                );
-
-                if (voucher) {
-                    responseData.voucher = {
-                        id: voucher.id,
-                        name: voucher.voucher_name,
-                        value: voucher.voucher_value,
-                        current_stock: voucher.remaining_quantity,
-                        conditions: {
-                            min_score: voucher.min_score,
-                            min_play_time: voucher.min_play_time
-                        }
-                    };
-                }
-            }
-        } else if (booth_id || project_id) {
-            responseData.is_bound = false;
-        }
-
-        return responses.success(res, responseData);
+        return responses.success(res, result);
 
     } catch (error) {
-        console.error('獲取遊戲資訊失敗:', error);
-        return responses.serverError(res, '獲取遊戲資訊失敗', error);
+        return handleServiceError(res, error, '獲取遊戲資訊失敗');
     }
 });
 

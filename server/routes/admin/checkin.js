@@ -16,7 +16,9 @@ router.get('/', (req, res) => {
         breadcrumbs: [
             { name: '儀表板', url: '/admin/dashboard' },
             { name: '報到管理' }
-        ]
+        ],
+        additionalCSS: ['/css/admin/pages/checkin-management.css'],
+        additionalJS: ['/js/admin/pages/checkin-management.js']
     });
 });
 

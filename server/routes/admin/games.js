@@ -4,7 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
-const database = require('../../config/database');
+const { gameService, projectService } = require('../../services');
 const responses = require('../../utils/responses');
 
 // 遊戲管理頁面
@@ -18,7 +18,9 @@ router.get('/', (req, res) => {
             { name: '儀表板', url: '/admin/dashboard' },
             { name: '遊戲室', url: '#' },
             { name: '遊戲管理' }
-        ]
+        ],
+        additionalCSS: ['/css/admin/pages/games.css'],
+        additionalJS: ['/js/admin/pages/games.js']
     });
 });
 
@@ -36,31 +38,8 @@ router.get('/:gameId/stats', async (req, res) => {
             });
         }
 
-        // 查詢遊戲資訊
-        const game = await database.get(
-            'SELECT * FROM games WHERE id = ?',
-            [gameId]
-        );
-
-        if (!game) {
-            return res.status(404).render('admin/404', {
-                layout: 'admin',
-                pageTitle: '遊戲不存在'
-            });
-        }
-
-        // 查詢專案資訊
-        const project = await database.get(
-            'SELECT * FROM event_projects WHERE id = ?',
-            [project_id]
-        );
-
-        if (!project) {
-            return res.status(404).render('admin/404', {
-                layout: 'admin',
-                pageTitle: '專案不存在'
-            });
-        }
+        // 使用 Service 查詢遊戲和專案資訊
+        const { game, project } = await gameService.getGameStats(gameId, project_id);
 
         res.render('admin/game-stats', {
             layout: 'admin',
@@ -81,6 +60,21 @@ router.get('/:gameId/stats', async (req, res) => {
 
     } catch (error) {
         console.error('載入遊戲統計頁面失敗:', error);
+
+        // 處理特定錯誤
+        if (error.code === 3004) { // GAME_NOT_FOUND
+            return res.status(404).render('admin/404', {
+                layout: 'admin',
+                pageTitle: '遊戲不存在'
+            });
+        }
+        if (error.code === 3002) { // PROJECT_NOT_FOUND
+            return res.status(404).render('admin/404', {
+                layout: 'admin',
+                pageTitle: '專案不存在'
+            });
+        }
+
         res.status(500).render('admin/500', {
             layout: 'admin',
             pageTitle: '伺服器錯誤'
@@ -99,18 +93,10 @@ router.get('/api/list', async (req, res) => {
     try {
         const { is_active, limit = 100 } = req.query;
 
-        let query = 'SELECT id, game_name_zh, game_name_en, is_active FROM games WHERE 1=1';
-        const params = [];
-
-        if (is_active !== undefined && is_active !== '') {
-            query += ' AND is_active = ?';
-            params.push(is_active);
-        }
-
-        query += ' ORDER BY game_name_zh LIMIT ?';
-        params.push(parseInt(limit));
-
-        const games = await database.query(query, params);
+        const games = await gameService.listGames({
+            isActive: is_active,
+            limit: parseInt(limit)
+        });
 
         return responses.success(res, games, '獲取遊戲列表成功');
     } catch (error) {

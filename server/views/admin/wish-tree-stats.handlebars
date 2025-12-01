@@ -2,7 +2,7 @@
 
 <div class="page-header">
     <div>
-        <h1>🌳 許願樹統計分析</h1>
+        <h1>許願樹統計分析</h1>
         <p class="text-muted">{{project.project_name}} - 互動數據分析與高峰頻率統計</p>
     </div>
     <div class="header-actions">
@@ -10,10 +10,10 @@
            class="btn btn-success"
            download
            title="匯出所有許願記錄為 CSV 檔案">
-            📥 匯出 CSV
+            匯出 CSV
         </a>
         <a href="/admin/wish-tree/list?project_id={{currentProjectId}}" class="btn btn-primary">
-            📋 查看列表
+            查看列表
         </a>
     </div>
 </div>
@@ -35,7 +35,7 @@
 
     <!-- 日期範圍選擇器 -->
     <div class="date-filter-section">
-        <label>📅 查看範圍:</label>
+        <label>查看範圍:</label>
         <div class="date-filter-buttons">
             <button class="filter-btn active" data-range="today">今日</button>
             <button class="filter-btn" data-range="yesterday">昨日</button>
@@ -43,7 +43,7 @@
             <button class="filter-btn" data-range="all">全部</button>
         </div>
         <div class="date-range-display" id="dateRangeDisplay">
-            <span id="dateRangeText">今日 (2025-11-14)</span>
+            <span id="dateRangeText">今日</span>
         </div>
     </div>
 </div>
@@ -73,10 +73,10 @@
 
 <!-- 圖表區域 -->
 <div class="dashboard-grid">
-    <!-- 時間點分佈圖（新增）-->
+    <!-- 時間點分佈圖 -->
     <div class="dashboard-card full-width">
         <div class="card-header">
-            <h3>⏰ 許願時間點分佈</h3>
+            <h3>許願時間點分佈</h3>
             <span class="badge">即時更新</span>
         </div>
         <div class="card-content">
@@ -87,7 +87,7 @@
     <!-- 每小時分佈圖 -->
     <div class="dashboard-card full-width">
         <div class="card-header">
-            <h3>📊 每小時互動分佈</h3>
+            <h3>每小時互動分佈</h3>
         </div>
         <div class="card-content">
             <canvas id="hourlyChart" height="300"></canvas>
@@ -97,7 +97,7 @@
     <!-- 每日分佈圖 -->
     <div class="dashboard-card full-width">
         <div class="card-header">
-            <h3>📅 每日互動趨勢</h3>
+            <h3>每日互動趨勢</h3>
         </div>
         <div class="card-content">
             <canvas id="dailyChart" height="300"></canvas>
@@ -107,7 +107,7 @@
     <!-- 高峰時段排行 -->
     <div class="dashboard-card">
         <div class="card-header">
-            <h3>🔥 高峰時段 Top 5</h3>
+            <h3>高峰時段 Top 5</h3>
         </div>
         <div class="card-content">
             <table class="data-table" id="peak-hours-table">
@@ -130,7 +130,7 @@
     <!-- 最近許願 -->
     <div class="dashboard-card">
         <div class="card-header">
-            <h3>💬 最近許願</h3>
+            <h3>最近許願</h3>
             <a href="/admin/wish-tree/list?project_id={{currentProjectId}}" class="btn btn-sm btn-primary">
                 查看全部
             </a>
@@ -144,641 +144,9 @@
 <!-- 引入 Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 
+<!-- 橋接腳本：傳遞 Handlebars 變數給外部 JavaScript -->
 <script>
-const PROJECT_ID = {{currentProjectId}};
-
-// 當前選擇的日期範圍
-let currentDateRange = 'today';
-let currentStartDate = null;
-let currentEndDate = null;
-
-// 計算日期範圍
-function getDateRange(range) {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    const todayStr = `${year}-${month}-${day}`;
-
-    switch (range) {
-        case 'today':
-            return {
-                start: todayStr,
-                end: todayStr,
-                label: `今日 (${todayStr})`
-            };
-
-        case 'yesterday':
-            const yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
-            return {
-                start: yesterdayStr,
-                end: yesterdayStr,
-                label: `昨日 (${yesterdayStr})`
-            };
-
-        case 'week':
-            const weekAgo = new Date(today);
-            weekAgo.setDate(weekAgo.getDate() - 6);
-            const weekAgoStr = `${weekAgo.getFullYear()}-${String(weekAgo.getMonth() + 1).padStart(2, '0')}-${String(weekAgo.getDate()).padStart(2, '0')}`;
-            return {
-                start: weekAgoStr,
-                end: todayStr,
-                label: `本週 (${weekAgoStr} ~ ${todayStr})`
-            };
-
-        case 'all':
-            return {
-                start: null,
-                end: null,
-                label: '全部時間'
-            };
-    }
-}
-
-// 載入統計數據
-async function loadStats() {
-    try {
-        // 構建 API URL
-        let url = `/api/v1/wish-tree/stats?project_id=${PROJECT_ID}`;
-        if (currentStartDate) url += `&start_date=${currentStartDate}`;
-        if (currentEndDate) url += `&end_date=${currentEndDate}`;
-
-        const response = await fetch(url);
-        const result = await response.json();
-
-        if (result.success) {
-            const data = result.data;
-
-            // 更新統計卡片
-            document.getElementById('total-wishes').textContent = data.total_wishes;
-
-            // 計算今日許願數
-            const today = new Date().toISOString().split('T')[0];
-            const todayData = data.daily_distribution.find(d => d.date === today);
-            document.getElementById('today-wishes').textContent = todayData ? todayData.count : 0;
-
-            // 顯示最高峰時段
-            if (data.peak_hours.length > 0) {
-                document.getElementById('peak-hour').textContent = data.peak_hours[0].hour;
-            }
-
-            // 計算平均每小時
-            const avgPerHour = data.total_wishes > 0 && data.hourly_distribution.length > 0
-                ? Math.round(data.total_wishes / data.hourly_distribution.length)
-                : 0;
-            document.getElementById('avg-per-hour').textContent = avgPerHour;
-
-            // 繪製圖表
-            drawHourlyChart(data.hourly_distribution);
-            drawDailyChart(data.daily_distribution);
-
-            // 顯示高峰時段表格
-            displayPeakHours(data.peak_hours);
-        }
-    } catch (error) {
-        console.error('載入統計數據失敗:', error);
-    }
-}
-
-// 載入時間點數據並繪製
-async function loadTimelineData() {
-    try {
-        const response = await fetch(`/api/v1/wish-tree/recent?project_id=${PROJECT_ID}&limit=100`);
-        const result = await response.json();
-
-        if (result.success && result.data.length > 0) {
-            drawTimelineChart(result.data);
-        }
-    } catch (error) {
-        console.error('載入時間點數據失敗:', error);
-    }
-}
-
-// 繪製時間點分佈圖
-let timelineChartInstance = null;
-function drawTimelineChart(recentData) {
-    const ctx = document.getElementById('timelineChart').getContext('2d');
-
-    // 銷毀舊圖表
-    if (timelineChartInstance) {
-        timelineChartInstance.destroy();
-    }
-
-    // 準備數據：按時間排序
-    const sortedData = [...recentData].sort((a, b) =>
-        new Date(a.created_at) - new Date(b.created_at)
-    );
-
-    // 提取時間標籤和計數（每個點代表一次許願）
-    const labels = sortedData.map(d => d.created_at);
-    const counts = sortedData.map((_, index) => index + 1); // 累積計數
-
-    timelineChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: '累積許願數',
-                data: counts,
-                backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                borderColor: 'rgba(102, 126, 234, 1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 4,
-                pointHoverRadius: 6,
-                pointBackgroundColor: 'rgba(102, 126, 234, 1)',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const wish = sortedData[context.dataIndex];
-                            return [
-                                `許願 #${context.parsed.y}`,
-                                `時間: ${wish.created_at}`,
-                                `內容: ${wish.wish_text.substring(0, 30)}...`
-                            ];
-                        }
-                    }
-                },
-                legend: {
-                    display: true,
-                    position: 'top'
-                }
-            },
-            scales: {
-                x: {
-                    display: true,
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 45,
-                        autoSkip: true,
-                        maxTicksLimit: 15
-                    },
-                    title: {
-                        display: true,
-                        text: '時間'
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: '累積數量'
-                    }
-                }
-            }
-        }
-    });
-}
-
-// 繪製每小時分佈圖
-let hourlyChartInstance = null;
-function drawHourlyChart(hourlyData) {
-    const ctx = document.getElementById('hourlyChart').getContext('2d');
-
-    // 銷毀舊圖表
-    if (hourlyChartInstance) {
-        hourlyChartInstance.destroy();
-    }
-
-    hourlyChartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: hourlyData.map(d => d.hour),
-            datasets: [{
-                label: '互動次數',
-                data: hourlyData.map(d => d.count),
-                backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        title: function(context) {
-                            const hour = context[0].label;
-                            // 顯示完整日期範圍
-                            const dateRange = getDateRange(currentDateRange);
-                            if (currentDateRange === 'today' || currentDateRange === 'yesterday') {
-                                return `${dateRange.label.split(' ')[1]} ${hour}`;
-                            } else {
-                                return `${hour} (${dateRange.label})`;
-                            }
-                        },
-                        label: function(context) {
-                            return `互動次數: ${context.parsed.y}`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: '互動次數'
-                    }
-                },
-                x: {
-                    title: {
-                        display: true,
-                        text: '時段'
-                    }
-                }
-            }
-        }
-    });
-}
-
-// 繪製每日分佈圖
-let dailyChartInstance = null;
-function drawDailyChart(dailyData) {
-    const ctx = document.getElementById('dailyChart').getContext('2d');
-
-    // 銷毀舊圖表
-    if (dailyChartInstance) {
-        dailyChartInstance.destroy();
-    }
-
-    dailyChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: dailyData.map(d => d.date),
-            datasets: [{
-                label: '互動次數',
-                data: dailyData.map(d => d.count),
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        title: function(context) {
-                            return `日期: ${context[0].label}`;
-                        },
-                        label: function(context) {
-                            return `互動次數: ${context.parsed.y}`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: '互動次數'
-                    }
-                },
-                x: {
-                    title: {
-                        display: true,
-                        text: '日期'
-                    }
-                }
-            }
-        }
-    });
-}
-
-// 顯示高峰時段表格
-function displayPeakHours(peakHours) {
-    const tbody = document.querySelector('#peak-hours-table tbody');
-    tbody.innerHTML = '';
-
-    if (peakHours.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="text-center">暫無數據</td></tr>';
-        return;
-    }
-
-    peakHours.forEach((peak, index) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${peak.hour}</td>
-            <td><strong>${peak.count}</strong></td>
-        `;
-        tbody.appendChild(row);
-    });
-}
-
-// 載入最近許願
-async function loadRecentWishes() {
-    try {
-        const response = await fetch(`/api/v1/wish-tree/recent?project_id=${PROJECT_ID}&limit=10`);
-        const result = await response.json();
-
-        if (result.success) {
-            const container = document.getElementById('recent-wishes');
-
-            if (result.data.length === 0) {
-                container.innerHTML = '<p class="text-center text-muted">暫無許願記錄</p>';
-                return;
-            }
-
-            container.innerHTML = result.data.map(wish => `
-                <div class="list-item">
-                    <div class="list-item-content">
-                        <div class="wish-text">${escapeHtml(wish.wish_text)}</div>
-                        <div class="text-muted small">${wish.created_at}</div>
-                    </div>
-                </div>
-            `).join('');
-        }
-    } catch (error) {
-        console.error('載入最近許願失敗:', error);
-    }
-}
-
-// HTML 轉義
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// 更新日期範圍並重新載入數據
-function updateDateRange(range) {
-    currentDateRange = range;
-    const dateRange = getDateRange(range);
-    currentStartDate = dateRange.start;
-    currentEndDate = dateRange.end;
-
-    // 更新 UI 顯示
-    document.getElementById('dateRangeText').textContent = dateRange.label;
-
-    // 更新按鈕狀態
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.querySelector(`[data-range="${range}"]`).classList.add('active');
-
-    // 重新載入數據
-    loadStats();
-    loadRecentWishes();
-    loadTimelineData();
-}
-
-// 頁面載入時執行
-document.addEventListener('DOMContentLoaded', function() {
-    // 初始化日期範圍（預設為今日）
-    updateDateRange('today');
-
-    // 綁定日期選擇器按鈕事件
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const range = this.getAttribute('data-range');
-            updateDateRange(range);
-        });
-    });
-
-    // 每 30 秒自動刷新（保持當前選擇的日期範圍）
-    setInterval(() => {
-        loadStats();
-        loadRecentWishes();
-        loadTimelineData();
-    }, 30000);
-});
+    window.wishTreeProjectId = {{currentProjectId}};
 </script>
 
-<style>
-/* 頁面標題區 */
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #e9ecef;
-}
-
-.page-header h1 {
-    margin: 0 0 0.5rem 0;
-}
-
-.header-actions {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-}
-
-/* 日期篩選區 */
-.date-filter-section {
-    margin-top: 1.5rem;
-    padding: 1rem;
-    background: #f8f9fa;
-    border-radius: 0.5rem;
-    border: 1px solid #e0e0e0;
-}
-
-.date-filter-section label {
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    display: block;
-    color: #2c3e50;
-}
-
-.date-filter-buttons {
-    display: flex;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-}
-
-.filter-btn {
-    padding: 0.5rem 1.25rem;
-    border: 2px solid #667eea;
-    background: white;
-    color: #667eea;
-    border-radius: 0.375rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 0.9rem;
-}
-
-.filter-btn:hover {
-    background: #f0f1ff;
-    transform: translateY(-1px);
-}
-
-.filter-btn.active {
-    background: #667eea;
-    color: white;
-    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
-}
-
-.date-range-display {
-    padding: 0.75rem 1rem;
-    background: white;
-    border-radius: 0.375rem;
-    border: 1px solid #e0e0e0;
-}
-
-.date-range-display span {
-    font-weight: 600;
-    color: #667eea;
-    font-size: 0.95rem;
-}
-
-/* 統計卡片網格 - 4 個卡片排成一排 */
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-}
-
-.stat-card {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 0.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    text-align: center;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
-}
-
-.stat-card.primary {
-    border-top: 4px solid #3498db;
-}
-
-.stat-card.success {
-    border-top: 4px solid #27ae60;
-}
-
-.stat-card.warning {
-    border-top: 4px solid #f39c12;
-}
-
-.stat-card.info {
-    border-top: 4px solid #17a2b8;
-}
-
-.stat-value {
-    font-size: 2rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-}
-
-.stat-label {
-    font-size: 0.875rem;
-    color: #6c757d;
-    font-weight: 500;
-}
-
-/* Dashboard 網格 */
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem;
-}
-
-.dashboard-card {
-    background: white;
-    border-radius: 0.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-}
-
-.dashboard-card.full-width {
-    grid-column: 1 / -1;
-}
-
-.card-header {
-    padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid #e9ecef;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #f8f9fa;
-}
-
-.card-header h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #2c3e50;
-}
-
-.card-content {
-    padding: 1.5rem;
-}
-
-/* 頁面特定樣式 */
-.full-width {
-    grid-column: 1 / -1;
-}
-
-.wish-text {
-    margin-bottom: 0.5rem;
-    word-wrap: break-word;
-}
-
-.list-item {
-    padding: 1rem 0;
-    border-bottom: 1px solid #eee;
-}
-
-.list-item:last-child {
-    border-bottom: none;
-}
-
-.badge {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    background: #667eea;
-    color: white;
-    font-size: 0.75rem;
-    font-weight: 600;
-    border-radius: 9999px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-/* 響應式設計 */
-@media (max-width: 1024px) {
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 768px) {
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .dashboard-grid {
-        grid-template-columns: 1fr;
-    }
-}
-</style>
+{{!-- External CSS/JS loaded via additionalCSS and additionalJS in route --}}

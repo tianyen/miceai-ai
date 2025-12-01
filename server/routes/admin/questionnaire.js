@@ -1,11 +1,12 @@
 /**
  * 問卷管理路由
+ *
+ * @refactor 2025-12-01: 使用 questionnaireService
  */
 const express = require('express');
 const router = express.Router();
-const database = require('../../config/database');
 const responses = require('../../utils/responses');
-const questionnaireController = require('../../controllers/questionnaireController');
+const { questionnaireService } = require('../../services');
 
 // 問卷設計頁面
 router.get('/design', (req, res) => {
@@ -49,7 +50,7 @@ router.get('/qr', (req, res) => {
     });
 });
 
-// API端点：获取问卷统计HTML内容
+// API端点：获取问卷统计HTML内容 (使用 questionnaireService)
 router.get('/api/stats', async (req, res) => {
     try {
         const questionnaireId = req.query.questionnaire_id;
@@ -66,16 +67,10 @@ router.get('/api/stats', async (req, res) => {
             `);
         }
 
-        const userId = req.user.id;
-        const userRole = req.user.role;
+        // 使用 Service 取得統計資料（含權限檢查）
+        const result = await questionnaireService.getStatsData(questionnaireId, req.user);
 
-        // 检查权限
-        const questionnaire = await database.get(
-            'SELECT project_id, title, description FROM questionnaires WHERE id = ?',
-            [questionnaireId]
-        );
-
-        if (!questionnaire) {
+        if (result.error === 'not_found') {
             return res.send(`
                 <div class="alert alert-danger">
                     <h4>問卷不存在</h4>
@@ -84,42 +79,16 @@ router.get('/api/stats', async (req, res) => {
             `);
         }
 
-        if (userRole !== 'super_admin') {
-            const hasPermission = await questionnaireController.checkProjectPermission(userId, questionnaire.project_id);
-            if (!hasPermission) {
-                return res.send(`
-                    <div class="alert alert-warning">
-                        <h4>無權限查看</h4>
-                        <p>您無權限查看此問卷的統計資料</p>
-                    </div>
-                `);
-            }
+        if (result.error === 'no_permission') {
+            return res.send(`
+                <div class="alert alert-warning">
+                    <h4>無權限查看</h4>
+                    <p>您無權限查看此問卷的統計資料</p>
+                </div>
+            `);
         }
 
-        // 获取基本统计
-        const basicStats = await database.get(`
-            SELECT
-                COUNT(DISTINCT qv.trace_id) as view_count,
-                COUNT(DISTINCT qr.trace_id) as response_count,
-                COUNT(DISTINCT CASE WHEN qr.is_completed = 1 THEN qr.trace_id END) as completed_count
-            FROM questionnaire_views qv
-            LEFT JOIN questionnaire_responses qr ON qv.questionnaire_id = qr.questionnaire_id
-                AND qv.trace_id = qr.trace_id
-            WHERE qv.questionnaire_id = ?
-        `, [questionnaireId]);
-
-        // 获取最近的回应
-        const recentResponses = await database.query(`
-            SELECT 
-                qr.response_data,
-                qr.completed_at,
-                qr.respondent_name,
-                qr.respondent_email
-            FROM questionnaire_responses qr
-            WHERE qr.questionnaire_id = ? AND qr.is_completed = 1
-            ORDER BY qr.completed_at DESC
-            LIMIT 10
-        `, [questionnaireId]);
+        const { questionnaire, basicStats, recentResponses } = result;
 
         // 获取问卷状态
         const now = new Date();
@@ -152,7 +121,7 @@ router.get('/api/stats', async (req, res) => {
                 </div>
         `;
 
-        if (recentResponses.length > 0) {
+        if (recentResponses && recentResponses.length > 0) {
             html += `<div class="responses-list"><h4>最新回應</h4>`;
 
             recentResponses.forEach(response => {
@@ -216,69 +185,22 @@ router.get('/api/stats', async (req, res) => {
     }
 });
 
-// API端點：获取问卷列表HTML内容
+// API端點：获取问卷列表HTML内容 (使用 questionnaireService)
 router.get('/api/questionnaires', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        const offset = (page - 1) * limit;
         const projectId = req.query.project_id;
         const search = req.query.search;
-        const userId = req.user.id;
+
+        // 使用 Service 取得問卷列表
+        const result = await questionnaireService.getList(
+            { page, limit, projectId, search },
+            req.user
+        );
+
+        const { questionnaires, pagination } = result;
         const userRole = req.user.role;
-
-        let query = `
-            SELECT 
-                q.*,
-                p.project_name,
-                u.full_name as creator_name,
-                COUNT(qq.id) as question_count,
-                COUNT(qr.id) as response_count
-            FROM questionnaires q
-            LEFT JOIN event_projects p ON q.project_id = p.id
-            LEFT JOIN users u ON q.created_by = u.id
-            LEFT JOIN questionnaire_questions qq ON q.id = qq.questionnaire_id
-            LEFT JOIN questionnaire_responses qr ON q.id = qr.questionnaire_id AND qr.is_completed = 1
-            WHERE 1=1
-        `;
-        let countQuery = `
-            SELECT COUNT(DISTINCT q.id) as count
-            FROM questionnaires q
-            LEFT JOIN event_projects p ON q.project_id = p.id
-            WHERE 1=1
-        `;
-        let queryParams = [];
-
-        // 权限过滤
-        if (userRole !== 'super_admin') {
-            const permissionClause = ` AND (p.created_by = ? OR p.id IN (
-                SELECT project_id FROM user_project_permissions WHERE user_id = ?
-            ))`;
-            query += permissionClause;
-            countQuery += permissionClause;
-            queryParams.push(userId, userId);
-        }
-
-        // 项目过滤
-        if (projectId) {
-            query += ` AND q.project_id = ?`;
-            countQuery += ` AND q.project_id = ?`;
-            queryParams.push(projectId);
-        }
-
-        // 搜索过滤
-        if (search && search.trim()) {
-            const searchTerm = `%${search.trim()}%`;
-            query += ` AND (q.title LIKE ? OR q.description LIKE ?)`;
-            countQuery += ` AND (q.title LIKE ? OR q.description LIKE ?)`;
-            queryParams.push(searchTerm, searchTerm);
-        }
-
-        query += ` GROUP BY q.id ORDER BY q.created_at DESC LIMIT ? OFFSET ?`;
-        const questionnaires = await database.query(query, [...queryParams, limit, offset]);
-
-        const totalResult = await database.get(countQuery, queryParams);
-        const total = totalResult.count;
 
         // 检查是否需要返回HTML
         if (req.query.format === 'html') {
@@ -335,8 +257,8 @@ router.get('/api/questionnaires', async (req, res) => {
                                         <button class="btn btn-sm btn-warning" onclick="duplicateQuestionnaire(${questionnaire.id})" title="複製問卷">
                                             <i class="fas fa-copy"></i>
                                         </button>
-                                        <button class="btn btn-sm ${questionnaire.is_active === 1 ? 'btn-secondary' : 'btn-success'}" 
-                                                onclick="toggleQuestionnaireStatus(${questionnaire.id}, '${questionnaire.is_active === 1 ? 'active' : 'inactive'}')" 
+                                        <button class="btn btn-sm ${questionnaire.is_active === 1 ? 'btn-secondary' : 'btn-success'}"
+                                                onclick="toggleQuestionnaireStatus(${questionnaire.id}, '${questionnaire.is_active === 1 ? 'active' : 'inactive'}')"
                                                 title="${questionnaire.is_active === 1 ? '停用' : '啟用'}">
                                             <i class="fas fa-${questionnaire.is_active === 1 ? 'pause' : 'play'}"></i>
                                         </button>
@@ -353,12 +275,7 @@ router.get('/api/questionnaires', async (req, res) => {
 
             res.send(html);
         } else {
-            return responses.paginated(res, questionnaires, {
-                page,
-                limit,
-                total,
-                pages: Math.ceil(total / limit)
-            }, '獲取問卷列表成功');
+            return responses.paginated(res, questionnaires, pagination, '獲取問卷列表成功');
         }
 
     } catch (error) {
@@ -374,48 +291,21 @@ router.get('/api/questionnaires', async (req, res) => {
     }
 });
 
-// API端點：获取问卷分页信息
+// API端點：获取问卷分页信息 (使用 questionnaireService)
 router.get('/api/pagination', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const projectId = req.query.project_id;
         const search = req.query.search;
-        const userId = req.user.id;
-        const userRole = req.user.role;
 
-        let countQuery = `
-            SELECT COUNT(DISTINCT q.id) as count
-            FROM questionnaires q
-            LEFT JOIN event_projects p ON q.project_id = p.id
-            WHERE 1=1
-        `;
-        let queryParams = [];
+        // 使用 Service 取得分頁資訊
+        const paginationInfo = await questionnaireService.getPaginationInfo(
+            { page, limit, projectId, search },
+            req.user
+        );
 
-        // 权限过滤
-        if (userRole !== 'super_admin') {
-            countQuery += ` AND (p.created_by = ? OR p.id IN (
-                SELECT project_id FROM user_project_permissions WHERE user_id = ?
-            ))`;
-            queryParams.push(userId, userId);
-        }
-
-        // 项目过滤
-        if (projectId) {
-            countQuery += ` AND q.project_id = ?`;
-            queryParams.push(projectId);
-        }
-
-        // 搜索过滤
-        if (search && search.trim()) {
-            const searchTerm = `%${search.trim()}%`;
-            countQuery += ` AND (q.title LIKE ? OR q.description LIKE ?)`;
-            queryParams.push(searchTerm, searchTerm);
-        }
-
-        const totalResult = await database.get(countQuery, queryParams);
-        const total = totalResult.count;
-        const pages = Math.ceil(total / limit);
+        const { total, pages } = paginationInfo;
 
         let paginationHtml = '<div class="pagination-info">';
         paginationHtml += `<span>共 ${total} 個問卷，第 ${page} 页 / 共 ${pages} 页</span>`;
@@ -460,10 +350,9 @@ router.get('/api/pagination', async (req, res) => {
     }
 });
 
-// 新建问卷模态框
+// 新建问卷模态框 (使用 questionnaireService)
 router.get('/new', async (req, res) => {
     try {
-        const userId = req.user.id;
         const userRole = req.user.role;
 
         // 检查权限
@@ -487,20 +376,8 @@ router.get('/new', async (req, res) => {
             `);
         }
 
-        // 获取用户可访问的项目
-        let projects = [];
-        if (userRole === 'super_admin') {
-            projects = await database.query('SELECT id, project_name FROM event_projects ORDER BY project_name');
-        } else {
-            projects = await database.query(`
-                SELECT DISTINCT p.id, p.project_name 
-                FROM event_projects p
-                WHERE p.created_by = ? OR p.id IN (
-                    SELECT project_id FROM user_project_permissions WHERE user_id = ?
-                )
-                ORDER BY p.project_name
-            `, [userId, userId]);
-        }
+        // 使用 Service 取得用戶可訪問的專案
+        const projects = await questionnaireService.getUserProjects(req.user);
 
         let projectOptions = '<option value="">請選擇專案</option>';
         projects.forEach(project => {
@@ -652,14 +529,13 @@ router.get('/new', async (req, res) => {
     }
 });
 
-// 编辑问卷模态框
+// 编辑问卷模态框 (使用 questionnaireService)
 router.get('/:id/edit', async (req, res) => {
     try {
         const questionnaireId = req.params.id;
-        const userId = req.user.id;
         const userRole = req.user.role;
 
-        // 检查权限
+        // 检查基本權限
         if (userRole !== 'super_admin' && userRole !== 'project_manager') {
             return res.status(403).send(`
                 <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
@@ -680,15 +556,10 @@ router.get('/:id/edit', async (req, res) => {
             `);
         }
 
-        // 获取问卷信息
-        const questionnaire = await database.get(`
-            SELECT q.*, p.project_name 
-            FROM questionnaires q
-            LEFT JOIN event_projects p ON q.project_id = p.id
-            WHERE q.id = ?
-        `, [questionnaireId]);
+        // 使用 Service 檢查存取權限（含問卷查詢）
+        const accessResult = await questionnaireService.checkUserAccess(questionnaireId, req.user);
 
-        if (!questionnaire) {
+        if (accessResult.error === 'not_found') {
             return res.status(404).send(`
                 <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                     <div class="modal-dialog">
@@ -708,44 +579,30 @@ router.get('/:id/edit', async (req, res) => {
             `);
         }
 
-        // 检查项目权限
-        if (userRole !== 'super_admin') {
-            const hasPermission = await questionnaireController.checkProjectPermission(userId, questionnaire.project_id);
-            if (!hasPermission) {
-                return res.status(403).send(`
-                    <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h4 class="modal-title">權限不足</h4>
-                                    <button type="button" class="close" onclick="closeModal()" aria-label="Close">
-                                        <span aria-hidden="true">&times;</span>
-                                    </button>
-                                </div>
-                                <div class="modal-body">
-                                    <p>您沒有編輯此問卷的權限</p>
-                                </div>
+        if (!accessResult.hasAccess) {
+            return res.status(403).send(`
+                <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h4 class="modal-title">權限不足</h4>
+                                <button type="button" class="close" onclick="closeModal()" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <p>您沒有編輯此問卷的權限</p>
                             </div>
                         </div>
                     </div>
-                `);
-            }
+                </div>
+            `);
         }
 
-        // 获取用户可访问的项目
-        let projects = [];
-        if (userRole === 'super_admin') {
-            projects = await database.query('SELECT id, project_name FROM event_projects ORDER BY project_name');
-        } else {
-            projects = await database.query(`
-                SELECT DISTINCT p.id, p.project_name 
-                FROM event_projects p
-                WHERE p.created_by = ? OR p.id IN (
-                    SELECT project_id FROM user_project_permissions WHERE user_id = ?
-                )
-                ORDER BY p.project_name
-            `, [userId, userId]);
-        }
+        const questionnaire = accessResult.questionnaire;
+
+        // 使用 Service 取得用戶可訪問的專案
+        const projects = await questionnaireService.getUserProjects(req.user);
 
         let projectOptions = '';
         projects.forEach(project => {

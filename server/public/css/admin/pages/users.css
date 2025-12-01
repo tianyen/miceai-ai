@@ -1,0 +1,176 @@
+/**
+ * Users Management Page Styles
+ * 用戶管理頁面專用 CSS
+ */
+
+/* ========== User Avatar ========== */
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--primary-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+/* ========== User Info ========== */
+.user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.user-name {
+    font-weight: 500;
+    color: var(--gray-900);
+}
+
+.user-username {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* ========== User Role Badges ========== */
+.user-role {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--border-radius-sm);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.user-role.super_admin {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.user-role.project_manager {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.user-role.vendor {
+    background-color: #f3e8ff;
+    color: #7c3aed;
+}
+
+.user-role.project_user {
+    background-color: #f0fdf4;
+    color: #166534;
+}
+
+/* ========== User Status ========== */
+.user-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.user-status.active {
+    color: var(--success-color);
+}
+
+.user-status.inactive {
+    color: var(--danger-color);
+}
+
+.user-status.pending {
+    color: var(--warning-color);
+}
+
+/* ========== Last Login ========== */
+.last-login {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+
+/* ========== User Actions ========== */
+.user-actions {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+/* ========== Sortable Table Headers ========== */
+th[data-sortable] {
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+}
+
+th[data-sortable]:hover {
+    background-color: var(--gray-50);
+}
+
+th[data-sortable]::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 4px solid var(--gray-400);
+    opacity: 0.3;
+}
+
+th[data-sortable].sort-asc::after {
+    border-bottom: 4px solid var(--primary-color);
+    border-top: none;
+    opacity: 1;
+}
+
+th[data-sortable].sort-desc::after {
+    border-top: 4px solid var(--primary-color);
+    border-bottom: none;
+    opacity: 1;
+}
+
+/* ========== Pagination ========== */
+.pagination-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.pagination-controls {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.pagination-info {
+    color: var(--gray-600);
+    font-size: 0.875rem;
+}
+
+/* ========== Responsive Design ========== */
+@media (max-width: 768px) {
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 0.85rem;
+    }
+
+    .user-actions {
+        flex-direction: column;
+        gap: 0.125rem;
+    }
+
+    .user-role {
+        font-size: 0.7rem;
+        padding: 0.125rem 0.25rem;
+    }
+}

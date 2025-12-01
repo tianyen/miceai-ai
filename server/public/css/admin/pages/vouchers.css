@@ -1,0 +1,134 @@
+/**
+ * Vouchers Management Page Styles
+ */
+
+/* Voucher Status Badge */
+.voucher-status {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.voucher-status.active {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.voucher-status.inactive {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Voucher Category Badge */
+.voucher-category {
+    background-color: #e7f3ff;
+    color: #0056b3;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+/* Voucher Stock Indicator */
+.voucher-stock {
+    font-weight: bold;
+}
+
+.voucher-stock.low {
+    color: #dc3545;
+}
+
+.voucher-stock.medium {
+    color: #ffc107;
+}
+
+.voucher-stock.high {
+    color: #28a745;
+}
+
+/* Voucher Value */
+.voucher-value {
+    color: #28a745;
+    font-weight: 500;
+}
+
+/* Voucher Conditions */
+.voucher-conditions {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+/* Modal Header */
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+/* Modal Close Button */
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #6c757d;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-close:hover {
+    color: #000;
+}
+
+/* Modal Body */
+.modal-body {
+    padding: 20px;
+}
+
+/* Modal Footer */
+.modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Voucher Actions */
+.voucher-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+/* Pagination */
+.pagination-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.pagination-buttons {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.pagination-info {
+    color: var(--gray-600);
+    font-size: 0.875rem;
+}

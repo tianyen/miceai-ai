@@ -9,49 +9,23 @@
 
 const express = require('express');
 const router = express.Router();
-const database = require('../../../config/database');
+const { eventService } = require('../../../services');
 const responses = require('../../../utils/responses');
 const { param, query, validationResult } = require('express-validator');
 
-// 記錄 API 訪問日誌
-const logApiAccess = async (req, endpoint, responseStatus, responseTime) => {
-    try {
-        await database.run(`
-            INSERT INTO api_access_logs (
-                endpoint, method, ip_address, user_agent, 
-                request_data, response_status, response_time_ms, trace_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-            endpoint,
-            req.method,
-            req.ip || req.connection.remoteAddress,
-            req.get('User-Agent'),
-            JSON.stringify(req.body),
-            responseStatus,
-            responseTime,
-            req.body?.trace_id || null
-        ]);
-    } catch (error) {
-        console.error('記錄 API 訪問日誌失敗:', error);
+/**
+ * 處理 Service 層錯誤
+ */
+function handleServiceError(res, error, defaultMessage) {
+    console.error(`${defaultMessage}:`, error);
+
+    if (error.statusCode) {
+        const message = error.details?.message || error.message || defaultMessage;
+        return responses.error(res, message, error.statusCode);
     }
-};
 
-// 中間件：記錄請求開始時間
-router.use((req, res, next) => {
-    req.startTime = Date.now();
-    next();
-});
-
-// 中間件：記錄 API 訪問
-router.use((req, res, next) => {
-    const originalSend = res.send;
-    res.send = function(data) {
-        const responseTime = Date.now() - req.startTime;
-        logApiAccess(req, req.originalUrl, res.statusCode, responseTime);
-        originalSend.call(this, data);
-    };
-    next();
-});
+    return responses.error(res, defaultMessage, 500);
+}
 
 /**
  * @swagger
@@ -174,76 +148,17 @@ router.get('/', [
             return responses.validationError(res, { errors: errors.array() });
         }
 
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
-        const offset = (page - 1) * limit;
-        const status = req.query.status;
-        const type = req.query.type;
-
-        // 構建查詢條件
-        let whereClause = 'WHERE 1=1';
-        let params = [];
-
-        if (status) {
-            whereClause += ' AND p.status = ?';
-            params.push(status);
-        }
-
-        if (type) {
-            whereClause += ' AND p.event_type = ?';
-            params.push(type);
-        }
-
-        // 獲取總數
-        const countQuery = `
-            SELECT COUNT(*) as total
-            FROM event_projects p
-            ${whereClause}
-        `;
-        const countResult = await database.get(countQuery, params);
-        const total = countResult.total;
-
-        // 獲取活動列表
-        const eventsQuery = `
-            SELECT 
-                p.id,
-                p.project_name as name,
-                p.project_code as code,
-                p.description,
-                p.event_date as date,
-                p.event_location as location,
-                p.event_type as type,
-                p.status,
-                p.max_participants,
-                p.registration_deadline,
-                p.contact_email,
-                p.contact_phone,
-                p.created_at,
-                COUNT(fs.id) as current_participants
-            FROM event_projects p
-            LEFT JOIN form_submissions fs ON p.id = fs.project_id 
-                AND fs.status IN ('pending', 'approved', 'confirmed')
-            ${whereClause}
-            GROUP BY p.id
-            ORDER BY p.created_at DESC
-            LIMIT ? OFFSET ?
-        `;
-
-        const events = await database.query(eventsQuery, [...params, limit, offset]);
-
-        return responses.success(res, {
-            events,
-            pagination: {
-                total,
-                page,
-                limit,
-                pages: Math.ceil(total / limit)
-            }
+        const result = await eventService.getEventList({
+            page: parseInt(req.query.page) || 1,
+            limit: parseInt(req.query.limit) || 20,
+            status: req.query.status,
+            type: req.query.type
         });
 
+        return responses.success(res, result);
+
     } catch (error) {
-        console.error('獲取活動列表錯誤:', error);
-        return responses.error(res, '獲取活動列表失敗', 500);
+        return handleServiceError(res, error, '獲取活動列表失敗');
     }
 });
 
@@ -441,122 +356,11 @@ router.get('/code/:code', [
             return responses.validationError(res, { errors: errors.array() });
         }
 
-        const eventCode = req.params.code;
-
-        const event = await database.get(`
-            SELECT
-                p.id,
-                p.project_name as name,
-                p.project_code as code,
-                p.description,
-                p.event_date as date,
-                p.event_start_date,
-                p.event_end_date,
-                p.event_highlights,
-                p.event_location as location,
-                p.event_type as type,
-                p.status,
-                p.max_participants,
-                p.registration_deadline,
-                p.contact_email,
-                p.contact_phone,
-                p.agenda,
-                p.template_id,
-                p.created_at,
-                p.updated_at,
-                COUNT(fs.id) as current_participants
-            FROM event_projects p
-            LEFT JOIN form_submissions fs ON p.id = fs.project_id
-                AND fs.status IN ('pending', 'approved', 'confirmed')
-            WHERE p.project_code = ?
-            GROUP BY p.id
-        `, [eventCode]);
-
-        if (!event) {
-            return responses.error(res, '活動不存在', 404);
-        }
-
-        // 獲取活動模板資料
-        let eventTemplate = null;
-        if (event.template_id) {
-            try {
-                eventTemplate = await database.get(`
-                    SELECT
-                        id,
-                        template_name,
-                        template_type,
-                        template_content,
-                        special_guests
-                    FROM invitation_templates
-                    WHERE id = ? AND template_type = 'event'
-                `, [event.template_id]);
-
-                if (eventTemplate) {
-                    // 解析 template_content JSON
-                    if (eventTemplate.template_content) {
-                        try {
-                            eventTemplate.template_content = JSON.parse(eventTemplate.template_content);
-                        } catch (e) {
-                            console.error('解析活動模板內容失敗:', e);
-                            eventTemplate.template_content = null;
-                        }
-                    }
-
-                    // 解析 special_guests JSON
-                    if (eventTemplate.special_guests) {
-                        try {
-                            eventTemplate.special_guests = JSON.parse(eventTemplate.special_guests);
-                        } catch (e) {
-                            console.error('解析特別嘉賓失敗:', e);
-                            eventTemplate.special_guests = [];
-                        }
-                    } else {
-                        eventTemplate.special_guests = [];
-                    }
-                }
-            } catch (error) {
-                console.error('獲取活動模板失敗:', error);
-                // 不影響主要活動資料的返回
-            }
-        }
-
-        // 解析 event_highlights JSON
-        let highlights = null;
-        if (event.event_highlights) {
-            try {
-                highlights = JSON.parse(event.event_highlights);
-            } catch (e) {
-                console.error('解析活動亮點失敗:', e);
-                highlights = null;
-            }
-        }
-
-        // 格式化回應數據
-        const responseData = {
-            ...event,
-            event_highlights: highlights,
-            contact_info: {
-                email: event.contact_email,
-                phone: event.contact_phone
-            },
-            template: eventTemplate ? {
-                id: eventTemplate.id,
-                name: eventTemplate.template_name,
-                ...eventTemplate.template_content,  // 返回完整的模板內容（schedule, agenda 等）
-                special_guests: eventTemplate.special_guests || []  // special_guests 是獨立欄位
-            } : null
-        };
-
-        // 移除重複的聯絡資訊欄位
-        delete responseData.contact_email;
-        delete responseData.contact_phone;
-        delete responseData.template_id;
-
-        return responses.success(res, responseData);
+        const result = await eventService.getEventByCode(req.params.code);
+        return responses.success(res, result);
 
     } catch (error) {
-        console.error('獲取活動詳情錯誤:', error);
-        return responses.error(res, '獲取活動詳情失敗', 500);
+        return handleServiceError(res, error, '獲取活動詳情失敗');
     }
 });
 
@@ -698,122 +502,11 @@ router.get('/:id', [
             return responses.validationError(res, { errors: errors.array() });
         }
 
-        const eventId = req.params.id;
-
-        const event = await database.get(`
-            SELECT
-                p.id,
-                p.project_name as name,
-                p.project_code as code,
-                p.description,
-                p.event_date as date,
-                p.event_start_date,
-                p.event_end_date,
-                p.event_highlights,
-                p.event_location as location,
-                p.event_type as type,
-                p.status,
-                p.max_participants,
-                p.registration_deadline,
-                p.contact_email,
-                p.contact_phone,
-                p.agenda,
-                p.template_id,
-                p.created_at,
-                p.updated_at,
-                COUNT(fs.id) as current_participants
-            FROM event_projects p
-            LEFT JOIN form_submissions fs ON p.id = fs.project_id
-                AND fs.status IN ('pending', 'approved', 'confirmed')
-            WHERE p.id = ?
-            GROUP BY p.id
-        `, [eventId]);
-
-        if (!event) {
-            return responses.error(res, '活動不存在', 404);
-        }
-
-        // 獲取活動模板資料
-        let eventTemplate = null;
-        if (event.template_id) {
-            try {
-                eventTemplate = await database.get(`
-                    SELECT
-                        id,
-                        template_name,
-                        template_type,
-                        template_content,
-                        special_guests
-                    FROM invitation_templates
-                    WHERE id = ? AND template_type = 'event'
-                `, [event.template_id]);
-
-                if (eventTemplate) {
-                    // 解析 template_content JSON
-                    if (eventTemplate.template_content) {
-                        try {
-                            eventTemplate.template_content = JSON.parse(eventTemplate.template_content);
-                        } catch (e) {
-                            console.error('解析活動模板內容失敗:', e);
-                            eventTemplate.template_content = null;
-                        }
-                    }
-
-                    // 解析 special_guests JSON
-                    if (eventTemplate.special_guests) {
-                        try {
-                            eventTemplate.special_guests = JSON.parse(eventTemplate.special_guests);
-                        } catch (e) {
-                            console.error('解析特別嘉賓失敗:', e);
-                            eventTemplate.special_guests = [];
-                        }
-                    } else {
-                        eventTemplate.special_guests = [];
-                    }
-                }
-            } catch (error) {
-                console.error('獲取活動模板失敗:', error);
-                // 不影響主要活動資料的返回
-            }
-        }
-
-        // 解析 event_highlights JSON
-        let highlights = null;
-        if (event.event_highlights) {
-            try {
-                highlights = JSON.parse(event.event_highlights);
-            } catch (e) {
-                console.error('解析活動亮點失敗:', e);
-                highlights = null;
-            }
-        }
-
-        // 格式化回應數據
-        const responseData = {
-            ...event,
-            event_highlights: highlights,
-            contact_info: {
-                email: event.contact_email,
-                phone: event.contact_phone
-            },
-            template: eventTemplate ? {
-                id: eventTemplate.id,
-                name: eventTemplate.template_name,
-                ...eventTemplate.template_content,  // 返回完整的模板內容（schedule, agenda 等）
-                special_guests: eventTemplate.special_guests || []  // special_guests 是獨立欄位
-            } : null
-        };
-
-        // 移除重複的聯絡資訊欄位
-        delete responseData.contact_email;
-        delete responseData.contact_phone;
-        delete responseData.template_id;
-
-        return responses.success(res, responseData);
+        const result = await eventService.getEventById(parseInt(req.params.id));
+        return responses.success(res, result);
 
     } catch (error) {
-        console.error('獲取活動詳情錯誤:', error);
-        return responses.error(res, '獲取活動詳情失敗', 500);
+        return handleServiceError(res, error, '獲取活動詳情失敗');
     }
 });
 

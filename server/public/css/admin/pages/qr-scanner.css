@@ -1,0 +1,481 @@
+/**
+ * QR Scanner Page Styles
+ * QR 掃描器頁面專用樣式
+ * Standalone page (not using admin layout)
+ */
+
+:root {
+    --primary-color: #667eea;
+    --success-color: #28a745;
+    --success-color-light: #d4edda;
+    --success-color-dark: #155724;
+    --error-color-light: #f8d7da;
+    --error-color-dark: #721c24;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-400: #9ca3af;
+    --gray-600: #4b5563;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --border-color: #e5e7eb;
+    --border-radius: 5px;
+    --border-radius-lg: 10px;
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.scanner-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* 頁面標頭 */
+.page-header {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.page-title h1 {
+    color: #333;
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+
+.page-title p {
+    color: #666;
+    font-size: 14px;
+}
+
+.page-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* 按鈕樣式 */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-sm {
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+.btn-outline-primary {
+    background: transparent;
+    color: #667eea;
+    border: 1px solid #667eea;
+}
+
+.btn-outline-primary:hover {
+    background: #667eea;
+    color: white;
+}
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #5568d3;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+}
+
+.btn-success {
+    background: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #218838;
+}
+
+.btn-warning {
+    background: #ffc107;
+    color: #333;
+}
+
+.btn-warning:hover {
+    background: #e0a800;
+}
+
+.btn-info {
+    background: #17a2b8;
+    color: white;
+}
+
+.btn-info:hover {
+    background: #138496;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.loading {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+}
+
+/* 掃描器佈局 */
+.scanner-layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+}
+
+.camera-section {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.info-panel {
+    background: #f9fafb;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
+    max-height: calc(100vh - 200px);
+}
+
+/* 攝影機區域 */
+.camera-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.camera-header h3 {
+    margin: 0;
+    color: #111827;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #9ca3af;
+}
+
+.status-dot.online {
+    background: #28a745;
+    animation: pulse 2s infinite;
+}
+
+.status-dot.offline {
+    background: #9ca3af;
+}
+
+.camera-container {
+    position: relative;
+    margin-bottom: 15px;
+}
+
+#video {
+    width: 100%;
+    height: 400px;
+    border-radius: 5px;
+    background: #000;
+    object-fit: cover;
+}
+
+/* 掃描疊加層 */
+.scan-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.scan-frame {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 200px;
+    border: 2px solid #667eea;
+    border-radius: 5px;
+}
+
+.scan-line {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 180px;
+    height: 2px;
+    background: #667eea;
+    animation: scan 2s linear infinite;
+}
+
+@keyframes scan {
+    0% {
+        transform: translate(-50%, -50%) translateY(-90px);
+    }
+    100% {
+        transform: translate(-50%, -50%) translateY(90px);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.camera-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+/* 掃描結果 */
+.scan-result {
+    background: #d4edda;
+    border: 1px solid #28a745;
+    border-radius: 5px;
+    padding: 15px;
+}
+
+.result-content h4 {
+    margin: 0 0 10px 0;
+    color: #155724;
+}
+
+.result-data {
+    background: white;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    font-family: monospace;
+    word-break: break-all;
+}
+
+.result-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* 面板區域 */
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.panel-header h3 {
+    margin: 0;
+    color: #111827;
+}
+
+.today-stats {
+    background: white;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.scan-history-container {
+    margin-bottom: 20px;
+}
+
+.scan-history-container h4 {
+    margin: 0 0 15px 0;
+    color: #1f2937;
+}
+
+/* 說明區域 */
+.instructions {
+    background: white;
+    border-radius: 5px;
+    padding: 15px;
+}
+
+.instructions h4,
+.instructions h5 {
+    margin: 0 0 10px 0;
+    color: #1f2937;
+}
+
+.instructions ol,
+.instructions ul {
+    margin: 10px 0;
+    padding-left: 25px;
+}
+
+.instructions li {
+    margin-bottom: 5px;
+    color: #4b5563;
+}
+
+.tips {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* 統計網格 */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 15px;
+    background: #f9fafb;
+    border-radius: 5px;
+    border: 1px solid #e5e7eb;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #667eea;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    color: #4b5563;
+    font-size: 14px;
+}
+
+/* 掃描歷史列表 */
+.scan-history-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.scan-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    margin-bottom: 10px;
+    background: white;
+    border-radius: 5px;
+    border: 1px solid #e5e7eb;
+}
+
+.scan-info strong {
+    display: block;
+    color: #1f2937;
+    margin-bottom: 5px;
+}
+
+.scan-info small {
+    color: #4b5563;
+    font-size: 12px;
+}
+
+.scan-meta {
+    text-align: right;
+}
+
+.scan-time {
+    display: block;
+    font-size: 12px;
+    color: #4b5563;
+    margin-bottom: 5px;
+}
+
+/* 徽章 */
+.badge {
+    padding: 4px 8px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-success {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge-danger {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    .scanner-layout {
+        grid-template-columns: 1fr;
+    }
+
+    #video {
+        height: 250px;
+    }
+
+    .scan-frame {
+        width: 150px;
+        height: 150px;
+    }
+
+    .scan-line {
+        width: 130px;
+    }
+
+    .camera-controls {
+        flex-wrap: wrap;
+    }
+}

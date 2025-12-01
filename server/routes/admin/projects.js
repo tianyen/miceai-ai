@@ -1,10 +1,13 @@
 /**
  * 專案管理路由
+ *
+ * @refactor 2025-12-01: 使用 projectService
  */
 const express = require('express');
 const router = express.Router();
-const database = require('../../config/database');
 const responses = require('../../utils/responses');
+const { projectService } = require('../../services');
+const vh = require('../../utils/viewHelpers');
 
 // 專案管理頁面
 router.get('/', (req, res) => {
@@ -16,23 +19,17 @@ router.get('/', (req, res) => {
         breadcrumbs: [
             { name: '儀表板', url: '/admin/dashboard' },
             { name: '專案管理' }
-        ]
+        ],
+        additionalCSS: ['/css/admin/pages/projects.css'],
+        additionalJS: ['/js/admin/pages/projects.js']
     });
 });
 
-// 專案詳情頁面
+// 專案詳情頁面 (使用 projectService)
 router.get('/:id/detail', async (req, res) => {
     try {
         const projectId = req.params.id;
-
-        // 獲取專案基本信息（包含模板資訊）
-        const project = await database.get(`
-            SELECT p.*, u.full_name as creator_name, t.template_name, t.id as template_id
-            FROM event_projects p
-            LEFT JOIN users u ON p.created_by = u.id
-            LEFT JOIN invitation_templates t ON p.template_id = t.id
-            WHERE p.id = ?
-        `, [projectId]);
+        const project = await projectService.getProjectDetail(projectId);
 
         if (!project) {
             return res.status(404).render('admin/404', {
@@ -51,7 +48,9 @@ router.get('/:id/detail', async (req, res) => {
                 { name: '儀表板', url: '/admin/dashboard' },
                 { name: '專案管理', url: '/admin/projects' },
                 { name: project.project_name }
-            ]
+            ],
+            additionalCSS: ['/css/admin/pages/project-detail.css'],
+            additionalJS: ['/js/admin/pages/project-detail.js']
         });
 
     } catch (error) {
@@ -63,159 +62,15 @@ router.get('/:id/detail', async (req, res) => {
     }
 });
 
-// 新增專案模態框
-router.get('/new', async (req, res) => {
-    const modalContent = `
-    <div class="modal active">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h4>新增專案</h4>
-                    <button type="button" class="close" onclick="closeModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <form id="new-project-form">
-                        <div class="form-group">
-                            <label for="project_name">專案名稱 <span class="text-danger">*</span></label>
-                            <input type="text" id="project_name" name="project_name" class="form-control" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="project_code">專案代碼 <span class="text-danger">*</span></label>
-                            <input type="text" id="project_code" name="project_code" class="form-control" required placeholder="例如：CONF2024">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="description">專案描述</label>
-                            <textarea id="description" name="description" class="form-control" rows="3" placeholder="請輸入專案描述..."></textarea>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group col-md-6">
-                                <label for="event_date">活動日期</label>
-                                <input type="date" id="event_date" name="event_date" class="form-control">
-                            </div>
-                            <div class="form-group col-md-6">
-                                <label for="event_location">活動地點</label>
-                                <input type="text" id="event_location" name="event_location" class="form-control" placeholder="活動地點">
-                            </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group col-md-6">
-                                <label for="max_participants">參加者上限</label>
-                                <input type="number" id="max_participants" name="max_participants" class="form-control" min="1" placeholder="100">
-                            </div>
-                            <div class="form-group col-md-6">
-                                <label for="status">專案狀態</label>
-                                <select id="status" name="status" class="form-control">
-                                    <option value="draft">草稿</option>
-                                    <option value="active" selected>進行中</option>
-                                    <option value="completed">已完成</option>
-                                    <option value="cancelled">已取消</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="registration_deadline">報名截止日期</label>
-                            <input type="datetime-local" id="registration_deadline" name="registration_deadline" class="form-control">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="settings">專案設定 (JSON)</label>
-                            <textarea id="settings" name="settings" class="form-control" rows="4" placeholder='{"email_notifications": true, "auto_approval": false}'></textarea>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
-                    <button type="button" class="btn btn-primary" onclick="submitNewProject()">
-                        <i class="fas fa-save"></i> 建立專案
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script>
-        function closeModal() {
-            document.getElementById('modal-container').innerHTML = '';
-            document.body.classList.remove('modal-open');
-        }
-        
-        function submitNewProject() {
-            const form = document.getElementById('new-project-form');
-            const formData = new FormData(form);
-            const data = {};
-            
-            for (let [key, value] of formData.entries()) {
-                data[key] = value;
-            }
-            
-            // 驗證必填欄位
-            if (!data.project_name || !data.project_code) {
-                showAlert('請填寫專案名稱和專案代碼', 'danger');
-                return;
-            }
-            
-            // 驗證設定 JSON 格式
-            if (data.settings && data.settings.trim()) {
-                try {
-                    JSON.parse(data.settings);
-                } catch (e) {
-                    showAlert('專案設定格式錯誤，請輸入有效的 JSON 格式', 'danger');
-                    return;
-                }
-            }
-            
-            $.ajax({
-                url: '/api/admin/projects',
-                method: 'POST',
-                data: data,
-                success: function(response) {
-                    if (response.success) {
-                        showAlert('專案建立成功', 'success');
-                        closeModal();
-                        // 重新載入專案列表
-                        if (window.loadProjects) {
-                            window.loadProjects();
-                        }
-                    } else {
-                        showAlert(response.message || '建立失敗', 'danger');
-                    }
-                },
-                error: function() {
-                    showAlert('建立專案時發生錯誤', 'danger');
-                }
-            });
-        }
-        
-        // 顯示提示信息的函數
-        function showAlert(message, type) {
-            if (typeof showNotification === 'function') {
-                showNotification(message, type === 'danger' ? 'error' : type);
-            } else {
-                alert(message);
-            }
-        }
-    </script>
-    `;
-
-    responses.html(res, modalContent);
-});
-
-// 專案分頁 API
+// 專案分頁 API (使用 projectService)
 router.get('/pagination', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
 
-        // 簡化查詢，暫時不考慮權限問題
-        const countQuery = 'SELECT COUNT(*) as count FROM event_projects';
-
-        const totalResult = await database.get(countQuery);
-        const total = totalResult?.count || 0;
-        const pages = Math.ceil(total / limit);
+        // 使用 Service 取得分頁資訊
+        const pagination = await projectService.getPagination(page, limit);
+        const { total, pages } = pagination;
 
         let paginationHtml = '<div class="pagination-info">';
         paginationHtml += `<span>共 ${total} 個專案，第 ${page} 頁 / 共 ${pages} 頁</span>`;
@@ -269,139 +124,11 @@ router.get('/pagination', async (req, res) => {
     }
 });
 
-// 編輯專案模態框
-router.get('/:id/edit', async (req, res) => {
-    try {
-        const projectId = req.params.id;
-        const project = await database.get('SELECT * FROM event_projects WHERE id = ?', [projectId]);
-
-        if (!project) {
-            return responses.html(res, '<div class="alert alert-danger">專案不存在</div>');
-        }
-
-        const modalContent = `
-        <div class="modal active">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h4>編輯專案 - ${project.project_name}</h4>
-                        <button type="button" class="close" onclick="closeModal()">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="edit-project-form">
-                            <input type="hidden" name="id" value="${project.id}">
-                            
-                            <div class="form-group">
-                                <label for="edit_project_name">專案名稱 <span class="text-danger">*</span></label>
-                                <input type="text" id="edit_project_name" name="project_name" class="form-control" value="${project.project_name}" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="edit_project_code">專案代碼 <span class="text-danger">*</span></label>
-                                <input type="text" id="edit_project_code" name="project_code" class="form-control" value="${project.project_code}" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="edit_description">專案描述</label>
-                                <textarea id="edit_description" name="description" class="form-control" rows="3">${project.description || ''}</textarea>
-                            </div>
-                            
-                            <div class="form-row">
-                                <div class="form-group col-md-6">
-                                    <label for="edit_event_date">活動日期</label>
-                                    <input type="date" id="edit_event_date" name="event_date" class="form-control" value="${project.event_date || ''}">
-                                </div>
-                                <div class="form-group col-md-6">
-                                    <label for="edit_event_location">活動地點</label>
-                                    <input type="text" id="edit_event_location" name="event_location" class="form-control" value="${project.event_location || ''}" placeholder="活動地點">
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="edit_status">專案狀態</label>
-                                <select id="edit_status" name="status" class="form-control">
-                                    <option value="draft" ${project.status === 'draft' ? 'selected' : ''}>草稿</option>
-                                    <option value="active" ${project.status === 'active' ? 'selected' : ''}>進行中</option>
-                                    <option value="completed" ${project.status === 'completed' ? 'selected' : ''}>已完成</option>
-                                    <option value="cancelled" ${project.status === 'cancelled' ? 'selected' : ''}>已取消</option>
-                                </select>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
-                        <button type="button" class="btn btn-primary" onclick="submitEditProject()">
-                            <i class="fas fa-save"></i> 更新專案
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <script>
-            function closeModal() {
-                document.getElementById('modal-container').innerHTML = '';
-                document.body.classList.remove('modal-open');
-            }
-            
-            function submitEditProject() {
-                const form = document.getElementById('edit-project-form');
-                const formData = new FormData(form);
-                const data = {};
-                
-                for (let [key, value] of formData.entries()) {
-                    data[key] = value;
-                }
-                
-                const projectId = data.id;
-                delete data.id; // 移除 ID，不要在更新數據中包含
-                
-                $.ajax({
-                    url: '/api/admin/projects/' + projectId,
-                    method: 'PUT',
-                    data: data,
-                    success: function(response) {
-                        if (response.success) {
-                            showAlert('專案更新成功', 'success');
-                            closeModal();
-                            if (window.loadProjects) {
-                                window.loadProjects();
-                            }
-                        } else {
-                            showAlert(response.message || '更新失敗', 'danger');
-                        }
-                    },
-                    error: function() {
-                        showAlert('更新專案時發生錯誤', 'danger');
-                    }
-                });
-            }
-            
-            function showAlert(message, type) {
-                if (typeof showNotification === 'function') {
-                    showNotification(message, type === 'danger' ? 'error' : type);
-                } else {
-                    alert(message);
-                }
-            }
-        </script>
-        `;
-
-        responses.html(res, modalContent);
-    } catch (error) {
-        console.error('Get edit project modal error:', error);
-        responses.html(res, '<div class="alert alert-danger">載入編輯表單失敗</div>');
-    }
-});
-
-// 新增專案模態框
+// 新增專案模態框 (使用 projectService)
 router.get('/new', async (req, res) => {
     try {
-        const database = require('../../config/database');
-
-        // 獲取可用的模板
-        const templates = await database.query(
-            'SELECT id, template_name, category FROM invitation_templates WHERE status = "active" ORDER BY category, template_name'
-        );
+        // 使用 Service 取得可用模板
+        const templates = await projectService.getActiveTemplates();
 
         const modalContent = `
         <div class="modal active">
@@ -548,14 +275,13 @@ router.get('/new', async (req, res) => {
     }
 });
 
-// 编辑专案模态框
+// 编辑专案模态框 (使用 projectService)
 router.get('/:id/edit', async (req, res) => {
     try {
         const projectId = req.params.id;
 
-        const project = await database.get(`
-            SELECT * FROM event_projects WHERE id = ?
-        `, [projectId]);
+        // 使用 Service 取得專案資料
+        const project = await projectService.getById(projectId);
 
         if (!project) {
             return res.status(404).send(`
@@ -732,59 +458,23 @@ router.get('/:id/edit', async (req, res) => {
     }
 });
 
-// 獲取專案報名連結
+// 獲取專案報名連結 (使用 projectService)
 router.get('/:id/registration-urls', async (req, res) => {
     try {
         const projectId = req.params.id;
-        const userId = req.user.id;
-        const userRole = req.user.role;
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
 
-        // 檢查專案權限 (這裡簡化，實際可以根據需要添加更複雜的權限檢查)
-        const project = await database.get(`
-            SELECT id, project_name, project_code, status, description, event_date, event_location
-            FROM event_projects 
-            WHERE id = ? AND (created_by = ? OR ? = 'super_admin')
-        `, [projectId, userId, userRole]);
+        // 使用 Service 取得報名連結資訊
+        const result = await projectService.getRegistrationUrls(projectId, req.user, baseUrl);
 
-        if (!project) {
+        if (!result) {
             return res.status(404).json({
                 success: false,
                 message: '專案不存在或無權限查看'
             });
         }
 
-        // 生成各種報名連結
-        const baseUrl = `${req.protocol}://${req.get('host')}`;
-        const registrationUrls = {
-            primary: `${baseUrl}/register/${project.project_code}`,
-            legacy: `${baseUrl}/form?project=${project.project_code}`,
-            qr_direct: `${baseUrl}/qr?project=${project.project_code}`
-        };
-
-        // 獲取專案統計
-        const stats = await database.get(`
-            SELECT 
-                COUNT(*) as total_submissions,
-                COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_submissions,
-                COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_submissions,
-                COUNT(CASE WHEN checked_in_at IS NOT NULL THEN 1 END) as checked_in_count
-            FROM form_submissions WHERE project_id = ?
-        `, [projectId]);
-
-        return responses.success(res, {
-            project: {
-                id: project.id,
-                name: project.project_name,
-                code: project.project_code,
-                status: project.status,
-                description: project.description,
-                event_date: project.event_date,
-                event_location: project.event_location
-            },
-            registration_urls: registrationUrls,
-            statistics: stats || { total_submissions: 0, pending_submissions: 0, approved_submissions: 0, checked_in_count: 0 },
-            is_open_for_registration: project.status === 'active'
-        }, '獲取專案報名連結成功');
+        return responses.success(res, result, '獲取專案報名連結成功');
 
     } catch (error) {
         console.error('獲取專案報名連結失敗:', error);
@@ -792,32 +482,11 @@ router.get('/:id/registration-urls', async (req, res) => {
     }
 });
 
-// 獲取專案綁定的遊戲列表（HTML 片段）
+// 獲取專案綁定的遊戲列表（HTML 片段，使用 projectService）
 router.get('/:id/games', async (req, res) => {
     try {
         const projectId = req.params.id;
-
-        // 查詢專案綁定的遊戲（透過 booth_games）
-        const games = await database.query(`
-            SELECT DISTINCT
-                g.id as game_id,
-                g.game_name_zh,
-                g.game_name_en,
-                g.is_active,
-                bg.id as binding_id,
-                bg.voucher_id,
-                v.voucher_name,
-                v.remaining_quantity,
-                v.total_quantity,
-                b.booth_name,
-                b.id as booth_id
-            FROM booth_games bg
-            INNER JOIN games g ON bg.game_id = g.id
-            INNER JOIN booths b ON bg.booth_id = b.id
-            LEFT JOIN vouchers v ON bg.voucher_id = v.id
-            WHERE b.project_id = ?
-            ORDER BY g.game_name_zh
-        `, [projectId]);
+        const games = await projectService.getProjectGames(projectId);
 
         if (!games || games.length === 0) {
             return responses.html(res, `
@@ -829,6 +498,7 @@ router.get('/:id/games', async (req, res) => {
             `);
         }
 
+        // 使用 viewHelper 生成 HTML（如果有）或直接生成
         let html = '';
         games.forEach(game => {
             const statusBadge = game.is_active
@@ -882,40 +552,17 @@ router.get('/:id/games', async (req, res) => {
     }
 });
 
-// 獲取遊戲綁定的 QR Code
+// 獲取遊戲綁定的 QR Code (使用 projectService)
 router.get('/:projectId/games/:bindingId/qr', async (req, res) => {
     try {
         const { projectId, bindingId } = req.params;
+        const result = await projectService.getGameBindingQrCode(bindingId, projectId);
 
-        // 查詢綁定資訊
-        const binding = await database.get(`
-            SELECT
-                bg.*,
-                g.game_name_zh,
-                g.game_name_en,
-                v.voucher_name,
-                b.booth_name
-            FROM booth_games bg
-            INNER JOIN games g ON bg.game_id = g.id
-            INNER JOIN booths b ON bg.booth_id = b.id
-            LEFT JOIN vouchers v ON bg.voucher_id = v.id
-            WHERE bg.id = ? AND b.project_id = ?
-        `, [bindingId, projectId]);
-
-        if (!binding) {
+        if (!result) {
             return responses.error(res, { message: '綁定不存在' }, 404);
         }
 
-        return responses.success(res, {
-            id: binding.id,
-            game_id: binding.game_id,
-            game_name_zh: binding.game_name_zh,
-            game_name_en: binding.game_name_en,
-            booth_name: binding.booth_name,
-            voucher_id: binding.voucher_id,
-            voucher_name: binding.voucher_name,
-            qr_code_base64: binding.qr_code_base64
-        });
+        return responses.success(res, result);
 
     } catch (error) {
         console.error('獲取 QR Code 失敗:', error);
@@ -923,62 +570,36 @@ router.get('/:projectId/games/:bindingId/qr', async (req, res) => {
     }
 });
 
-// 更新遊戲綁定
+// 更新遊戲綁定 (使用 projectService)
 router.put('/:projectId/games/:bindingId', async (req, res) => {
     try {
         const { projectId, bindingId } = req.params;
         const { voucher_id } = req.body;
 
-        // 檢查綁定是否存在
-        const binding = await database.get(`
-            SELECT bg.*
-            FROM booth_games bg
-            INNER JOIN booths b ON bg.booth_id = b.id
-            WHERE bg.id = ? AND b.project_id = ?
-        `, [bindingId, projectId]);
-
-        if (!binding) {
-            return responses.error(res, { message: '綁定不存在' }, 404);
-        }
-
-        // 更新兌換券
-        await database.run(`
-            UPDATE booth_games
-            SET voucher_id = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        `, [voucher_id || null, bindingId]);
-
-        return responses.success(res, null, '更新成功');
+        const result = await projectService.updateGameBinding(bindingId, projectId, { voucher_id });
+        return responses.success(res, null, result.message);
 
     } catch (error) {
+        if (error.code === 'NOT_FOUND') {
+            return responses.error(res, { message: error.message }, 404);
+        }
         console.error('更新綁定失敗:', error);
         return responses.serverError(res, '更新綁定失敗');
     }
 });
 
-// 解除遊戲綁定
+// 解除遊戲綁定 (使用 projectService)
 router.delete('/:projectId/games/:bindingId', async (req, res) => {
     try {
         const { projectId, bindingId } = req.params;
 
-        // 檢查綁定是否存在
-        const binding = await database.get(`
-            SELECT bg.*
-            FROM booth_games bg
-            INNER JOIN booths b ON bg.booth_id = b.id
-            WHERE bg.id = ? AND b.project_id = ?
-        `, [bindingId, projectId]);
-
-        if (!binding) {
-            return responses.error(res, { message: '綁定不存在' }, 404);
-        }
-
-        // 刪除綁定
-        await database.run('DELETE FROM booth_games WHERE id = ?', [bindingId]);
-
-        return responses.success(res, null, '解除綁定成功');
+        const result = await projectService.deleteGameBinding(bindingId, projectId);
+        return responses.success(res, null, result.message);
 
     } catch (error) {
+        if (error.code === 'NOT_FOUND') {
+            return responses.error(res, { message: error.message }, 404);
+        }
         console.error('解除綁定失敗:', error);
         return responses.serverError(res, '解除綁定失敗');
     }

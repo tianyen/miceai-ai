@@ -1,10 +1,12 @@
 /**
  * 表單數據管理路由
+ *
+ * @refactor 2025-12-01: 使用 submissionService, projectService
  */
 const express = require('express');
 const router = express.Router();
-const database = require('../../config/database');
 const responses = require('../../utils/responses');
+const { submissionService, projectService } = require('../../services');
 
 // 表單數據管理頁面
 router.get('/', (req, res) => {
@@ -20,38 +22,18 @@ router.get('/', (req, res) => {
     });
 });
 
-// 搜尋表單提交記錄
+// 搜尋表單提交記錄 (使用 submissionService)
 router.get('/search', async (req, res) => {
     try {
         const { search, 'project-filter': projectFilter, 'status-filter': statusFilter } = req.query;
 
-        let searchQuery = `
-            SELECT fs.*, p.project_name 
-            FROM form_submissions fs
-            LEFT JOIN event_projects p ON fs.project_id = p.id
-            WHERE 1=1
-        `;
-        let queryParams = [];
-
-        if (search && search.trim()) {
-            searchQuery += ` AND (fs.submitter_name LIKE ? OR fs.submitter_email LIKE ?)`;
-            const searchTerm = `%${search.trim()}%`;
-            queryParams.push(searchTerm, searchTerm);
-        }
-
-        if (projectFilter && projectFilter.trim()) {
-            searchQuery += ` AND fs.project_id = ?`;
-            queryParams.push(projectFilter);
-        }
-
-        if (statusFilter && statusFilter.trim()) {
-            searchQuery += ` AND fs.status = ?`;
-            queryParams.push(statusFilter);
-        }
-
-        searchQuery += ` ORDER BY fs.created_at DESC LIMIT 50`;
-
-        const submissions = await database.query(searchQuery, queryParams);
+        // 使用 Service 搜尋
+        const submissions = await submissionService.search({
+            search,
+            projectId: projectFilter,
+            status: statusFilter,
+            limit: 50
+        });
 
         // 生成 HTML 表格行
         let html = '';
@@ -99,16 +81,15 @@ router.get('/search', async (req, res) => {
     }
 });
 
-// 分頁 API
+// 分頁 API (使用 submissionService)
 router.get('/pagination', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
 
-        const countQuery = 'SELECT COUNT(*) as count FROM form_submissions';
-        const totalResult = await database.get(countQuery);
-        const total = totalResult?.count || 0;
-        const pages = Math.ceil(total / limit);
+        // 使用 Service 取得分頁資訊
+        const pagination = await submissionService.getPagination(page, limit);
+        const { total, pages } = pagination;
 
         let paginationHtml = '<div class="pagination-info">';
         paginationHtml += `<span>共 ${total} 筆提交記錄，第 ${page} 頁 / 共 ${pages} 頁</span>`;
@@ -158,17 +139,13 @@ router.get('/pagination', async (req, res) => {
     }
 });
 
-// 查看提交詳情（返回 Modal HTML）
+// 查看提交詳情（返回 Modal HTML，使用 submissionService）
 router.get('/:id', async (req, res) => {
     try {
         const submissionId = req.params.id;
 
-        const submission = await database.get(`
-            SELECT s.*, p.project_name, p.project_code, p.event_date, p.event_location
-            FROM form_submissions s
-            LEFT JOIN event_projects p ON s.project_id = p.id
-            WHERE s.id = ?
-        `, [submissionId]);
+        // 使用 Service 取得提交詳情
+        const submission = await submissionService.getById(submissionId);
 
         if (!submission) {
             return res.status(404).send(`
@@ -337,17 +314,13 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// 编辑提交记录（返回 Modal HTML）
+// 编辑提交记录（返回 Modal HTML，使用 submissionService, projectService）
 router.get('/:id/edit', async (req, res) => {
     try {
         const submissionId = req.params.id;
 
-        const submission = await database.get(`
-            SELECT s.*, p.project_name, p.project_code
-            FROM form_submissions s
-            LEFT JOIN event_projects p ON s.project_id = p.id
-            WHERE s.id = ?
-        `, [submissionId]);
+        // 使用 Service 取得提交記錄
+        const submission = await submissionService.getById(submissionId);
 
         if (!submission) {
             return res.status(404).send(`
@@ -372,8 +345,8 @@ router.get('/:id/edit', async (req, res) => {
             `);
         }
 
-        // 获取所有项目供选择
-        const projects = await database.query('SELECT id, project_name FROM event_projects ORDER BY project_name');
+        // 使用 Service 取得所有專案供下拉選單
+        const projects = await projectService.getAllForDropdown();
 
         const html = `
             <div class="modal show" style="display: flex; align-items: center; justify-content: center;">

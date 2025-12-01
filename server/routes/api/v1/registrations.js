@@ -9,16 +9,27 @@
 
 const express = require('express');
 const router = express.Router();
-const database = require('../../../config/database');
+const { registrationService } = require('../../../services');
 const responses = require('../../../utils/responses');
 const { body, param, validationResult } = require('express-validator');
-const { generateTraceId } = require('../../../utils/traceId');
-
-// 驗證電子郵件格式
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // 驗證手機號碼格式
 const phoneRegex = /^[0-9\-\+\s\(\)]{8,20}$/;
+
+/**
+ * 處理 Service 層錯誤（AppError）
+ */
+function handleServiceError(res, error, defaultMessage) {
+    console.error(`${defaultMessage}:`, error);
+
+    // 檢查是否為 AppError（有 statusCode 屬性）
+    if (error.statusCode) {
+        const message = error.details?.message || error.message || defaultMessage;
+        return responses.error(res, message, error.statusCode);
+    }
+
+    return responses.error(res, defaultMessage, 500);
+}
 
 /**
  * @swagger
@@ -182,7 +193,7 @@ router.post('/events/:eventId/registrations', [
     try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-            return responses.validationError(res, { 
+            return responses.validationError(res, {
                 message: '請求參數驗證失敗',
                 errors: errors.array().reduce((acc, error) => {
                     acc[error.path] = error.msg;
@@ -191,175 +202,42 @@ router.post('/events/:eventId/registrations', [
             });
         }
 
-        const eventId = req.params.eventId;
-        const {
+        const { name, email, phone, company, position, data_consent, marketing_consent } = req.body;
+
+        const result = await registrationService.submitRegistration({
+            eventId: req.params.eventId,
             name,
             email,
             phone,
-            company = '',
-            position = '',
-            data_consent,
-            marketing_consent = false
-        } = req.body;
-
-        // 檢查活動是否存在且開放報名
-        const event = await database.get(`
-            SELECT id, project_name, project_code, event_date, event_location, 
-                   status, max_participants, registration_deadline,
-                   contact_email, contact_phone
-            FROM event_projects 
-            WHERE id = ? AND status = 'active'
-        `, [eventId]);
-
-        if (!event) {
-            return responses.error(res, '活動不存在或未開放報名', 404);
-        }
-
-        // 檢查報名截止時間
-        if (event.registration_deadline) {
-            const deadline = new Date(event.registration_deadline);
-            if (new Date() > deadline) {
-                return responses.error(res, '報名已截止', 400);
-            }
-        }
-
-        // 檢查是否已達到最大參與人數
-        if (event.max_participants > 0) {
-            const currentCount = await database.get(`
-                SELECT COUNT(*) as count 
-                FROM form_submissions 
-                WHERE project_id = ? AND status IN ('pending', 'approved', 'confirmed')
-            `, [eventId]);
-
-            if (currentCount.count >= event.max_participants) {
-                return responses.error(res, '活動已滿額', 400);
-            }
-        }
-
-        // 檢查是否重複報名（同一電子郵件）
-        const existingRegistration = await database.get(`
-            SELECT id, trace_id, status 
-            FROM form_submissions 
-            WHERE project_id = ? AND submitter_email = ?
-        `, [eventId, email]);
-
-        if (existingRegistration) {
-            return responses.error(res, '此電子郵件已報名過此活動', 409);
-        }
-
-        // 生成唯一的 trace_id
-        let traceId;
-        let attempts = 0;
-        do {
-            traceId = generateTraceId();
-            attempts++;
-            if (attempts > 10) {
-                throw new Error('無法生成唯一的追蹤 ID');
-            }
-        } while (await database.get('SELECT id FROM form_submissions WHERE trace_id = ?', [traceId]));
-
-        // 插入報名記錄
-        const result = await database.run(`
-            INSERT INTO form_submissions (
-                trace_id, project_id, submitter_name, submitter_email, submitter_phone,
-                company_name, position,
-                data_consent, marketing_consent, activity_notifications, product_updates,
-                ip_address, user_agent, status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        `, [
-            traceId,
-            eventId,
-            name,
-            email,
-            phone,
-            company,
-            position,
-            data_consent,
-            marketing_consent,
-            marketing_consent, // activity_notifications
-            marketing_consent, // product_updates
-            req.ip || req.connection.remoteAddress,
-            req.get('User-Agent'),
-            'pending'
-        ]);
-
-        // 生成 QR Code 記錄和 Base64
-        const qrData = traceId; // 使用 trace_id 作為 QR Code 數據
-        const QRCode = require('qrcode');
-
-        // 生成 QR Code Base64
-        const qrBase64 = await QRCode.toDataURL(qrData, {
-            type: 'image/png',
-            width: 300,
-            margin: 2,
-            color: {
-                dark: '#000000',
-                light: '#FFFFFF'
-            }
+            company: company || '',
+            position: position || '',
+            dataConsent: data_consent,
+            marketingConsent: marketing_consent || false,
+            ipAddress: req.ip || req.connection.remoteAddress,
+            userAgent: req.get('User-Agent')
         });
 
-        await database.run(`
-            INSERT INTO qr_codes (
-                project_id, submission_id, qr_code, qr_data, qr_base64, created_at
-            ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        `, [eventId, result.lastID, qrData, qrData, qrBase64]);
-
-        // 記錄參與者互動
-        await database.run(`
-            INSERT INTO participant_interactions (
-                trace_id, project_id, submission_id, interaction_type,
-                interaction_target, interaction_data, ip_address, user_agent
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-            traceId,
-            eventId,
-            result.lastID,
-            'event_registration',
-            'registration_api_v1',
-            JSON.stringify({
-                participant_name: name,
-                event_name: event.project_name,
-                registration_method: 'api_v1'
-            }),
-            req.ip || req.connection.remoteAddress,
-            req.get('User-Agent')
-        ]);
-
-        // 構建回應數據
-        const responseData = {
-            registration_id: result.lastID,
-            trace_id: traceId,
-            event: {
-                name: event.project_name,
-                date: event.event_date,
-                location: event.event_location
-            },
-            participant: {
-                name: name,
-                email: email
-            },
-            qr_code: {
-                data: qrData,
-                url: `/api/v1/qr-codes/${traceId}`
-            },
-            confirmation_email_sent: false // TODO: 實現郵件發送功能
-        };
-
         console.log('活動報名成功:', {
-            registration_id: result.lastID,
-            trace_id: traceId,
-            event_id: eventId,
-            event_name: event.project_name,
+            registration_id: result.registrationId,
+            trace_id: result.traceId,
+            event_name: result.event.name,
             participant_name: name,
-            participant_email: email,
             timestamp: new Date().toISOString()
         });
 
-        return responses.success(res, responseData, '報名成功！確認信已發送至您的電子郵件。', 201);
+        return responses.success(res, {
+            registration_id: result.registrationId,
+            trace_id: result.traceId,
+            pass_code: result.passCode,
+            project_code: result.projectCode,
+            event: result.event,
+            participant: result.participant,
+            qr_code: result.qrCode,
+            confirmation_email_sent: false
+        }, '報名成功！確認信已發送至您的電子郵件。', 201);
 
     } catch (error) {
-        console.error('活動報名錯誤:', error);
-        return responses.error(res, '報名過程發生錯誤，請稍後再試', 500);
+        return handleServiceError(res, error, '報名過程發生錯誤，請稍後再試');
     }
 });
 
@@ -479,68 +357,26 @@ router.get('/registrations/:traceId', [
             return responses.validationError(res, { errors: errors.array() });
         }
 
-        const traceId = req.params.traceId;
+        const result = await registrationService.getRegistrationStatus(req.params.traceId);
 
-        const registration = await database.get(`
-            SELECT
-                fs.id as registration_id,
-                fs.trace_id,
-                fs.user_id,
-                fs.status,
-                fs.submitter_name,
-                fs.submitter_email,
-                fs.submitter_phone,
-                fs.company_name,
-                fs.position,
-                fs.checked_in_at,
-                fs.created_at,
-                p.project_name as event_name,
-                p.event_date,
-                p.event_location,
-                qr.qr_data,
-                qr.scan_count,
-                qr.last_scanned
-            FROM form_submissions fs
-            JOIN event_projects p ON fs.project_id = p.id
-            LEFT JOIN qr_codes qr ON fs.id = qr.submission_id
-            WHERE fs.trace_id = ?
-        `, [traceId]);
-
-        if (!registration) {
-            return responses.error(res, '找不到報名記錄', 404);
-        }
-
-        const responseData = {
-            registration_id: registration.registration_id,
-            trace_id: registration.trace_id,
-            user_id: registration.user_id,
-            status: registration.status,
-            event: {
-                name: registration.event_name,
-                date: registration.event_date,
-                location: registration.event_location
-            },
-            participant: {
-                name: registration.submitter_name,
-                email: registration.submitter_email,
-                phone: registration.submitter_phone,
-                company: registration.company_name,
-                position: registration.position
-            },
+        return responses.success(res, {
+            registration_id: result.registrationId,
+            trace_id: result.traceId,
+            user_id: result.userId,
+            status: result.status,
+            event: result.event,
+            participant: result.participant,
             qr_code: {
-                data: registration.qr_data,
-                scan_count: registration.scan_count || 0,
-                last_scanned: registration.last_scanned
+                data: result.qrCode.data,
+                scan_count: result.qrCode.scanCount,
+                last_scanned: result.qrCode.lastScanned
             },
-            check_in_status: registration.checked_in_at,
-            created_at: registration.created_at
-        };
-
-        return responses.success(res, responseData);
+            check_in_status: result.checkInStatus,
+            created_at: result.createdAt
+        });
 
     } catch (error) {
-        console.error('查詢報名狀態錯誤:', error);
-        return responses.error(res, '查詢報名狀態失敗', 500);
+        return handleServiceError(res, error, '查詢報名狀態失敗');
     }
 });
 
@@ -602,43 +438,16 @@ router.get('/qr-codes/:traceId', [
             return responses.validationError(res, { errors: errors.array() });
         }
 
-        const traceId = req.params.traceId;
-        const QRCode = require('qrcode');
+        const qrImageBuffer = await registrationService.getQrCodeImage(req.params.traceId);
 
-        // 檢查 QR Code 記錄是否存在
-        const qrRecord = await database.get(`
-            SELECT qr.qr_data, fs.submitter_name, p.project_name
-            FROM qr_codes qr
-            JOIN form_submissions fs ON qr.submission_id = fs.id
-            JOIN event_projects p ON qr.project_id = p.id
-            WHERE fs.trace_id = ?
-        `, [traceId]);
-
-        if (!qrRecord) {
-            return responses.error(res, '找不到 QR Code 記錄', 404);
-        }
-
-        // 生成 QR Code 圖片
-        const qrImageBuffer = await QRCode.toBuffer(qrRecord.qr_data, {
-            type: 'png',
-            width: 300,
-            margin: 2,
-            color: {
-                dark: '#000000',
-                light: '#FFFFFF'
-            }
-        });
-
-        // 設置回應標頭
         res.setHeader('Content-Type', 'image/png');
         res.setHeader('Content-Length', qrImageBuffer.length);
-        res.setHeader('Cache-Control', 'public, max-age=3600'); // 快取 1 小時
+        res.setHeader('Cache-Control', 'public, max-age=3600');
 
         return res.send(qrImageBuffer);
 
     } catch (error) {
-        console.error('生成 QR Code 圖片錯誤:', error);
-        return responses.error(res, '生成 QR Code 失敗', 500);
+        return handleServiceError(res, error, '生成 QR Code 失敗');
     }
 });
 
@@ -713,43 +522,125 @@ router.get('/qr-codes/:traceId/data', [
             return responses.validationError(res, { errors: errors.array() });
         }
 
-        const traceId = req.params.traceId;
+        const result = await registrationService.getQrCodeData(req.params.traceId);
 
-        const qrRecord = await database.get(`
-            SELECT
-                qr.qr_data,
-                qr.qr_base64,
-                qr.scan_count,
-                qr.last_scanned,
-                qr.created_at,
-                fs.submitter_name as participant_name,
-                p.project_name as event_name
-            FROM qr_codes qr
-            JOIN form_submissions fs ON qr.submission_id = fs.id
-            JOIN event_projects p ON qr.project_id = p.id
-            WHERE fs.trace_id = ?
-        `, [traceId]);
-
-        if (!qrRecord) {
-            return responses.error(res, '找不到 QR Code 記錄', 404);
-        }
-
-        const responseData = {
-            trace_id: traceId,
-            qr_data: qrRecord.qr_data,
-            qr_base64: qrRecord.qr_base64,
-            participant_name: qrRecord.participant_name,
-            event_name: qrRecord.event_name,
-            scan_count: qrRecord.scan_count || 0,
-            last_scanned: qrRecord.last_scanned,
-            created_at: qrRecord.created_at
-        };
-
-        return responses.success(res, responseData);
+        return responses.success(res, {
+            trace_id: result.traceId,
+            qr_data: result.qrData,
+            qr_base64: result.qrBase64,
+            participant_name: result.participantName,
+            event_name: result.eventName,
+            scan_count: result.scanCount,
+            last_scanned: result.lastScanned,
+            created_at: result.createdAt
+        });
 
     } catch (error) {
-        console.error('查詢 QR Code 數據錯誤:', error);
-        return responses.error(res, '查詢 QR Code 數據失敗', 500);
+        return handleServiceError(res, error, '查詢 QR Code 數據失敗');
+    }
+});
+
+/**
+ * @swagger
+ * /api/v1/verify-pass-code:
+ *   post:
+ *     tags: [Registrations (活動報名)]
+ *     summary: 驗證活動通行碼
+ *     description: |
+ *       用通行碼和專案資訊驗證報名身份，返回 trace_id
+ *
+ *       **用途**：
+ *       - 跨瀏覽器場景下恢復報名資訊
+ *       - localStorage 遺失時重新獲取 trace_id
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - pass_code
+ *             properties:
+ *               pass_code:
+ *                 type: string
+ *                 minLength: 6
+ *                 maxLength: 6
+ *                 description: 6 位數通行碼（報名成功時返回）
+ *                 example: "847291"
+ *               project_id:
+ *                 type: integer
+ *                 description: 專案 ID（與 project_code 二選一）
+ *                 example: 1
+ *               project_code:
+ *                 type: string
+ *                 description: 專案代碼（與 project_id 二選一）
+ *                 example: "TECH2024"
+ *     responses:
+ *       200:
+ *         description: 驗證成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     trace_id:
+ *                       type: string
+ *                       example: "MICE-05207cf7-199967c04"
+ *                     participant_name:
+ *                       type: string
+ *                       example: "王大明"
+ *                     project_code:
+ *                       type: string
+ *                       example: "TECH2024"
+ *       400:
+ *         description: 請求參數錯誤
+ *       404:
+ *         description: 通行碼無效或不存在
+ */
+router.post('/verify-pass-code', [
+    body('pass_code').isLength({ min: 6, max: 6 }).withMessage('通行碼必須是 6 位數')
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return responses.validationError(res, {
+                message: '請求參數驗證失敗',
+                errors: errors.array().reduce((acc, error) => {
+                    acc[error.path] = error.msg;
+                    return acc;
+                }, {})
+            });
+        }
+
+        const { pass_code, project_id, project_code } = req.body;
+
+        const result = await registrationService.verifyPassCode({
+            passCode: pass_code,
+            projectId: project_id,
+            projectCode: project_code
+        });
+
+        console.log('通行碼驗證成功:', {
+            pass_code,
+            trace_id: result.traceId,
+            participant_name: result.participantName,
+            timestamp: new Date().toISOString()
+        });
+
+        return responses.success(res, {
+            trace_id: result.traceId,
+            participant_name: result.participantName,
+            project_code: result.projectCode
+        }, '驗證成功');
+
+    } catch (error) {
+        return handleServiceError(res, error, '通行碼驗證失敗');
     }
 });
 

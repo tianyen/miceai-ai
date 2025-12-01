@@ -3,11 +3,8 @@
  */
 const express = require('express');
 const router = express.Router();
-const { body, validationResult } = require('express-validator');
-const database = require('../../config/database');
+const { voucherService } = require('../../services');
 const responses = require('../../utils/responses');
-const { validateRedemptionCode } = require('../../utils/redemption-code-generator');
-const { validateTraceId } = require('../../utils/traceId');
 
 // 兌換券管理頁面
 router.get('/', (req, res) => {
@@ -20,7 +17,9 @@ router.get('/', (req, res) => {
             { name: '儀表板', url: '/admin/dashboard' },
             { name: '遊戲室', url: '#' },
             { name: '兌換券管理' }
-        ]
+        ],
+        additionalCSS: ['/css/admin/pages/vouchers.css'],
+        additionalJS: ['/js/admin/pages/vouchers.js']
     });
 });
 
@@ -72,18 +71,10 @@ router.get('/api/list', async (req, res) => {
     try {
         const { is_active, limit = 100 } = req.query;
 
-        let query = 'SELECT id, voucher_name, category, voucher_value, remaining_quantity, total_quantity, is_active FROM vouchers WHERE 1=1';
-        const params = [];
-
-        if (is_active !== undefined && is_active !== '') {
-            query += ' AND is_active = ?';
-            params.push(is_active);
-        }
-
-        query += ' ORDER BY voucher_name LIMIT ?';
-        params.push(parseInt(limit));
-
-        const vouchers = await database.query(query, params);
+        const vouchers = await voucherService.listVouchers({
+            isActive: is_active,
+            limit: parseInt(limit)
+        });
 
         return responses.success(res, vouchers, '獲取兌換券列表成功');
     } catch (error) {

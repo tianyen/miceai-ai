@@ -1,7 +1,11 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-const dbPath = path.resolve(__dirname, '../data/mice_ai.db');
+// 使用統一配置
+require('dotenv').config();
+const config = require('../config');
+
+const dbPath = path.resolve(config.database.path);
 const db = new sqlite3.Database(dbPath);
 
 console.log('🔍 檢查 qr_codes 表結構...\n');

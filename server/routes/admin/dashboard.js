@@ -13,7 +13,9 @@ router.get('/', (req, res) => {
         user: req.user,
         breadcrumbs: [
             { name: '儀表板' }
-        ]
+        ],
+        additionalCSS: ['/css/admin/pages/dashboard.css'],
+        additionalJS: ['/js/admin/pages/dashboard.js']
     });
 });
 

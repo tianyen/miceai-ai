@@ -1,0 +1,203 @@
+/**
+ * Games Management Page Styles
+ */
+
+/* Game URL */
+.game-url {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.game-url a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.game-url a:hover {
+    text-decoration: underline;
+}
+
+/* Game Status Badge */
+.game-status {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.game-status.active {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.game-status.inactive {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Game Version */
+.game-version {
+    font-family: 'Courier New', monospace;
+    background-color: #f8f9fa;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+/* Action Bar */
+.action-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.search-box {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.search-box input {
+    min-width: 250px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Filter Bar */
+.filter-bar {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.filter-group label {
+    margin: 0;
+    white-space: nowrap;
+}
+
+.filter-group select {
+    max-width: 200px;
+}
+
+/* Table Header */
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.table-header h3 {
+    margin: 0;
+}
+
+.table-stats {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.stat-item {
+    color: #6c757d;
+}
+
+.stat-item strong {
+    color: #212529;
+}
+
+/* Loading Cell */
+.loading-cell {
+    text-align: center;
+    padding: 2rem;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 0.5rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Pagination */
+.pagination-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #dee2e6;
+}
+
+.pagination-info {
+    color: #6c757d;
+}
+
+.pagination-buttons {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.pagination-buttons span {
+    padding: 0 0.5rem;
+    color: #6c757d;
+}
+
+/* Modal Styles */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #dee2e6;
+}
+
+/* Required Field Indicator */
+.required {
+    color: #dc3545;
+}
+
+/* Game Actions */
+.game-actions {
+    display: flex;
+    gap: 0.25rem;
+}

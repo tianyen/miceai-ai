@@ -43,7 +43,9 @@ router.get('/stats', async (req, res) => {
             project,
             booth,
             projects,
-            currentProjectId: projectId
+            currentProjectId: projectId,
+            additionalCSS: ['/css/admin/pages/wish-tree-stats.css'],
+            additionalJS: ['/js/admin/pages/wish-tree-stats.js']
         });
     } catch (error) {
         console.error('載入許願樹統計頁面失敗:', error);

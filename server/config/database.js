@@ -47,7 +47,7 @@ class Database {
         }
     }
 
-    // 執行查詢
+    // 執行查詢（返回多筆記錄）
     query(sql, params = []) {
         return new Promise(async (resolve, reject) => {
             try {
@@ -68,6 +68,11 @@ class Database {
                 reject(error);
             }
         });
+    }
+
+    // all() 是 query() 的別名，與 Repository 層命名一致
+    all(sql, params = []) {
+        return this.query(sql, params);
     }
 
     // 執行單條查詢

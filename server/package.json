@@ -10,6 +10,7 @@
     "test": "node test-modular.js",
     "verify": "bash scripts/verify-all.sh",
     "verify:api": "node scripts/test-api-v1-endpoints.js",
+    "verify:api:http": "node scripts/test-api-v1-http.js",
     "verify:data": "node scripts/check-data-flow.js",
     "verify:workflow": "node scripts/test-full-workflow.js",
     "verify:admin": "node scripts/check-admin-data.js",

@@ -1,10 +1,12 @@
 /**
  * 用戶管理路由
+ *
+ * @refactor 2025-12-01: 使用 userService，遵循 3-Tier Architecture
  */
 const express = require('express');
 const router = express.Router();
 const responses = require('../../utils/responses');
-const database = require('../../config/database');
+const { userService } = require('../../services');
 
 // 用戶管理頁面
 router.get('/', (req, res) => {
@@ -16,7 +18,9 @@ router.get('/', (req, res) => {
         breadcrumbs: [
             { name: '儀表板', url: '/admin/dashboard' },
             { name: '用戶管理' }
-        ]
+        ],
+        additionalCSS: ['/css/admin/pages/users.css'],
+        additionalJS: ['/js/admin/pages/users.js']
     });
 });
 
@@ -24,32 +28,7 @@ router.get('/', (req, res) => {
 router.get('/search', async (req, res) => {
     try {
         const { search, role, status } = req.query;
-
-        let searchQuery = `
-            SELECT * FROM users 
-            WHERE 1=1
-        `;
-        let queryParams = [];
-
-        if (search && search.trim()) {
-            searchQuery += ` AND (username LIKE ? OR full_name LIKE ? OR email LIKE ?)`;
-            const searchTerm = `%${search.trim()}%`;
-            queryParams.push(searchTerm, searchTerm, searchTerm);
-        }
-
-        if (role && role.trim()) {
-            searchQuery += ` AND role = ?`;
-            queryParams.push(role);
-        }
-
-        if (status && status.trim()) {
-            searchQuery += ` AND status = ?`;
-            queryParams.push(status);
-        }
-
-        searchQuery += ` ORDER BY created_at DESC LIMIT 50`;
-
-        const users = await database.query(searchQuery, queryParams);
+        const users = await userService.search({ search, role, status });
 
         // 生成 HTML 表格行
         let html = '';
@@ -60,7 +39,7 @@ router.get('/search', async (req, res) => {
                 const avatar = user.full_name ? user.full_name.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase();
                 const statusClass = user.status === 'active' ? 'active' : user.status === 'disabled' ? 'inactive' : 'pending';
                 const statusText = user.status === 'active' ? '啟用' : user.status === 'disabled' ? '停用' : '待啟用';
-                const roleText = getRoleText(user.role);
+                const roleText = userService.getRoleText(user.role);
                 const lastLogin = user.last_login ? new Date(user.last_login).toLocaleString('zh-TW') : '從未登入';
 
                 html += `
@@ -258,12 +237,7 @@ router.get('/pagination', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        const database = require('../../config/database');
-
-        const countQuery = 'SELECT COUNT(*) as count FROM users';
-        const totalResult = await database.get(countQuery);
-        const total = totalResult?.count || 0;
-        const pages = Math.ceil(total / limit);
+        const { total, pages } = await userService.getPagination(page, limit);
 
         let paginationHtml = '<div class="pagination-info">';
         paginationHtml += `<span>共 ${total} 位用戶，第 ${page} 頁 / 共 ${pages} 頁</span>`;
@@ -298,16 +272,7 @@ router.get('/pagination', async (req, res) => {
     }
 });
 
-// 輔助函數
-function getRoleText(role) {
-    const roleMap = {
-        'super_admin': '超級管理員',
-        'project_manager': '專案管理員',
-        'vendor': '廠商用戶',
-        'project_user': '一般用戶'
-    };
-    return roleMap[role] || role;
-}
+// 輔助函數已移至 userService
 
 // 新增用戶模態框
 router.get('/new', async (req, res) => {
@@ -456,25 +421,14 @@ router.get('/new', async (req, res) => {
 router.get('/:id/view', async (req, res) => {
     try {
         const userId = req.params.id;
-
-        const user = await database.get('SELECT * FROM users WHERE id = ?', [userId]);
+        const user = await userService.getById(userId);
 
         if (!user) {
             return responses.html(res, '<div class="alert alert-danger">用戶不存在</div>');
         }
 
-        const roleText = {
-            'super_admin': '超級管理員',
-            'project_manager': '專案管理員',
-            'vendor': '廠商用戶',
-            'project_user': '一般用戶'
-        }[user.role] || user.role;
-
-        const statusText = {
-            'active': '啟用',
-            'inactive': '停用',
-            'pending': '待啟用'
-        }[user.status] || user.status;
+        const roleText = userService.getRoleText(user.role);
+        const statusText = userService.getStatusText(user.status);
 
         const modalContent = `
         <div class="modal active">
@@ -559,8 +513,7 @@ router.get('/:id/view', async (req, res) => {
 router.get('/:id/edit', async (req, res) => {
     try {
         const userId = req.params.id;
-
-        const user = await database.get('SELECT * FROM users WHERE id = ?', [userId]);
+        const user = await userService.getById(userId);
 
         if (!user) {
             return responses.html(res, '<div class="alert alert-danger">用戶不存在</div>');

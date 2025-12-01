@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS form_submissions (
     submitter_phone VARCHAR(20),
     company_name VARCHAR(200),
     position VARCHAR(100),
+    pass_code VARCHAR(6),
     department VARCHAR(100),
     employee_id VARCHAR(50),
     company_tax_id VARCHAR(50),
@@ -382,6 +383,7 @@ CREATE TABLE IF NOT EXISTS business_cards (
 -- 創建索引以提高查詢性能
 CREATE INDEX IF NOT EXISTS idx_form_submissions_checked_in_at ON form_submissions(checked_in_at);
 CREATE INDEX IF NOT EXISTS idx_form_submissions_user_id ON form_submissions(user_id);
+CREATE INDEX IF NOT EXISTS idx_form_submissions_pass_code ON form_submissions(pass_code);
 CREATE INDEX IF NOT EXISTS idx_scan_history_participant_id ON scan_history(participant_id);
 CREATE INDEX IF NOT EXISTS idx_scan_history_scan_time ON scan_history(scan_time);
 CREATE INDEX IF NOT EXISTS idx_qr_codes_submission_id ON qr_codes(submission_id);

@@ -1,22 +1,27 @@
 /**
  * 攤位遊戲綁定 API 路由
  * 路徑: /api/admin/booths/:boothId/games
- * 
- * 符合規範:
- * - P1-2: 遊戲綁定從專案層級改為攤位層級
- * - P1-6: 欄位命名統一（使用 _at 後綴）
- * - P1-7: API 端點命名統一（/api/admin/*）
+ *
+ * @refactor 2025-12-01: 使用 boothService，遵循 3-Tier Architecture
  */
 
 const express = require('express');
 const router = express.Router({ mergeParams: true });
 const { param, body, validationResult } = require('express-validator');
-const database = require('../../../config/database');
+const { boothService } = require('../../../services');
 const responses = require('../../../utils/responses');
-const QRCode = require('qrcode');
-const config = require('../../../config');
-const ErrorCodes = require('../../../utils/error-codes');
-const AppError = require('../../../utils/app-error');
+const logger = require('../../../utils/logger');
+
+/**
+ * 處理 Service 層錯誤
+ */
+function handleServiceError(res, error, defaultMessage) {
+    if (error.statusCode) {
+        const message = error.details?.message || error.message || defaultMessage;
+        return responses.error(res, message, error.statusCode);
+    }
+    return responses.serverError(res, defaultMessage, error);
+}
 
 /**
  * @swagger
@@ -44,41 +49,11 @@ router.get('/', [
             return responses.validationError(res, errors.array());
         }
 
-        const boothId = req.params.boothId;
+        const result = await boothService.getBoothGames(req.params.boothId);
 
-        // 檢查攤位是否存在
-        const booth = await database.get('SELECT * FROM booths WHERE id = ?', [boothId]);
-        if (!booth) {
-            throw new AppError(ErrorCodes.RESOURCE_NOT_FOUND, { resource: 'booth', id: boothId });
-        }
-
-        // 獲取攤位綁定的遊戲列表
-        const boothGames = await database.query(`
-            SELECT
-                bg.*,
-                g.game_name_zh,
-                g.game_name_en,
-                g.game_url,
-                g.game_version,
-                g.is_active as game_is_active,
-                v.voucher_name,
-                v.voucher_value,
-                v.remaining_quantity,
-                v.total_quantity
-            FROM booth_games bg
-            LEFT JOIN games g ON bg.game_id = g.id
-            LEFT JOIN vouchers v ON bg.voucher_id = v.id
-            WHERE bg.booth_id = ?
-            ORDER BY bg.created_at DESC
-        `, [boothId]);
-
-        return responses.success(res, { games: boothGames }, '獲取遊戲列表成功');
+        return responses.success(res, result, '獲取遊戲列表成功');
     } catch (error) {
-        if (error instanceof AppError) {
-            return responses.error(res, error);
-        }
-        console.error('獲取遊戲列表失敗:', error);
-        return responses.serverError(res, '獲取遊戲列表失敗', error);
+        return handleServiceError(res, error, '獲取遊戲列表失敗');
     }
 });
 
@@ -122,70 +97,21 @@ router.post('/', [
             return responses.validationError(res, errors.array());
         }
 
-        const boothId = req.params.boothId;
-        const { game_id, voucher_id } = req.body;
-
-        // 檢查攤位是否存在
-        const booth = await database.get('SELECT * FROM booths WHERE id = ?', [boothId]);
-        if (!booth) {
-            throw new AppError(ErrorCodes.RESOURCE_NOT_FOUND, { resource: 'booth', id: boothId });
-        }
-
-        // 檢查遊戲是否存在
-        const game = await database.get('SELECT * FROM games WHERE id = ?', [game_id]);
-        if (!game) {
-            throw new AppError(ErrorCodes.RESOURCE_NOT_FOUND, { resource: 'game', id: game_id });
-        }
-
-        // 檢查是否已綁定
-        const existing = await database.get(
-            'SELECT * FROM booth_games WHERE booth_id = ? AND game_id = ?',
-            [boothId, game_id]
-        );
-        if (existing) {
-            throw new AppError(ErrorCodes.DUPLICATE_ENTRY, { message: '此遊戲已綁定到該攤位' });
-        }
-
-        // 如果有兌換券，檢查兌換券是否存在
-        if (voucher_id) {
-            const voucher = await database.get('SELECT * FROM vouchers WHERE id = ?', [voucher_id]);
-            if (!voucher) {
-                throw new AppError(ErrorCodes.RESOURCE_NOT_FOUND, { resource: 'voucher', id: voucher_id });
-            }
-        }
-
-        // 生成 QR Code
-        const qrData = {
-            type: 'game',
-            booth_id: boothId,
-            game_id: game_id,
-            booth_code: booth.booth_code,
-            game_name: game.game_name_zh
-        };
-
-        const qrCodeUrl = `${config.app.baseUrl}/api/v1/game/start?data=${encodeURIComponent(JSON.stringify(qrData))}`;
-        const qrCodeBase64 = await QRCode.toDataURL(qrCodeUrl, {
-            width: 300,
-            margin: 2,
-            color: {
-                dark: '#000000',
-                light: '#FFFFFF'
-            }
+        const result = await boothService.bindGame(req.params.boothId, {
+            game_id: req.body.game_id,
+            voucher_id: req.body.voucher_id
         });
 
-        // 插入綁定記錄
-        const result = await database.run(`
-            INSERT INTO booth_games (booth_id, game_id, voucher_id, qr_code_base64)
-            VALUES (?, ?, ?, ?)
-        `, [boothId, game_id, voucher_id || null, qrCodeBase64]);
+        logger.business('遊戲綁定', {
+            booth_id: req.params.boothId,
+            game_id: req.body.game_id,
+            binding_id: result.id,
+            user_id: req.user?.id
+        });
 
-        return responses.success(res, { id: result.lastID }, '遊戲綁定成功', 201);
+        return responses.success(res, result, '遊戲綁定成功', 201);
     } catch (error) {
-        if (error instanceof AppError) {
-            return responses.error(res, error);
-        }
-        console.error('綁定遊戲失敗:', error);
-        return responses.serverError(res, '綁定遊戲失敗', error);
+        return handleServiceError(res, error, '綁定遊戲失敗');
     }
 });
 
@@ -233,50 +159,20 @@ router.put('/:id', [
             return responses.validationError(res, errors.array());
         }
 
-        const { boothId, id } = req.params;
-        const { voucher_id, is_active } = req.body;
+        await boothService.updateBinding(req.params.boothId, req.params.id, {
+            voucher_id: req.body.voucher_id,
+            is_active: req.body.is_active
+        });
 
-        // 檢查綁定是否存在
-        const binding = await database.get(
-            'SELECT * FROM booth_games WHERE id = ? AND booth_id = ?',
-            [id, boothId]
-        );
-        if (!binding) {
-            throw new AppError(ErrorCodes.RESOURCE_NOT_FOUND, { resource: 'game binding', id });
-        }
-
-        // 更新綁定
-        const updates = [];
-        const params = [];
-
-        if (voucher_id !== undefined) {
-            updates.push('voucher_id = ?');
-            params.push(voucher_id || null);
-        }
-
-        if (is_active !== undefined) {
-            updates.push('is_active = ?');
-            params.push(is_active ? 1 : 0);
-        }
-
-        if (updates.length > 0) {
-            updates.push('updated_at = CURRENT_TIMESTAMP');
-            params.push(id, boothId);
-
-            await database.run(`
-                UPDATE booth_games
-                SET ${updates.join(', ')}
-                WHERE id = ? AND booth_id = ?
-            `, params);
-        }
+        logger.business('遊戲綁定更新', {
+            booth_id: req.params.boothId,
+            binding_id: req.params.id,
+            user_id: req.user?.id
+        });
 
         return responses.success(res, null, '更新成功');
     } catch (error) {
-        if (error instanceof AppError) {
-            return responses.error(res, error);
-        }
-        console.error('更新綁定失敗:', error);
-        return responses.serverError(res, '更新綁定失敗', error);
+        return handleServiceError(res, error, '更新綁定失敗');
     }
 });
 
@@ -311,29 +207,18 @@ router.delete('/:id', [
             return responses.validationError(res, errors.array());
         }
 
-        const { boothId, id } = req.params;
+        await boothService.unbindGame(req.params.boothId, req.params.id);
 
-        // 檢查綁定是否存在
-        const binding = await database.get(
-            'SELECT * FROM booth_games WHERE id = ? AND booth_id = ?',
-            [id, boothId]
-        );
-        if (!binding) {
-            throw new AppError(ErrorCodes.RESOURCE_NOT_FOUND, { resource: 'game binding', id });
-        }
-
-        // 刪除綁定
-        await database.run('DELETE FROM booth_games WHERE id = ? AND booth_id = ?', [id, boothId]);
+        logger.business('遊戲綁定解除', {
+            booth_id: req.params.boothId,
+            binding_id: req.params.id,
+            user_id: req.user?.id
+        });
 
         return responses.success(res, null, '解除綁定成功');
     } catch (error) {
-        if (error instanceof AppError) {
-            return responses.error(res, error);
-        }
-        console.error('解除綁定失敗:', error);
-        return responses.serverError(res, '解除綁定失敗', error);
+        return handleServiceError(res, error, '解除綁定失敗');
     }
 });
 
 module.exports = router;
-

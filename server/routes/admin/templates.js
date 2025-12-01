@@ -1,9 +1,11 @@
 /**
  * 模板管理路由
+ *
+ * @refactor 2025-12-01: 使用 templateService，遵循 3-Tier Architecture
  */
 const express = require('express');
 const router = express.Router();
-const database = require('../../config/database');
+const { templateService } = require('../../services');
 const responses = require('../../utils/responses');
 
 // 活動模板頁面
@@ -148,44 +150,15 @@ router.get('/new', async (req, res) => {
 router.get('/:id/preview', async (req, res) => {
     try {
         const templateId = req.params.id;
-        const template = await database.get('SELECT * FROM invitation_templates WHERE id = ?', [templateId]);
+        const template = await templateService.getById(templateId);
 
         if (!template) {
             return responses.html(res, '<div class="alert alert-danger">模板不存在</div>');
         }
 
-        // 解析模板内容
-        let templateContent = '<p>無預覽內容</p>';
-        if (template.template_content) {
-            try {
-                // 尝试解析JSON格式的模板内容
-                const parsedContent = JSON.parse(template.template_content);
-                if (parsedContent.html) {
-                    templateContent = parsedContent.html;
-                } else if (typeof parsedContent === 'string') {
-                    templateContent = parsedContent;
-                }
-            } catch (e) {
-                // 如果不是JSON，直接使用内容
-                templateContent = template.template_content;
-            }
-        }
-
-        // 模拟数据替换变量
-        const sampleData = {
-            '{{event_name}}': '企業數位轉型研討會',
-            '{{participant_name}}': '張先生/女士',
-            '{{event_date}}': '2024年12月15日',
-            '{{event_time}}': '下午2:00',
-            '{{event_location}}': '台北國際會議中心',
-            '{{organizer_name}}': '主辦單位名稱'
-        };
-
-        // 替换模板变量
-        let previewContent = templateContent;
-        Object.entries(sampleData).forEach(([placeholder, value]) => {
-            previewContent = previewContent.replace(new RegExp(placeholder, 'g'), value);
-        });
+        // 使用 Service 解析模板內容和替換變數
+        const templateContent = templateService.parseTemplateContent(template.template_content);
+        const previewContent = templateService.replaceVariables(templateContent);
 
         const previewHtml = `
             <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
@@ -231,11 +204,11 @@ router.get('/:id/preview', async (req, res) => {
     }
 });
 
-// 編輯模板模態框
-router.get('/:id/edit', async (req, res) => {
+// 編輯模板模態框 (第一個定義 - 將被後面覆蓋，保留供參考)
+router.get('/:id/edit-legacy', async (req, res) => {
     try {
         const templateId = req.params.id;
-        const template = await database.get('SELECT * FROM invitation_templates WHERE id = ?', [templateId]);
+        const template = await templateService.getById(templateId);
 
         if (!template) {
             return responses.html(res, '<div class="alert alert-danger">模板不存在</div>');
@@ -508,10 +481,7 @@ router.get('/new', async (req, res) => {
 router.get('/:id/edit', async (req, res) => {
     try {
         const templateId = req.params.id;
-
-        const template = await database.get(`
-            SELECT * FROM invitation_templates WHERE id = ?
-        `, [templateId]);
+        const template = await templateService.getById(templateId);
 
         if (!template) {
             return res.status(404).send(`
@@ -536,18 +506,8 @@ router.get('/:id/edit', async (req, res) => {
             `);
         }
 
-        // 解析模板内容（如果是JSON格式）
-        let templateContent = template.template_content || '';
-        if (typeof templateContent === 'string') {
-            try {
-                const parsed = JSON.parse(templateContent);
-                if (parsed.html) {
-                    templateContent = parsed.html;
-                }
-            } catch (e) {
-                // 如果不是JSON，直接使用原内容
-            }
-        }
+        // 使用 Service 解析模板內容
+        const templateContent = templateService.parseTemplateContent(template.template_content);
 
         const html = `
             <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
