@@ -3,11 +3,11 @@
  */
 
 const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 
 // 直接連接資料庫
 const dbPath = path.join(__dirname, '../data/mice_ai.db');
-const db = new sqlite3.Database(dbPath);
+const db = new Database(dbPath);
 
 // 包裝為 Promise
 function get(sql, params = []) {

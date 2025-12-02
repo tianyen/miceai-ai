@@ -3,8 +3,7 @@
  */
 const express = require('express');
 const router = express.Router();
-const { body, validationResult } = require('express-validator');
-const { gameService, projectService } = require('../../services');
+const { gameService } = require('../../services');
 const responses = require('../../utils/responses');
 
 // 遊戲管理頁面

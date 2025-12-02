@@ -1,10 +1,27 @@
 /**
  * API v1 - 活動報名路由
  * 路徑: /api/v1/events/:eventId/registrations 和 /api/v1/registrations
+ *
+ * ⚠️ user_id 與 registration_id 區分說明：
+ *
+ * | 欄位/參數 | 來源 | 說明 |
+ * |-----------|------|------|
+ * | registration_id | form_submissions.id | 報名記錄主鍵 |
+ * | user_id (API 返回) | = registration_id | 遊戲 API 用的識別參數 |
+ * | form_submissions.user_id | users.id | 後台管理員 ID（通常為 NULL）|
+ *
+ * 前端報名後，使用返回的 user_id (= registration_id) 來呼叫遊戲 API。
+ *
  * @swagger
  * tags:
  *   name: Registrations (活動報名)
- *   description: 活動報名和 QR Code 管理 API - 前端串接使用
+ *   description: |
+ *     活動報名和 QR Code 管理 API - 前端串接使用
+ *
+ *     ⚠️ **ID 區分說明**：
+ *     - `registration_id`: 報名記錄的主鍵 (form_submissions.id)
+ *     - `user_id`: 等同於 registration_id，用於遊戲 API 的用戶識別
+ *     - 後台管理員的 users.id 是完全不同的概念！
  */
 
 const express = require('express');
@@ -103,6 +120,21 @@ function handleServiceError(res, error, defaultMessage) {
  *                 maxLength: 50
  *                 description: 職位
  *                 example: "資深工程師"
+ *               gender:
+ *                 type: string
+ *                 enum: ["男", "女", "其他"]
+ *                 description: 性別
+ *                 example: "男"
+ *               title:
+ *                 type: string
+ *                 enum: ["先生", "女士", "博士", "教授"]
+ *                 description: 尊稱
+ *                 example: "先生"
+ *               notes:
+ *                 type: string
+ *                 maxLength: 500
+ *                 description: 留言備註
+ *                 example: "請安排素食餐點"
  *               data_consent:
  *                 type: boolean
  *                 description: 資料使用同意（必須為 true）
@@ -189,6 +221,9 @@ router.post('/events/:eventId/registrations', [
     body('phone').matches(phoneRegex).withMessage('手機號碼格式不正確'),
     body('company').optional().trim().isLength({ max: 100 }).withMessage('公司名稱不能超過 100 字符'),
     body('position').optional().trim().isLength({ max: 50 }).withMessage('職位不能超過 50 字符'),
+    body('gender').optional().trim().isIn(['男', '女', '其他']).withMessage('性別必須是：男、女、其他'),
+    body('title').optional().trim().isIn(['先生', '女士', '博士', '教授']).withMessage('尊稱必須是：先生、女士、博士、教授'),
+    body('notes').optional().trim().isLength({ max: 500 }).withMessage('留言備註不能超過 500 字符'),
     body('data_consent').isBoolean().custom(value => {
         if (value !== true) {
             throw new Error('必須同意資料使用條款');
@@ -209,7 +244,7 @@ router.post('/events/:eventId/registrations', [
             });
         }
 
-        const { name, email, phone, company, position, data_consent, marketing_consent } = req.body;
+        const { name, email, phone, company, position, gender, title, notes, data_consent, marketing_consent } = req.body;
 
         const result = await registrationService.submitRegistration({
             eventId: req.params.eventId,
@@ -218,6 +253,9 @@ router.post('/events/:eventId/registrations', [
             phone,
             company: company || '',
             position: position || '',
+            gender: gender || null,
+            title: title || null,
+            notes: notes || null,
             dataConsent: data_consent,
             marketingConsent: marketing_consent || false,
             ipAddress: req.ip || req.connection.remoteAddress,

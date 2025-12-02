@@ -5,32 +5,18 @@
  */
 
 require('dotenv').config();
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const { getDbPath } = require('./db-path');
 
 const dbPath = getDbPath();
-const db = new sqlite3.Database(dbPath);
+const db = new Database(dbPath);
+console.log('✅ 資料庫連接成功');
 
-// Promise wrapper
-const query = (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-        db.all(sql, params, (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-        });
-    });
-};
+// better-sqlite3 同步 API
+const query = (sql, params = []) => db.prepare(sql).all(...params);
+const get = (sql, params = []) => db.prepare(sql).get(...params);
 
-const get = (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-        db.get(sql, params, (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-        });
-    });
-};
-
-async function checkAdminData() {
+function checkAdminData() {
     console.log('🔍 檢查後台資料顯示...\n');
 
     try {
@@ -38,8 +24,8 @@ async function checkAdminData() {
 
         // 1. 專案參加者列表（後台 /admin/projects/:id 頁面）
         console.log('📊 1. 專案參加者列表');
-        const participants = await query(
-            `SELECT 
+        const participants = query(
+            `SELECT
                 fs.id, fs.trace_id, fs.submitter_name, fs.submitter_email,
                 fs.submitter_phone, fs.status, fs.created_at,
                 cr.checkin_time,
@@ -68,8 +54,8 @@ async function checkAdminData() {
 
         // 2. 兌換券記錄（後台 /admin/vouchers/redemptions 頁面）
         console.log('🎁 2. 兌換券記錄');
-        const redemptions = await query(
-            `SELECT 
+        const redemptions = query(
+            `SELECT
                 vr.id, vr.trace_id, vr.redemption_code, vr.is_used, vr.used_at,
                 vr.redeemed_at,
                 v.voucher_name, v.voucher_value,
@@ -99,8 +85,8 @@ async function checkAdminData() {
 
         // 3. 遊戲會話記錄（後台 /admin/games/:id/stats 頁面）
         console.log('🎮 3. 遊戲會話記錄');
-        const sessions = await query(
-            `SELECT 
+        const sessions = query(
+            `SELECT
                 gs.id, gs.trace_id, gs.final_score, gs.total_play_time,
                 gs.voucher_earned, gs.session_start, gs.session_end,
                 fs.submitter_name,
@@ -128,8 +114,8 @@ async function checkAdminData() {
 
         // 4. QR Code 記錄
         console.log('📱 4. QR Code 記錄');
-        const qrCodes = await query(
-            `SELECT 
+        const qrCodes = query(
+            `SELECT
                 qr.id, qr.qr_code, qr.qr_data, qr.scan_count,
                 LENGTH(qr.qr_base64) as qr_len,
                 fs.submitter_name

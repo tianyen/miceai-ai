@@ -78,6 +78,7 @@
 <div class="project-tabs">
     <nav class="tab-nav">
         <button class="tab-btn active" data-tab="participants">參加者管理</button>
+        <button class="tab-btn" data-tab="form-settings">報名設定</button>
         <button class="tab-btn" data-tab="questionnaires">問卷狀況</button>
         <button class="tab-btn" data-tab="checkin">簽到管理</button>
         <button class="tab-btn" data-tab="tracking">參加者追蹤</button>
@@ -125,6 +126,66 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 報名設定 -->
+    <div class="tab-content" id="form-settings-tab">
+        <div class="section-header">
+            <h3>報名表單設定</h3>
+            <div class="section-actions">
+                <button class="btn btn-success" onclick="saveFormConfig()">
+                    <i class="fas fa-save"></i> 儲存設定
+                </button>
+            </div>
+        </div>
+
+        <div class="form-settings-container">
+            <div class="settings-group">
+                <h4>必填欄位</h4>
+                <div class="field-options">
+                    <label class="field-checkbox">
+                        <input type="checkbox" name="required_name" checked disabled> 姓名 <span class="badge">固定必填</span>
+                    </label>
+                    <label class="field-checkbox">
+                        <input type="checkbox" name="required_email" checked disabled> 電子郵件 <span class="badge">固定必填</span>
+                    </label>
+                    <label class="field-checkbox">
+                        <input type="checkbox" name="required_phone" checked disabled> 手機號碼 <span class="badge">固定必填</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <h4>選填欄位</h4>
+                <div class="field-options">
+                    <label class="field-checkbox">
+                        <input type="checkbox" id="field_company" name="optional_company" checked> 公司名稱
+                    </label>
+                    <label class="field-checkbox">
+                        <input type="checkbox" id="field_position" name="optional_position" checked> 職位
+                    </label>
+                    <label class="field-checkbox">
+                        <input type="checkbox" id="field_gender" name="optional_gender" checked> 性別
+                    </label>
+                    <label class="field-checkbox">
+                        <input type="checkbox" id="field_title" name="optional_title" checked> 尊稱
+                    </label>
+                    <label class="field-checkbox">
+                        <input type="checkbox" id="field_notes" name="optional_notes" checked> 留言備註
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <h4>性別選項</h4>
+                <input type="text" id="gender_options" class="form-control" value="男, 女, 其他" placeholder="以逗號分隔">
+            </div>
+
+            <div class="settings-group">
+                <h4>尊稱選項</h4>
+                <input type="text" id="title_options" class="form-control" value="先生, 女士, 博士, 教授" placeholder="以逗號分隔">
             </div>
         </div>
     </div>

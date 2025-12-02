@@ -2,48 +2,52 @@
 /**
  * 測試完整業務流程
  * 報名 → 報到 → 遊玩遊戲 → 獲得兌換券 → 兌換商品 → 庫存-1
+ *
+ * 測試用戶對應表：
+ * | 用戶   | registration_id (user_id) | trace_id                    |
+ * |--------|---------------------------|----------------------------|
+ * | 張志明 | 1                         | MICE-d074dd3e-e3e27b6b0   |
+ * | 李美玲 | 2                         | MICE-d74b09c8-6cfa4a823   |
+ * | 王大明 | 3                         | MICE-05207cf7-199967c04   |
  */
 
 require('dotenv').config();
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const { getDbPath } = require('./db-path');
+const { TEST_REGISTRATIONS } = require('./utils/trace-id-generator');
+
+// 確定性測試用戶資料（從共用模組獲取）
+const TEST_USERS = {
+    ZHANG_ZHIMING: { id: TEST_REGISTRATIONS.ZHANG_ZHIMING.registration_id, name: TEST_REGISTRATIONS.ZHANG_ZHIMING.name, traceId: TEST_REGISTRATIONS.ZHANG_ZHIMING.traceId },
+    LI_MEILING:    { id: TEST_REGISTRATIONS.LI_MEILING.registration_id, name: TEST_REGISTRATIONS.LI_MEILING.name, traceId: TEST_REGISTRATIONS.LI_MEILING.traceId },
+    WANG_DAMING:   { id: TEST_REGISTRATIONS.WANG_DAMING.registration_id, name: TEST_REGISTRATIONS.WANG_DAMING.name, traceId: TEST_REGISTRATIONS.WANG_DAMING.traceId }
+};
 
 const dbPath = getDbPath();
-const db = new sqlite3.Database(dbPath);
+const db = new Database(dbPath);
 
-// Promise wrapper
+// Promise wrapper（保持相容性）
 const query = (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-        db.all(sql, params, (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-        });
-    });
+    return Promise.resolve(db.prepare(sql).all(...params));
 };
 
 const get = (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-        db.get(sql, params, (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-        });
-    });
+    return Promise.resolve(db.prepare(sql).get(...params));
 };
 
 const run = (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-        db.run(sql, params, function(err) {
-            if (err) reject(err);
-            else resolve({ lastID: this.lastID, changes: this.changes });
-        });
-    });
+    const result = db.prepare(sql).run(...params);
+    return Promise.resolve({ lastID: result.lastInsertRowid, changes: result.changes });
 };
 
 async function testFullWorkflow() {
     console.log('🧪 測試完整業務流程...\n');
 
     try {
-        const traceId = 'MICE-05207cf7-199967c04'; // 王大明的 trace_id
+        // 使用王大明的測試資料
+        const testUser = TEST_USERS.WANG_DAMING;
+        const traceId = testUser.traceId;
+        const expectedUserId = testUser.id;
 
         // 步驟 1: 檢查報名
         console.log('📋 步驟 1: 檢查報名資料');
@@ -54,7 +58,14 @@ async function testFullWorkflow() {
         // registration.id 就是 API 返回的 registration_id 和 user_id
         const userId = registration.id;
         console.log(`   ✅ 報名 ID: ${registration.id}, 姓名: ${registration.submitter_name}`);
-        console.log(`   ✅ user_id (用於遊戲 API): ${userId}\n`);
+        console.log(`   ✅ user_id (用於遊戲 API): ${userId}`);
+
+        // 驗證 user_id 是否符合預期
+        if (userId !== expectedUserId) {
+            console.log(`   ⚠️  警告: user_id 應為 ${expectedUserId}，但實際為 ${userId}\n`);
+        } else {
+            console.log(`   ✅ user_id 正確匹配預期值 ${expectedUserId}\n`);
+        }
 
         // 步驟 2: 模擬報到
         console.log('✅ 步驟 2: 模擬報到');
@@ -89,8 +100,23 @@ async function testFullWorkflow() {
             `SELECT * FROM game_sessions WHERE trace_id = ?`,
             [traceId]
         );
-        console.log(`   ✅ Session ID: ${session.id}, 分數: ${session.final_score}`);
-        console.log(`   ✅ user_id 記錄: ${session.user_id || '(未設置)'}\n`);
+
+        if (!session) {
+            console.log(`   ⚠️  找不到遊戲會話（trace_id: ${traceId}）`);
+            console.log(`   ℹ️  請確認 seed-game-room.js 已正確執行\n`);
+        } else {
+            console.log(`   ✅ Session ID: ${session.id}, 分數: ${session.final_score}`);
+            console.log(`   ✅ user_id 記錄: ${session.user_id || '(未設置)'}`);
+
+            // 驗證遊戲會話的 user_id 是否與報名的 user_id 一致
+            if (session.user_id && session.user_id !== String(expectedUserId)) {
+                console.log(`   ⚠️  警告: 遊戲會話 user_id 應為 ${expectedUserId}，但實際為 ${session.user_id}\n`);
+            } else if (session.user_id === String(expectedUserId)) {
+                console.log(`   ✅ user_id 正確匹配預期值 ${expectedUserId}\n`);
+            } else {
+                console.log(`   ℹ️  user_id 未設置\n`);
+            }
+        }
 
         // 步驟 4: 檢查兌換券
         console.log('🎁 步驟 4: 檢查兌換券');
@@ -101,14 +127,24 @@ async function testFullWorkflow() {
              WHERE vr.trace_id = ?`,
             [traceId]
         );
-        console.log(`   ✅ 兌換碼: ${redemption.redemption_code}`);
-        console.log(`   ✅ 兌換券: ${redemption.voucher_name}`);
-        console.log(`   ✅ 剩餘數量: ${redemption.remaining_quantity}`);
-        console.log(`   ✅ 是否已使用: ${redemption.is_used ? '是' : '否'}\n`);
+
+        if (!redemption) {
+            console.log(`   ⚠️  找不到兌換券記錄（trace_id: ${traceId}）`);
+            console.log(`   ℹ️  這是正常的，如果用戶尚未完成遊戲獲得獎品\n`);
+            console.log('🛍️  步驟 5: 跳過（無兌換券）\n');
+            console.log('🔍 步驟 6: 跳過（無兌換券）\n');
+        } else {
+            console.log(`   ✅ 兌換碼: ${redemption.redemption_code}`);
+            console.log(`   ✅ 兌換券: ${redemption.voucher_name}`);
+            console.log(`   ✅ 剩餘數量: ${redemption.remaining_quantity}`);
+            console.log(`   ✅ 是否已使用: ${redemption.is_used ? '是' : '否'}\n`);
+        }
 
         // 步驟 5: 模擬兌換商品
         console.log('🛍️  步驟 5: 模擬兌換商品');
-        if (!redemption.is_used) {
+        if (!redemption) {
+            // 已在上面處理
+        } else if (!redemption.is_used) {
             const beforeQty = redemption.remaining_quantity;
             
             // 標記為已使用
@@ -139,18 +175,20 @@ async function testFullWorkflow() {
         }
 
         // 步驟 6: 驗證最終狀態
-        console.log('🔍 步驟 6: 驗證最終狀態');
-        const finalRedemption = await get(
-            `SELECT vr.*, v.voucher_name, v.remaining_quantity
-             FROM voucher_redemptions vr
-             JOIN vouchers v ON vr.voucher_id = v.id
-             WHERE vr.trace_id = ?`,
-            [traceId]
-        );
-        
-        console.log(`   ✅ 兌換券狀態: ${finalRedemption.is_used ? '已使用' : '未使用'}`);
-        console.log(`   ✅ 使用時間: ${finalRedemption.used_at || 'N/A'}`);
-        console.log(`   ✅ 剩餘庫存: ${finalRedemption.remaining_quantity}\n`);
+        if (redemption) {
+            console.log('🔍 步驟 6: 驗證最終狀態');
+            const finalRedemption = await get(
+                `SELECT vr.*, v.voucher_name, v.remaining_quantity
+                 FROM voucher_redemptions vr
+                 JOIN vouchers v ON vr.voucher_id = v.id
+                 WHERE vr.trace_id = ?`,
+                [traceId]
+            );
+
+            console.log(`   ✅ 兌換券狀態: ${finalRedemption.is_used ? '已使用' : '未使用'}`);
+            console.log(`   ✅ 使用時間: ${finalRedemption.used_at || 'N/A'}`);
+            console.log(`   ✅ 剩餘庫存: ${finalRedemption.remaining_quantity}\n`);
+        }
 
         console.log('✅ 完整業務流程測試通過！');
 

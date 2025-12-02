@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS event_projects (
     template_id INTEGER,
     template_config TEXT,
     brand_config TEXT,
+    form_config TEXT,                      -- 報名表單配置 (JSON)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (created_by) REFERENCES users(id),
@@ -94,6 +95,9 @@ CREATE TABLE IF NOT EXISTS form_submissions (
     submitter_phone VARCHAR(20),
     company_name VARCHAR(200),
     position VARCHAR(100),
+    gender VARCHAR(10),                    -- 性別：男/女/其他
+    title VARCHAR(20),                     -- 尊稱：先生/女士/博士/教授
+    notes TEXT,                            -- 留言備註
     pass_code VARCHAR(6),
     department VARCHAR(100),
     employee_id VARCHAR(50),

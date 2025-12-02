@@ -2,6 +2,15 @@
  * API v1 - 遊戲日誌和會話管理路由
  * 路徑: /api/v1/games
  * 用於前端遊戲（p5.js）串接
+ *
+ * ⚠️ user_id 參數說明：
+ * - 此 API 的 user_id 參數接受報名 API 返回的 user_id 或 registration_id
+ * - 這是 form_submissions.id，不是後台管理員的 users.id
+ * - 用於追蹤「哪個報名用戶」在玩遊戲
+ *
+ * 前端串接流程：
+ * 1. 呼叫報名 API → 取得 { registration_id, user_id, trace_id }
+ * 2. 呼叫遊戲 API 時帶入 user_id (或 registration_id) 和 trace_id
  */
 
 const express = require('express');

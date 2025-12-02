@@ -291,6 +291,78 @@ class ProjectService extends BaseService {
 
         return { success: true, message: '解除綁定成功' };
     }
+
+    // ===== 報名表單配置 =====
+
+    /**
+     * 取得專案報名表單配置
+     * @param {number} projectId - 專案 ID
+     * @param {Object} user - 當前用戶
+     * @returns {Promise<Object|null>}
+     */
+    async getFormConfig(projectId, user) {
+        const project = await this.repository.findById(projectId);
+        if (!project) {
+            return null;
+        }
+
+        // 預設配置
+        const defaultConfig = {
+            required_fields: ['name', 'email', 'phone'],
+            optional_fields: ['company', 'position', 'gender', 'title', 'notes'],
+            field_labels: {
+                name: '姓名',
+                email: '電子郵件',
+                phone: '手機號碼',
+                company: '公司名稱',
+                position: '職位',
+                gender: '性別',
+                title: '尊稱',
+                notes: '留言備註'
+            },
+            gender_options: ['男', '女', '其他'],
+            title_options: ['先生', '女士', '博士', '教授']
+        };
+
+        // 合併已存儲的配置
+        let formConfig = defaultConfig;
+        if (project.form_config) {
+            try {
+                formConfig = { ...defaultConfig, ...JSON.parse(project.form_config) };
+            } catch (e) {
+                // JSON 解析失敗，使用預設配置
+            }
+        }
+
+        return {
+            project_id: project.id,
+            project_name: project.project_name,
+            form_config: formConfig
+        };
+    }
+
+    /**
+     * 更新專案報名表單配置
+     * @param {number} projectId - 專案 ID
+     * @param {Object} formConfig - 表單配置
+     * @param {Object} user - 當前用戶
+     * @returns {Promise<boolean>}
+     */
+    async updateFormConfig(projectId, formConfig, user) {
+        const project = await this.repository.findById(projectId);
+        if (!project) {
+            return false;
+        }
+
+        await this.db.run(
+            'UPDATE event_projects SET form_config = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [JSON.stringify(formConfig), projectId]
+        );
+
+        this.log('updateFormConfig', { projectId, user: user?.id });
+
+        return true;
+    }
 }
 
 // Singleton pattern

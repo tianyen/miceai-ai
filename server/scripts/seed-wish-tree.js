@@ -5,7 +5,7 @@
  * 創建「資訊月互動許願樹」事件和「主舞台」攤位
  */
 
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 require('dotenv').config();
 const { getDbPath } = require('./db-path');
 
@@ -21,38 +21,24 @@ function generateDate(daysOffset = 0) {
 console.log('🔄 開始新增許願樹種子資料...');
 console.log(`📁 資料庫路徑: ${dbPath}`);
 
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('❌ 無法連接資料庫:', err);
-        process.exit(1);
-    }
-    console.log('✅ 資料庫連接成功');
-});
+const db = new Database(dbPath);
+console.log('✅ 資料庫連接成功');
 
-// Promise wrapper for db.get
+// 同步查詢
 function dbGet(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.get(sql, params, (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-        });
-    });
+    return db.prepare(sql).get(...params);
 }
 
-// Promise wrapper for db.run
+// 同步執行
 function dbRun(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.run(sql, params, function(err) {
-            if (err) reject(err);
-            else resolve({ lastID: this.lastID, changes: this.changes });
-        });
-    });
+    const result = db.prepare(sql).run(...params);
+    return { lastID: result.lastInsertRowid, changes: result.changes };
 }
 
-async function seed() {
+function seed() {
     try {
         // 獲取管理員 ID
-        const admin = await dbGet('SELECT id FROM users WHERE role = ? LIMIT 1', ['super_admin']);
+        const admin = dbGet('SELECT id FROM users WHERE role = ? LIMIT 1', ['super_admin']);
         if (!admin) {
             throw new Error('找不到管理員用戶，請先執行 db:reset');
         }
@@ -61,7 +47,7 @@ async function seed() {
         // 1. 創建專案「資訊月互動許願樹」
         console.log('📋 創建專案「資訊月互動許願樹」...');
 
-        const existingProject = await dbGet(
+        const existingProject = dbGet(
             'SELECT id FROM event_projects WHERE project_code = ?',
             ['INFOMONTH2025']
         );
@@ -71,7 +57,7 @@ async function seed() {
             projectId = existingProject.id;
             console.log(`ℹ️  專案已存在 (ID: ${projectId})，更新資料...`);
 
-            await dbRun(`
+            dbRun(`
                 UPDATE event_projects
                 SET project_name = ?,
                     description = ?,
@@ -93,7 +79,7 @@ async function seed() {
                 projectId
             ]);
         } else {
-            const result = await dbRun(`
+            const result = dbRun(`
                 INSERT INTO event_projects (
                     project_name,
                     project_code,
@@ -123,7 +109,7 @@ async function seed() {
         // 2. 創建攤位「主舞台」
         console.log('\n🏪 創建攤位「主舞台」...');
 
-        const existingBooth = await dbGet(
+        const existingBooth = dbGet(
             'SELECT id FROM booths WHERE project_id = ? AND booth_code = ?',
             [projectId, 'MAIN-STAGE']
         );
@@ -133,7 +119,7 @@ async function seed() {
             boothId = existingBooth.id;
             console.log(`ℹ️  攤位已存在 (ID: ${boothId})，更新資料...`);
 
-            await dbRun(`
+            dbRun(`
                 UPDATE booths
                 SET booth_name = ?,
                     description = ?,
@@ -149,7 +135,7 @@ async function seed() {
                 boothId
             ]);
         } else {
-            const result = await dbRun(`
+            const result = dbRun(`
                 INSERT INTO booths (
                     project_id,
                     booth_name,
@@ -185,13 +171,8 @@ async function seed() {
         console.error('\n❌ 種子資料添加失敗:', error);
         process.exit(1);
     } finally {
-        db.close((err) => {
-            if (err) {
-                console.error('❌ 關閉資料庫連接失敗:', err);
-            } else {
-                console.log('✅ 資料庫連接已關閉');
-            }
-        });
+        db.close();
+        console.log('✅ 資料庫連接已關閉');
     }
 }
 

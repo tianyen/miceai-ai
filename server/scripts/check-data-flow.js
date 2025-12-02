@@ -5,48 +5,34 @@
  */
 
 require('dotenv').config();
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const { getDbPath } = require('./db-path');
 
 const dbPath = getDbPath();
-const db = new sqlite3.Database(dbPath);
+const db = new Database(dbPath);
+console.log('✅ 資料庫連接成功');
 
-// Promise wrapper
-const query = (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-        db.all(sql, params, (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-        });
-    });
-};
+// better-sqlite3 同步 API
+const query = (sql, params = []) => db.prepare(sql).all(...params);
+const get = (sql, params = []) => db.prepare(sql).get(...params);
 
-const get = (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-        db.get(sql, params, (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-        });
-    });
-};
-
-async function checkDataFlow() {
+function checkDataFlow() {
     console.log('🔍 檢查王大明的完整資料鏈...\n');
 
     try {
         // 1. 報名資料
         console.log('📋 1. 報名資料 (form_submissions)');
-        const registration = await get(
+        const registration = get(
             `SELECT id, project_id, trace_id, submitter_name, submitter_email, submitter_phone, status, created_at
              FROM form_submissions WHERE submitter_name = ?`,
             ['王大明']
         );
-        
+
         if (!registration) {
             console.log('❌ 找不到王大明的報名資料');
             return;
         }
-        
+
         console.log(`   ✅ ID: ${registration.id}`);
         console.log(`   ✅ Project ID: ${registration.project_id}`);
         console.log(`   ✅ Trace ID: ${registration.trace_id}`);
@@ -61,12 +47,12 @@ async function checkDataFlow() {
 
         // 2. QR Code 資料
         console.log('📱 2. QR Code 資料 (qr_codes)');
-        const qrCode = await get(
+        const qrCode = get(
             `SELECT id, qr_code, qr_data, LENGTH(qr_base64) as qr_len, created_at
              FROM qr_codes WHERE qr_data = ?`,
             [traceId]
         );
-        
+
         if (qrCode) {
             console.log(`   ✅ QR Code ID: ${qrCode.id}`);
             console.log(`   ✅ QR Code: ${qrCode.qr_code}`);
@@ -79,7 +65,7 @@ async function checkDataFlow() {
 
         // 3. 報到記錄
         console.log('✅ 3. 報到記錄 (checkin_records)');
-        const checkin = await get(
+        const checkin = get(
             `SELECT id, project_id, trace_id, checkin_time, attendee_name
              FROM checkin_records WHERE trace_id = ?`,
             [traceId]
@@ -95,19 +81,19 @@ async function checkDataFlow() {
 
         // 4. 遊戲會話
         console.log('🎮 4. 遊戲會話 (game_sessions)');
-        const session = await get(
+        const session = get(
             `SELECT id, project_id, game_id, booth_id, trace_id,
                     final_score, total_play_time, voucher_earned, voucher_id,
                     session_start, session_end
              FROM game_sessions WHERE trace_id = ?`,
             [traceId]
         );
-        
+
         if (!session) {
             console.log('   ❌ 找不到遊戲會話記錄');
             return;
         }
-        
+
         console.log(`   ✅ Session ID: ${session.id}`);
         console.log(`   ✅ Game ID: ${session.game_id}`);
         console.log(`   ✅ Booth ID: ${session.booth_id}`);
@@ -122,7 +108,7 @@ async function checkDataFlow() {
 
         // 5. 遊戲日誌
         console.log('📊 5. 遊戲日誌 (game_logs)');
-        const logs = await query(
+        const logs = query(
             `SELECT COUNT(*) as count FROM game_logs WHERE trace_id = ?`,
             [traceId]
         );
@@ -130,7 +116,7 @@ async function checkDataFlow() {
 
         // 6. 兌換券記錄
         console.log('🎁 6. 兌換券記錄 (voucher_redemptions)');
-        const redemption = await get(
+        const redemption = get(
             `SELECT vr.id, vr.voucher_id, vr.session_id, vr.booth_id, vr.trace_id,
                     vr.redemption_code, vr.is_used, vr.used_at,
                     LENGTH(vr.qr_code_base64) as qr_len,
@@ -164,12 +150,12 @@ async function checkDataFlow() {
         // 7. 攤位資料
         if (session.booth_id) {
             console.log('🏪 7. 攤位資料 (booths)');
-            const booth = await get(
+            const booth = get(
                 `SELECT id, booth_name, booth_code, project_id, location
                  FROM booths WHERE id = ?`,
                 [session.booth_id]
             );
-            
+
             if (booth) {
                 console.log(`   ✅ Booth ID: ${booth.id}`);
                 console.log(`   ✅ 攤位名稱: ${booth.booth_name}`);
@@ -182,7 +168,7 @@ async function checkDataFlow() {
         // 8. 攤位遊戲綁定
         if (session.booth_id && session.game_id) {
             console.log('🔗 8. 攤位遊戲綁定 (booth_games)');
-            const binding = await get(
+            const binding = get(
                 `SELECT bg.id, bg.booth_id, bg.game_id, bg.voucher_id, bg.is_active,
                         LENGTH(bg.qr_code_base64) as qr_len,
                         g.game_name_zh, v.voucher_name
@@ -192,7 +178,7 @@ async function checkDataFlow() {
                  WHERE bg.booth_id = ? AND bg.game_id = ?`,
                 [session.booth_id, session.game_id]
             );
-            
+
             if (binding) {
                 console.log(`   ✅ 綁定 ID: ${binding.id}`);
                 console.log(`   ✅ 遊戲名稱: ${binding.game_name_zh}`);

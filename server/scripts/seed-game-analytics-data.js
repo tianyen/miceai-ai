@@ -8,7 +8,7 @@
  * - 包含 game_sessions 和 game_logs 數據
  */
 
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const path = require('path');
 const crypto = require('crypto');
 
@@ -48,7 +48,8 @@ class DeterministicIdGenerator {
 
 const idGen = new DeterministicIdGenerator();
 
-const db = new sqlite3.Database(dbPath);
+const db = new Database(dbPath);
+console.log('✅ 資料庫連接成功');
 
 // 遊戲會話假資料（使用今天的日期）
 const gameSessions = [
@@ -125,7 +126,7 @@ const gameSessions = [
         total_play_time: 300,
         final_score: 102,
         voucher_earned: 1,
-        voucher_id: 5
+        voucher_id: 1
     },
     {
         project_id: 1,
@@ -163,7 +164,7 @@ const gameSessions = [
         total_play_time: 300,
         final_score: 110,
         voucher_earned: 1,
-        voucher_id: 6
+        voucher_id: 2
     },
     {
         project_id: 1,
@@ -175,7 +176,7 @@ const gameSessions = [
         total_play_time: 300,
         final_score: 98,
         voucher_earned: 1,
-        voucher_id: 7
+        voucher_id: 3
     },
     {
         project_id: 1,
@@ -187,7 +188,7 @@ const gameSessions = [
         total_play_time: 240,
         final_score: 105,
         voucher_earned: 1,
-        voucher_id: 8
+        voucher_id: 4
     },
     {
         project_id: 1,
@@ -227,80 +228,69 @@ const generateGameLogs = (session, sessionIndex) => {
     return logs;
 };
 
-db.serialize(() => {
-    console.log('1️⃣ 清除現有遊戲數據...');
-    db.run('DELETE FROM game_logs WHERE game_id = 1', (err) => {
-        if (err) console.error('清除 game_logs 失敗:', err);
-    });
-    db.run('DELETE FROM game_sessions WHERE game_id = 1', (err) => {
-        if (err) console.error('清除 game_sessions 失敗:', err);
-    });
+// 執行種子資料（同步版本）
+function seed() {
+    try {
+        console.log('1️⃣ 清除現有遊戲數據...');
+        // 暫時禁用外鍵約束
+        db.pragma('foreign_keys = OFF');
+        db.prepare('DELETE FROM game_logs WHERE game_id = 1').run();
+        db.prepare('DELETE FROM game_sessions WHERE game_id = 1').run();
+        db.pragma('foreign_keys = ON');
+        console.log('   ✅ 清除完成');
 
-    console.log('2️⃣ 添加遊戲會話數據...');
-    const sessionStmt = db.prepare(`
-        INSERT INTO game_sessions (
-            project_id, game_id, trace_id, user_id, session_start, session_end,
-            total_play_time, final_score, voucher_earned, voucher_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+        console.log('\n2️⃣ 添加遊戲會話數據...');
+        const sessionStmt = db.prepare(`
+            INSERT INTO game_sessions (
+                project_id, game_id, trace_id, user_id, session_start, session_end,
+                total_play_time, final_score, voucher_earned, voucher_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
 
-    gameSessions.forEach((session, index) => {
-        sessionStmt.run([
-            session.project_id,
-            session.game_id,
-            session.trace_id,
-            session.user_id,
-            session.session_start,
-            session.session_end,
-            session.total_play_time,
-            session.final_score,
-            session.voucher_earned,
-            session.voucher_id
-        ], function(err) {
-            if (err) {
-                console.error(`   ❌ Session ${index + 1} 失敗:`, err);
-            } else {
-                console.log(`   ✅ Session ${index + 1}: User ${session.user_id} - Score ${session.final_score}`);
-            }
+        gameSessions.forEach((session, index) => {
+            sessionStmt.run(
+                session.project_id,
+                session.game_id,
+                session.trace_id,
+                session.user_id,
+                session.session_start,
+                session.session_end,
+                session.total_play_time,
+                session.final_score,
+                session.voucher_earned,
+                session.voucher_id
+            );
+            console.log(`   ✅ Session ${index + 1}: User ${session.user_id} - Score ${session.final_score}`);
         });
-    });
 
-    sessionStmt.finalize();
+        console.log('\n3️⃣ 添加遊戲日誌數據...');
+        const logStmt = db.prepare(`
+            INSERT INTO game_logs (
+                project_id, game_id, trace_id, user_id, log_level, message,
+                user_action, score, play_time, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
 
-    console.log('\n3️⃣ 添加遊戲日誌數據...');
-    const logStmt = db.prepare(`
-        INSERT INTO game_logs (
-            project_id, game_id, trace_id, user_id, log_level, message,
-            user_action, score, play_time, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    let logCount = 0;
-    gameSessions.forEach((session, sessionIndex) => {
-        const logs = generateGameLogs(session, sessionIndex);
-        logs.forEach(log => {
-            logStmt.run([
-                log.project_id,
-                log.game_id,
-                log.trace_id,
-                log.user_id,
-                log.log_level,
-                log.message,
-                log.user_action,
-                log.score,
-                log.play_time,
-                log.created_at
-            ], function(err) {
-                if (err) {
-                    console.error(`   ❌ Log 失敗:`, err);
-                } else {
-                    logCount++;
-                }
+        let logCount = 0;
+        gameSessions.forEach((session, sessionIndex) => {
+            const logs = generateGameLogs(session, sessionIndex);
+            logs.forEach(log => {
+                logStmt.run(
+                    log.project_id,
+                    log.game_id,
+                    log.trace_id,
+                    log.user_id,
+                    log.log_level,
+                    log.message,
+                    log.user_action,
+                    log.score,
+                    log.play_time,
+                    log.created_at
+                );
+                logCount++;
             });
         });
-    });
 
-    logStmt.finalize(() => {
         console.log(`   ✅ 添加了 ${logCount} 筆遊戲日誌\n`);
 
         console.log('🎉 遊戲假資料添加完成！\n');
@@ -312,8 +302,16 @@ db.serialize(() => {
         console.log(`   - 總遊戲日誌: ${logCount}\n`);
         console.log('💡 現在可以訪問 http://localhost:3000/admin/game-analytics 查看完整數據！');
 
+    } catch (error) {
+        console.error('❌ 種子資料添加失敗:', error);
+        process.exit(1);
+    } finally {
         db.close();
-    });
-});
+        console.log('✅ 資料庫連接已關閉');
+    }
+}
+
+// 執行
+seed();
 
 

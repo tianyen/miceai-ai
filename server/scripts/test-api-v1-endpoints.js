@@ -4,15 +4,14 @@
  * 測試所有 14 個 API v1 端點是否正常工作
  */
 
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-
-// 載入環境變數
 require('dotenv').config();
+const Database = require('better-sqlite3');
+const path = require('path');
 const config = require('../config');
+const { TEST_REGISTRATIONS } = require('./utils/trace-id-generator');
 
 const dbPath = path.resolve(config.database.path);
-const db = new sqlite3.Database(dbPath);
+const db = new Database(dbPath);
 
 console.log('🧪 開始測試 API v1 端點完整性...\n');
 
@@ -24,30 +23,28 @@ const results = {
     errors: []
 };
 
-// 測試用的 trace_id（從 seed 資料中獲取）
-const TEST_TRACE_IDS = {
-    user1: 'MICE-d074dd3e-e3e27b6b0',
-    user2: 'MICE-d74b09c8-6cfa4a823',
-    user3: 'MICE-05207cf7-199967c04'
+// 測試用戶資料（從共用模組獲取）
+// user_id = registration_id = form_submissions.id
+const TEST_USERS = {
+    ZHANG_ZHIMING: { id: TEST_REGISTRATIONS.ZHANG_ZHIMING.registration_id, name: TEST_REGISTRATIONS.ZHANG_ZHIMING.name, traceId: TEST_REGISTRATIONS.ZHANG_ZHIMING.traceId },
+    LI_MEILING:    { id: TEST_REGISTRATIONS.LI_MEILING.registration_id, name: TEST_REGISTRATIONS.LI_MEILING.name, traceId: TEST_REGISTRATIONS.LI_MEILING.traceId },
+    WANG_DAMING:   { id: TEST_REGISTRATIONS.WANG_DAMING.registration_id, name: TEST_REGISTRATIONS.WANG_DAMING.name, traceId: TEST_REGISTRATIONS.WANG_DAMING.traceId }
 };
 
-// 輔助函數：執行 SQL 查詢
+// 向後相容舊的 trace_id 引用
+const TEST_TRACE_IDS = {
+    user1: TEST_USERS.ZHANG_ZHIMING.traceId,
+    user2: TEST_USERS.LI_MEILING.traceId,
+    user3: TEST_USERS.WANG_DAMING.traceId
+};
+
+// 輔助函數：執行 SQL 查詢（同步版本，返回 Promise 以保持相容性）
 function query(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.all(sql, params, (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-        });
-    });
+    return Promise.resolve(db.prepare(sql).all(...params));
 }
 
 function get(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.get(sql, params, (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-        });
-    });
+    return Promise.resolve(db.prepare(sql).get(...params));
 }
 
 // 測試函數
@@ -132,9 +129,11 @@ async function runTests() {
         );
         if (submissions.length === 0) throw new Error('沒有報名記錄');
 
-        // 檢查是否有 user_id（種子資料應設置）
-        const hasUserId = submissions.some(s => s.user_id !== null);
-        if (!hasUserId) throw new Error('沒有設置 user_id 的報名記錄');
+        // 驗證報名記錄有 id（這就是 API 回應的 user_id）
+        // 注意：form_submissions.user_id 欄位可能為 NULL（API 報名用戶沒有後台帳號）
+        // API 回應的 user_id 實際上是 registration_id = form_submissions.id
+        const hasValidId = submissions.every(s => s.id != null && s.trace_id != null);
+        if (!hasValidId) throw new Error('報名記錄缺少必要的 id 或 trace_id');
 
         // 檢查是否有 QR Code
         const qrCodes = await query(

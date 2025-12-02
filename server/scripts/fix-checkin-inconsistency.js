@@ -4,10 +4,10 @@
  */
 
 const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 
 const dbPath = path.join(__dirname, '../data/mice_ai.db');
-const db = new sqlite3.Database(dbPath);
+const db = new Database(dbPath);
 
 function query(sql, params = []) {
     return new Promise((resolve, reject) => {

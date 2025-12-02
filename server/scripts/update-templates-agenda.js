@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const { getDbPath } = require('./db-path');
 
 const dbPath = getDbPath();
 console.log('🔄 更新模板添加 agenda 欄位...');
 console.log(`📁 資料庫路徑: ${dbPath}`);
 
-const db = new sqlite3.Database(dbPath);
+const db = new Database(dbPath);
 
 const content = JSON.stringify({
     schedule: {
@@ -30,26 +30,17 @@ const content = JSON.stringify({
     ]
 });
 
-db.serialize(() => {
-    db.run('UPDATE invitation_templates SET template_content = ? WHERE id = 3', [content], (err) => {
-        if (err) {
-            console.error('❌ 更新模板失敗:', err);
-        } else {
-            console.log('✅ 更新模板 3: 科技論壇活動模板');
-        }
-    });
+try {
+    db.prepare('UPDATE invitation_templates SET template_content = ? WHERE id = 3').run(content);
+    console.log('✅ 更新模板 3: 科技論壇活動模板');
 
-    db.run('UPDATE event_projects SET template_id = 3 WHERE project_code = ?', ['TECH2024'], (err) => {
-        if (err) {
-            console.error('❌ 更新專案失敗:', err);
-        } else {
-            console.log('✅ 更新 TECH2024 專案使用模板 3');
-        }
+    db.prepare('UPDATE event_projects SET template_id = 3 WHERE project_code = ?').run('TECH2024');
+    console.log('✅ 更新 TECH2024 專案使用模板 3');
 
-        setTimeout(() => {
-            db.close();
-            console.log('✅ 完成！');
-        }, 100);
-    });
-});
-
+    console.log('\n✅ 更新完成！');
+} catch (err) {
+    console.error('❌ 更新失敗:', err);
+} finally {
+    db.close();
+    console.log('✅ 資料庫連接已關閉');
+}

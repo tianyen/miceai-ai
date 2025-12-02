@@ -22,27 +22,72 @@ npm start
 - 後台管理: http://localhost:3000/admin (預設帳號: admin / admin123)
 - API 文檔: http://localhost:3000/api-docs
 
-## 📋 常用命令
+## 📋 可用腳本
 
-```bash
-# 開發
-npm start              # 啟動開發服務器
-npm run dev            # 使用 nodemon 自動重啟
+### 基本運行
+| 命令 | 說明 |
+|------|------|
+| `npm start` | 啟動服務器（開發環境） |
+| `npm run dev` | 使用 nodemon 自動重啟 |
+| `npm run production` | 啟動服務器（生產環境） |
 
-# 資料庫
-npm run setup          # 一鍵初始化（推薦）
-npm run db:reset       # 重置資料庫
-npm run db:seed        # 載入測試資料
-npm run db:check       # 檢查資料庫狀態
-npm run backup         # 備份資料庫
+### 資料庫管理
+| 命令 | 說明 |
+|------|------|
+| `npm run setup` | 一鍵初始化（推薦） |
+| `npm run db:reset` | 重置資料庫 |
+| `npm run db:seed` | 載入基礎種子資料 |
+| `npm run db:info` | 查看資料庫資訊 |
+| `npm run db:check` | 檢查資料庫狀態 |
+| `npm run db:verify` | 驗證資料庫 Schema |
+| `npm run backup` | 備份資料庫 |
 
-# 測試
-npm run test:swagger   # 測試 Swagger 範例
-npm run test:api       # 測試 API 流程
+### 資料庫遷移
+| 命令 | 說明 |
+|------|------|
+| `npm run db:migrate` | API 日誌表遷移 |
+| `npm run db:migrate:gameroom` | 遊戲室模組遷移 |
+| `npm run db:migrate:booths` | 攤位資料表遷移 |
+| `npm run db:migrate:wishtree` | 許願樹遷移 |
+| `npm run db:migrate:form-config` | 表單設定遷移 |
 
-# 生產環境
-npm run production     # 啟動生產服務器
-```
+### 種子資料
+| 命令 | 說明 |
+|------|------|
+| `npm run db:seed:gameroom` | 遊戲室模組種子資料 |
+| `npm run db:seed:questionnaire` | 問卷種子資料 |
+| `npm run db:seed:wishtree` | 許願樹種子資料 |
+| `npm run db:seed:game-analytics` | 遊戲統計種子資料 |
+
+### 驗證與測試
+| 命令 | 說明 |
+|------|------|
+| `npm run verify` | 執行所有驗證測試 |
+| `npm run verify:workflow` | 驗證完整業務流程 |
+| `npm run verify:api` | 驗證 API 端點 |
+| `npm run verify:data` | 驗證資料流程 |
+| `npm run test:api` | 測試完整 API 流程 |
+| `npm run test:swagger` | 測試 Swagger 範例 |
+
+### 生成工具
+| 命令 | 說明 |
+|------|------|
+| `npm run generate:qrcodes` | 生成測試 QR Code |
+| `npm run generate:registration-qrcode` | 生成報名 QR Code |
+| `npm run generate-certs` | 生成 HTTPS 證書 |
+
+### 日誌管理
+| 命令 | 說明 |
+|------|------|
+| `npm run logs` | 查看所有日誌 |
+| `npm run logs:4xx` | 查看 4xx 錯誤日誌 |
+| `npm run logs:5xx` | 查看 5xx 錯誤日誌 |
+
+### 其他工具
+| 命令 | 說明 |
+|------|------|
+| `npm run status` | 查看系統狀態 |
+| `npm run analyze:imports` | 分析未使用的 imports |
 
 ## ⚙️ 環境配置
 
@@ -116,10 +161,12 @@ server/
 - `/business-card/:traceId` - QR Code 名片展示
 
 測試數據（與 Swagger 範例一致）：
-- 測試用戶：王大明 (user_id: 3, trace_id: `MICE-05207cf7-199967c04`)
+- 測試報名用戶：王大明 (registration_id: 3, trace_id: `MICE-05207cf7-199967c04`)
 - 測試專案：TECH2024 (project_id: 1)
 - 測試攤位：BOOTH-A1 (booth_id: 4)
 - 測試遊戲：幸運飛鏢 (game_id: 2)
+
+> ⚠️ **注意**：API 報名用戶的 `registration_id` (form_submissions.id) 與後台管理員的 `users.id` 是完全不同的概念！
 
 **詳細文檔**:
 - [API v1 端點清單](./claude/docs/API_V1_ENDPOINTS.md)
@@ -169,6 +216,22 @@ const dbPath = './data/mice_ai.db';  // 不要這樣做！
 
 **外鍵欄位**: 使用 `_id` 後綴（如 `user_id`, `project_id`, `booth_id`）
 
+### user_id 與 registration_id 區分
+
+| 概念 | 表格 | 欄位 | 說明 |
+|------|------|------|------|
+| 後台管理員 ID | `users` | `id` | 後台登入用戶 (admin, manager, vendor) |
+| 報名用戶 ID | `form_submissions` | `id` | API 報名參加者 (= registration_id) |
+| 遊戲 API user_id | 參數 | `user_id` | 可傳入 registration_id，用於追蹤玩家 |
+
+```
+後台管理員 users.id:           API 報名用戶 registration_id:
+├── 1: admin (super_admin)     ├── 1: 張志明 (MICE-d074dd3e-e3e27b6b0)
+├── 2: manager (project_mgr)   ├── 2: 李美玲 (MICE-d74b09c8-6cfa4a823)
+├── 3: user (project_user)     └── 3: 王大明 (MICE-05207cf7-199967c04)
+└── 4: vendor
+```
+
 > 📖 詳細規範請參閱 [spec.md v2.6 - 資料庫欄位命名規範](./claude/docs/spec.md#資料庫欄位命名規範-v26)
 
 ### Trace ID 格式
@@ -201,7 +264,7 @@ TRACE{timestamp}{random}
 ## 🎯 技術棧
 
 - **後端**: Node.js 22+ / Express.js 4.x
-- **資料庫**: SQLite3 5.x
+- **資料庫**: better-sqlite3 (同步 API)
 - **模板引擎**: Handlebars 4.x
 - **認證**: express-session + bcrypt
 - **API 文檔**: Swagger/OpenAPI 3.0
@@ -261,6 +324,6 @@ pm2 startup
 
 ---
 
-**版本**: 2.0
-**最後更新**: 2025-11-19
+**版本**: 2.7
+**最後更新**: 2025-12-02
 **維護者**: MICE-AI Team

@@ -10,7 +10,6 @@ const { body, validationResult } = require('express-validator');
 const { voucherService } = require('../../../services');
 const responses = require('../../../utils/responses');
 const logger = require('../../../utils/logger');
-const AppError = require('../../../utils/app-error');
 
 /**
  * 處理 Service 層錯誤

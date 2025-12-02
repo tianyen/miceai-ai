@@ -59,6 +59,9 @@ function switchTab(tabName) {
         case 'games':
             loadProjectGames();
             break;
+        case 'form-settings':
+            loadFormConfig();
+            break;
     }
 }
 
@@ -1104,6 +1107,89 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ===== 報名表單配置 =====
+
+// 載入報名表單配置
+function loadFormConfig() {
+    $.ajax({
+        url: `/admin/projects/${projectId}/form-config`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                const config = response.data.form_config;
+
+                // 設置選填欄位
+                const optionalFields = config.optional_fields || [];
+                $('#field_company').prop('checked', optionalFields.includes('company'));
+                $('#field_position').prop('checked', optionalFields.includes('position'));
+                $('#field_gender').prop('checked', optionalFields.includes('gender'));
+                $('#field_title').prop('checked', optionalFields.includes('title'));
+                $('#field_notes').prop('checked', optionalFields.includes('notes'));
+
+                // 設置選項
+                if (config.gender_options) {
+                    $('#gender_options').val(config.gender_options.join(', '));
+                }
+                if (config.title_options) {
+                    $('#title_options').val(config.title_options.join(', '));
+                }
+            }
+        },
+        error: function(xhr) {
+            console.error('載入報名配置失敗:', xhr);
+        }
+    });
+}
+
+// 儲存報名表單配置
+function saveFormConfig() {
+    // 收集選填欄位
+    const optionalFields = [];
+    if ($('#field_company').is(':checked')) optionalFields.push('company');
+    if ($('#field_position').is(':checked')) optionalFields.push('position');
+    if ($('#field_gender').is(':checked')) optionalFields.push('gender');
+    if ($('#field_title').is(':checked')) optionalFields.push('title');
+    if ($('#field_notes').is(':checked')) optionalFields.push('notes');
+
+    // 收集選項
+    const genderOptions = $('#gender_options').val().split(',').map(s => s.trim()).filter(s => s);
+    const titleOptions = $('#title_options').val().split(',').map(s => s.trim()).filter(s => s);
+
+    const formConfig = {
+        required_fields: ['name', 'email', 'phone'],
+        optional_fields: optionalFields,
+        field_labels: {
+            name: '姓名',
+            email: '電子郵件',
+            phone: '手機號碼',
+            company: '公司名稱',
+            position: '職位',
+            gender: '性別',
+            title: '尊稱',
+            notes: '留言備註'
+        },
+        gender_options: genderOptions,
+        title_options: titleOptions
+    };
+
+    $.ajax({
+        url: `/admin/projects/${projectId}/form-config`,
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({ form_config: formConfig }),
+        success: function(response) {
+            if (response.success) {
+                alert('報名設定已儲存');
+            } else {
+                alert('儲存失敗：' + response.message);
+            }
+        },
+        error: function(xhr) {
+            alert('儲存失敗：' + (xhr.responseJSON?.message || '系統錯誤'));
+        }
+    });
 }
 
 // 當切換到許願樹 Tab 時載入數據

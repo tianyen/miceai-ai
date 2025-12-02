@@ -7,7 +7,6 @@ const express = require('express');
 const router = express.Router();
 const responses = require('../../utils/responses');
 const { projectService } = require('../../services');
-const vh = require('../../utils/viewHelpers');
 
 // 專案管理頁面
 router.get('/', (req, res) => {
@@ -602,6 +601,48 @@ router.delete('/:projectId/games/:bindingId', async (req, res) => {
         }
         console.error('解除綁定失敗:', error);
         return responses.serverError(res, '解除綁定失敗');
+    }
+});
+
+// ===== 報名表單配置 API =====
+
+// 取得專案報名表單配置
+router.get('/:projectId/form-config', async (req, res) => {
+    try {
+        const projectId = req.params.projectId;
+        const result = await projectService.getFormConfig(projectId, req.user);
+
+        if (!result) {
+            return responses.notFound(res, '專案不存在或無權限查看');
+        }
+
+        return responses.success(res, result, '取得報名表單配置成功');
+    } catch (error) {
+        console.error('取得報名表單配置失敗:', error);
+        return responses.serverError(res, '取得報名表單配置失敗');
+    }
+});
+
+// 更新專案報名表單配置
+router.put('/:projectId/form-config', async (req, res) => {
+    try {
+        const projectId = req.params.projectId;
+        const { form_config } = req.body;
+
+        if (!form_config) {
+            return responses.badRequest(res, '缺少 form_config 參數');
+        }
+
+        const result = await projectService.updateFormConfig(projectId, form_config, req.user);
+
+        if (!result) {
+            return responses.notFound(res, '專案不存在或無權限修改');
+        }
+
+        return responses.success(res, null, '更新報名表單配置成功');
+    } catch (error) {
+        console.error('更新報名表單配置失敗:', error);
+        return responses.serverError(res, '更新報名表單配置失敗');
     }
 });
 

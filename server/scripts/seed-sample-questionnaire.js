@@ -3,7 +3,7 @@
  * 用於測試問卷系統功能
  */
 
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const { getDbPath } = require('./db-path');
 
 const dbPath = getDbPath();
@@ -19,37 +19,23 @@ function generateDateTime(daysOffset = 0, hours = 0, minutes = 0, seconds = 0) {
 console.log('🔄 開始新增範例問卷...');
 console.log(`📁 資料庫路徑: ${dbPath}`);
 
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('❌ 資料庫連接失敗:', err);
-        process.exit(1);
-    }
-    console.log('✅ 資料庫連接成功');
-});
+const db = new Database(dbPath);
+console.log('✅ 資料庫連接成功');
 
-// Promise 包裝的 SQL 執行函數
+// 同步版本的 SQL 執行函數
 function runSQL(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.run(sql, params, function (err) {
-            if (err) reject(err);
-            else resolve(this.lastID);
-        });
-    });
+    const result = db.prepare(sql).run(...params);
+    return result.lastInsertRowid;
 }
 
 function getSQL(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.get(sql, params, (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-        });
-    });
+    return db.prepare(sql).get(...params);
 }
 
-async function seed() {
+function seed() {
     try {
         // 1. 獲取第一個專案 ID
-        const project = await getSQL('SELECT id FROM event_projects ORDER BY id LIMIT 1');
+        const project = getSQL('SELECT id FROM event_projects ORDER BY id LIMIT 1');
         if (!project) {
             console.log('⚠️  找不到專案，請先執行 npm run db:seed');
             process.exit(1);
@@ -58,7 +44,7 @@ async function seed() {
         console.log(`✅ 使用專案 ID: ${projectId}`);
 
         // 2. 獲取 admin 用戶 ID
-        const admin = await getSQL("SELECT id FROM users WHERE role = 'super_admin' ORDER BY id LIMIT 1");
+        const admin = getSQL("SELECT id FROM users WHERE role = 'super_admin' ORDER BY id LIMIT 1");
         if (!admin) {
             console.log('⚠️  找不到管理員用戶');
             process.exit(1);
@@ -69,7 +55,7 @@ async function seed() {
         // 3. 創建範例問卷
         console.log('\n📝 創建範例問卷...');
 
-        const questionnaireId = await runSQL(`
+        const questionnaireId = runSQL(`
             INSERT INTO questionnaires (
                 project_id, title, description, instructions, is_active,
                 allow_multiple_submissions, start_time, end_time,
@@ -216,7 +202,7 @@ async function seed() {
 
         const questionIds = [];
         for (const q of questions) {
-            const qId = await runSQL(`
+            const qId = runSQL(`
                 INSERT INTO questionnaire_questions (
                     questionnaire_id, question_text, question_type,
                     is_required, display_order, options, created_at
@@ -295,7 +281,7 @@ async function seed() {
         ];
 
         for (const response of sampleResponses) {
-            await runSQL(`
+            runSQL(`
                 INSERT INTO questionnaire_responses (
                     questionnaire_id, trace_id, respondent_name, respondent_email,
                     response_data, completion_time, is_completed,
@@ -324,15 +310,10 @@ async function seed() {
         console.error('\n❌ 種子資料添加失敗:', error);
         process.exit(1);
     } finally {
-        db.close((err) => {
-            if (err) {
-                console.error('❌ 關閉資料庫連接失敗:', err);
-            } else {
-                console.log('✅ 資料庫連接已關閉');
-            }
-        });
+        db.close();
+        console.log('✅ 資料庫連接已關閉');
     }
 }
 
+// 執行種子資料
 seed();
-

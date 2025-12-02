@@ -3,51 +3,47 @@
 /**
  * 遊戲室模組種子資料腳本
  * 在現有資料庫中添加遊戲室測試資料
+ *
+ * 測試報名用戶對應表（form_submissions.id = registration_id）：
+ * | 用戶   | registration_id | trace_id                    |
+ * |--------|-----------------|----------------------------|
+ * | 張志明 | 1               | MICE-d074dd3e-e3e27b6b0   |
+ * | 李美玲 | 2               | MICE-d74b09c8-6cfa4a823   |
+ * | 王大明 | 3               | MICE-05207cf7-199967c04   |
+ *
+ * 注意：這些 registration_id 與後台管理員 users.id (1-4) 是不同的概念！
  */
 
-const sqlite3 = require('sqlite3').verbose();
-const QRCode = require('qrcode');
 require('dotenv').config();
+const Database = require('better-sqlite3');
+const QRCode = require('qrcode');
+const crypto = require('crypto');
 const config = require('../config');
 const { getDbPath } = require('./db-path');
+const { TEST_REGISTRATIONS } = require('./utils/trace-id-generator');
 
 const dbPath = getDbPath();
+const db = new Database(dbPath);
 
 console.log('🌱 正在添加遊戲室模組種子資料...\n');
+console.log('✅ 資料庫連接成功');
 
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('❌ 無法連接資料庫:', err);
-        process.exit(1);
-    }
-    console.log('✅ 資料庫連接成功');
-});
-
-// 執行 SQL 並返回 Promise
+// 同步執行 SQL
 function runSQL(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.run(sql, params, function(err) {
-            if (err) reject(err);
-            else resolve(this.lastID);
-        });
-    });
+    const result = db.prepare(sql).run(...params);
+    return result.lastInsertRowid;
 }
 
-// 查詢資料
+// 同步查詢資料
 function getSQL(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.get(sql, params, (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-        });
-    });
+    return db.prepare(sql).get(...params);
 }
 
-// 執行種子資料
+// 執行種子資料（同步版本）
 async function seed() {
     try {
         // 獲取第一個管理員用戶 ID
-        const admin = await getSQL("SELECT id FROM users WHERE role = 'super_admin' LIMIT 1");
+        const admin = getSQL("SELECT id FROM users WHERE role = 'super_admin' LIMIT 1");
         if (!admin) {
             console.error('❌ 找不到管理員用戶，請先執行 db-seed.js');
             process.exit(1);
@@ -57,23 +53,23 @@ async function seed() {
 
         // 0. 清除舊的遊戲室資料（保持資料一致性）
         console.log('🗑️  清除舊的遊戲室資料...');
-        await runSQL('DELETE FROM voucher_redemptions');
-        await runSQL('DELETE FROM game_logs');
-        await runSQL('DELETE FROM game_sessions');
+        runSQL('DELETE FROM voucher_redemptions');
+        runSQL('DELETE FROM game_logs');
+        runSQL('DELETE FROM game_sessions');
         // P1-2: project_games 已改為 booth_games
-        await runSQL('DELETE FROM booth_games');
-        await runSQL('DELETE FROM voucher_conditions');
-        await runSQL('DELETE FROM vouchers');
-        await runSQL('DELETE FROM games');
+        runSQL('DELETE FROM booth_games');
+        runSQL('DELETE FROM voucher_conditions');
+        runSQL('DELETE FROM vouchers');
+        runSQL('DELETE FROM games');
 
         // 檢查 booths 表是否存在
-        const boothsTableCheck = await getSQL(`
+        const boothsTableCheck = getSQL(`
             SELECT name FROM sqlite_master
             WHERE type='table' AND name='booths'
         `);
         const boothsTableExists = !!boothsTableCheck;
         if (boothsTableExists) {
-            await runSQL('DELETE FROM booths');
+            runSQL('DELETE FROM booths');
             console.log('✅ 清除完成（包含攤位資料）\n');
         } else {
             console.log('✅ 清除完成（booths 表尚未建立，跳過）\n');
@@ -82,7 +78,7 @@ async function seed() {
         // 1. 新增測試遊戲
         console.log('🎮 新增測試遊戲...');
 
-        const game1Id = await runSQL(`
+        const game1Id = runSQL(`
             INSERT INTO games (game_name_zh, game_name_en, game_url, game_version, description, is_active, created_by)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `, [
@@ -99,7 +95,7 @@ async function seed() {
         // 2. 新增測試兌換券
         console.log('\n🎫 新增測試兌換券...');
 
-        const voucher1Id = await runSQL(`
+        const voucher1Id = runSQL(`
             INSERT INTO vouchers (voucher_name, vendor_name, sponsor_name, category, total_quantity, remaining_quantity, voucher_value, description, is_active, created_by)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
@@ -116,7 +112,7 @@ async function seed() {
         ]);
         console.log(`✅ 新增兌換券: 星巴克咖啡券 (ID: ${voucher1Id})`);
 
-        const voucher2Id = await runSQL(`
+        const voucher2Id = runSQL(`
             INSERT INTO vouchers (voucher_name, vendor_name, sponsor_name, category, total_quantity, remaining_quantity, voucher_value, description, is_active, created_by)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
@@ -133,7 +129,7 @@ async function seed() {
         ]);
         console.log(`✅ 新增兌換券: 誠品書店禮券 (ID: ${voucher2Id})`);
 
-        const voucher3Id = await runSQL(`
+        const voucher3Id = runSQL(`
             INSERT INTO vouchers (voucher_name, vendor_name, sponsor_name, category, total_quantity, remaining_quantity, voucher_value, description, is_active, created_by)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
@@ -150,7 +146,7 @@ async function seed() {
         ]);
         console.log(`✅ 新增兌換券: 電影票券 (ID: ${voucher3Id})`);
 
-        const voucher4Id = await runSQL(`
+        const voucher4Id = runSQL(`
             INSERT INTO vouchers (voucher_name, vendor_name, sponsor_name, category, total_quantity, remaining_quantity, voucher_value, description, is_active, created_by)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
@@ -170,25 +166,25 @@ async function seed() {
         // 3. 新增兌換條件
         console.log('\n📋 新增兌換條件...');
 
-        await runSQL(`
+        runSQL(`
             INSERT INTO voucher_conditions (voucher_id, min_score, min_play_time, other_conditions)
             VALUES (?, ?, ?, ?)
         `, [voucher1Id, 500, 300, JSON.stringify({ max_attempts: 3 })]);
         console.log(`✅ 星巴克咖啡券條件: 分數 >= 500, 時間 >= 300 秒`);
 
-        await runSQL(`
+        runSQL(`
             INSERT INTO voucher_conditions (voucher_id, min_score, min_play_time, other_conditions)
             VALUES (?, ?, ?, ?)
         `, [voucher2Id, 800, 600, JSON.stringify({ max_attempts: 2 })]);
         console.log(`✅ 誠品書店禮券條件: 分數 >= 800, 時間 >= 600 秒`);
 
-        await runSQL(`
+        runSQL(`
             INSERT INTO voucher_conditions (voucher_id, min_score, min_play_time, other_conditions)
             VALUES (?, ?, ?, ?)
         `, [voucher3Id, 1000, 900, JSON.stringify({ max_attempts: 1 })]);
         console.log(`✅ 電影票券條件: 分數 >= 1000, 時間 >= 900 秒`);
 
-        await runSQL(`
+        runSQL(`
             INSERT INTO voucher_conditions (voucher_id, min_score, min_play_time, other_conditions)
             VALUES (?, ?, ?, ?)
         `, [voucher4Id, 300, 180, JSON.stringify({ max_attempts: 5 })]);
@@ -198,9 +194,9 @@ async function seed() {
         console.log('\n🏪 新增攤位資料...');
 
         // 優先使用 TECH2024 專案（與王大明的表單提交一致），如果不存在則使用第一個專案
-        let project = await getSQL("SELECT id, project_name, project_code FROM event_projects WHERE project_code = 'TECH2024' LIMIT 1");
+        let project = getSQL("SELECT id, project_name, project_code FROM event_projects WHERE project_code = 'TECH2024' LIMIT 1");
         if (!project) {
-            project = await getSQL("SELECT id, project_name, project_code FROM event_projects LIMIT 1");
+            project = getSQL("SELECT id, project_name, project_code FROM event_projects LIMIT 1");
         }
         let booth1Id, booth2Id, booth3Id;
 
@@ -209,19 +205,19 @@ async function seed() {
             console.log(`📝 使用專案: ${project.project_name} (${project.project_code}) - ID: ${projectId}`);
 
             // 新增 3 個攤位
-            booth1Id = await runSQL(`
+            booth1Id = runSQL(`
                 INSERT INTO booths (project_id, booth_name, booth_code, location, description, is_active)
                 VALUES (?, ?, ?, ?, ?, ?)
             `, [projectId, 'A區攤位', 'BOOTH-A1', '展場 A 區入口處', '主要遊戲攤位，提供飛鏢遊戲體驗', 1]);
             console.log(`✅ 新增攤位: A區攤位 (ID: ${booth1Id}, Code: BOOTH-A1)`);
 
-            booth2Id = await runSQL(`
+            booth2Id = runSQL(`
                 INSERT INTO booths (project_id, booth_name, booth_code, location, description, is_active)
                 VALUES (?, ?, ?, ?, ?, ?)
             `, [projectId, 'B區攤位', 'BOOTH-B1', '展場 B 區中央', '次要遊戲攤位，提供飛鏢遊戲體驗', 1]);
             console.log(`✅ 新增攤位: B區攤位 (ID: ${booth2Id}, Code: BOOTH-B1)`);
 
-            booth3Id = await runSQL(`
+            booth3Id = runSQL(`
                 INSERT INTO booths (project_id, booth_name, booth_code, location, description, is_active)
                 VALUES (?, ?, ?, ?, ?, ?)
             `, [projectId, 'C區攤位', 'BOOTH-C1', '展場 C 區出口處', '體驗攤位，提供飛鏢遊戲體驗', 1]);
@@ -238,7 +234,7 @@ async function seed() {
         if (boothsTableExists && booth1Id && project) {
             // P1-2: 綁定遊戲到攤位（而非專案）
             // 將遊戲綁定到 A區攤位
-            const bindingId = await runSQL(`
+            const bindingId = runSQL(`
                 INSERT INTO booth_games (booth_id, game_id, voucher_id, is_active)
                 VALUES (?, ?, ?, ?)
             `, [booth1Id, game1Id, voucher1Id, 1]);
@@ -267,7 +263,7 @@ async function seed() {
             });
 
             // 更新 QR Code
-            await runSQL(`
+            runSQL(`
                 UPDATE booth_games
                 SET qr_code_base64 = ?
                 WHERE id = ?
@@ -352,7 +348,7 @@ async function seed() {
                 // 創建會話（根據 booth_id 欄位是否存在使用不同 SQL）
                 let sessionId;
                 if (boothsTableExists) {
-                    sessionId = await runSQL(`
+                    sessionId = runSQL(`
                         INSERT INTO game_sessions (
                             project_id, game_id, trace_id, user_id, booth_id,
                             session_start, session_end, total_play_time, final_score,
@@ -370,7 +366,7 @@ async function seed() {
                         `Mozilla/5.0 (${['Windows NT 10.0', 'Macintosh', 'iPhone', 'Android'][Math.floor(Math.random() * 4)]})`
                     ]);
                 } else {
-                    sessionId = await runSQL(`
+                    sessionId = runSQL(`
                         INSERT INTO game_sessions (
                             project_id, game_id, trace_id, user_id,
                             session_start, session_end, total_play_time, final_score,
@@ -413,7 +409,7 @@ async function seed() {
                     const logPlayTime = Math.floor((totalPlayTime / numLogs) * (j + 1));
 
                     if (boothsTableExists) {
-                        await runSQL(`
+                        runSQL(`
                             INSERT INTO game_logs (
                                 project_id, game_id, trace_id, user_id, booth_id,
                                 log_level, message, user_action, score, play_time,
@@ -428,7 +424,7 @@ async function seed() {
                             minutesAgo - Math.floor((totalPlayTime / 60 / numLogs) * j)
                         ]);
                     } else {
-                        await runSQL(`
+                        runSQL(`
                             INSERT INTO game_logs (
                                 project_id, game_id, trace_id, user_id,
                                 log_level, message, user_action, score, play_time,
@@ -459,22 +455,18 @@ async function seed() {
 
         if (project) {
             const projectId = project.id;
-            // 使用與 db-seed.js 一致的 trace_id 生成方式 (新格式: MICE-xxx-xxx)
-            const crypto = require('crypto');
-            const hash = crypto.createHash('sha256')
-                .update('mice-ai-2025-trace-3')
-                .digest('hex');
-            const timestamp = hash.substring(0, 8).toLowerCase();
-            const random = hash.substring(8, 17).toLowerCase();
-            const wangTraceId = `MICE-${timestamp}-${random}`; // 王大明的 trace_id (來自 db-seed.js idGen.generateTraceId(3))
+            // 使用共用的 trace_id 生成器（與 db-seed.js 一致）
+            const wangTraceId = TEST_REGISTRATIONS.WANG_DAMING.traceId;
             const wangFinalScore = 850; // 高分
             const wangPlayTime = 45; // 快速完成
 
             // 創建王大明的遊戲會話（使用 A區攤位，如果存在）
+            // user_id = registration_id = form_submissions.id (VARCHAR 類型，需轉字串)
+            const wangUserId = String(TEST_REGISTRATIONS.WANG_DAMING.registration_id);
             const wangBoothId = boothsTableExists ? booth1Id : null;
             let wangSessionId;
             if (boothsTableExists) {
-                wangSessionId = await runSQL(`
+                wangSessionId = runSQL(`
                     INSERT INTO game_sessions (
                         project_id, game_id, trace_id, user_id, booth_id,
                         session_start, session_end, total_play_time, final_score,
@@ -484,12 +476,12 @@ async function seed() {
                         datetime('now', '-25 minutes'),
                         ?, ?, ?, ?, ?, ?)
                 `, [
-                    projectId, game1Id, wangTraceId, null, wangBoothId,
+                    projectId, game1Id, wangTraceId, wangUserId, wangBoothId,
                     wangPlayTime, wangFinalScore, 1, voucher1Id,
                     '192.168.1.100', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
                 ]);
             } else {
-                wangSessionId = await runSQL(`
+                wangSessionId = runSQL(`
                     INSERT INTO game_sessions (
                         project_id, game_id, trace_id, user_id,
                         session_start, session_end, total_play_time, final_score,
@@ -499,7 +491,7 @@ async function seed() {
                         datetime('now', '-25 minutes'),
                         ?, ?, ?, ?, ?, ?)
                 `, [
-                    projectId, game1Id, wangTraceId, null,
+                    projectId, game1Id, wangTraceId, wangUserId,
                     wangPlayTime, wangFinalScore, 1, voucher1Id,
                     '192.168.1.100', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
                 ]);
@@ -526,7 +518,7 @@ async function seed() {
                 }
 
                 if (boothsTableExists) {
-                    await runSQL(`
+                    runSQL(`
                         INSERT INTO game_logs (
                             project_id, game_id, trace_id, user_id, booth_id,
                             log_level, message, user_action, score, play_time,
@@ -534,7 +526,7 @@ async function seed() {
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                             datetime('now', '-' || ? || ' minutes'))
                     `, [
-                        projectId, game1Id, wangTraceId, null, wangBoothId,
+                        projectId, game1Id, wangTraceId, wangUserId, wangBoothId,
                         'info', message, action,
                         Math.floor((wangFinalScore / wangActions.length) * (i + 1)),
                         Math.floor((wangPlayTime / wangActions.length) * (i + 1)),
@@ -542,7 +534,7 @@ async function seed() {
                         30 - (i * 1) // 30, 29, 28... 分鐘前
                     ]);
                 } else {
-                    await runSQL(`
+                    runSQL(`
                         INSERT INTO game_logs (
                             project_id, game_id, trace_id, user_id,
                             log_level, message, user_action, score, play_time,
@@ -550,7 +542,7 @@ async function seed() {
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                             datetime('now', '-' || ? || ' minutes'))
                     `, [
-                        projectId, game1Id, wangTraceId, null,
+                        projectId, game1Id, wangTraceId, wangUserId,
                         'info', message, action,
                         Math.floor((wangFinalScore / wangActions.length) * (i + 1)),
                         Math.floor((wangPlayTime / wangActions.length) * (i + 1)),
@@ -584,7 +576,7 @@ async function seed() {
             });
 
             if (boothsTableExists) {
-                await runSQL(`
+                runSQL(`
                     INSERT INTO voucher_redemptions (
                         voucher_id, session_id, trace_id, booth_id, redemption_code,
                         qr_code_base64, redeemed_at, is_used, used_at
@@ -593,7 +585,7 @@ async function seed() {
                 console.log(`✅ 王大明兌換記錄: ${wangRedemptionCode} (未使用)`);
                 console.log(`   攤位: A區攤位 (ID: ${booth1Id})`);
             } else {
-                await runSQL(`
+                runSQL(`
                     INSERT INTO voucher_redemptions (
                         voucher_id, session_id, trace_id, redemption_code,
                         qr_code_base64, redeemed_at, is_used, used_at

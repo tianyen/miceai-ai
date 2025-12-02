@@ -14,7 +14,7 @@
  * 8. 新增相關索引
  */
 
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const { getDbPath } = require('./db-path');
 
 const dbPath = getDbPath();
@@ -22,51 +22,36 @@ const dbPath = getDbPath();
 console.log('🔄 開始遷移遊戲室模組資料表...');
 console.log(`📁 資料庫路徑: ${dbPath}`);
 
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('❌ 無法連接資料庫:', err);
-        process.exit(1);
-    }
-    console.log('✅ 資料庫連接成功');
-});
+const db = new Database(dbPath);
+console.log('✅ 資料庫連接成功');
 
-// 檢查表是否存在
+// 檢查表是否存在（同步版本）
 function tableExists(tableName) {
-    return new Promise((resolve, reject) => {
-        db.get(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-            [tableName],
-            (err, row) => {
-                if (err) reject(err);
-                else resolve(!!row);
-            }
-        );
-    });
+    const row = db.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
+    ).get(tableName);
+    return !!row;
 }
 
-// 執行 SQL
+// 執行 SQL（同步版本）
 function runSQL(sql, description) {
-    return new Promise((resolve, reject) => {
-        db.run(sql, (err) => {
-            if (err) {
-                console.error(`❌ ${description} 失敗:`, err.message);
-                reject(err);
-            } else {
-                console.log(`✅ ${description} 成功`);
-                resolve();
-            }
-        });
-    });
+    try {
+        db.exec(sql);
+        console.log(`✅ ${description} 成功`);
+    } catch (err) {
+        console.error(`❌ ${description} 失敗:`, err.message);
+        throw err;
+    }
 }
 
 // 執行遷移
-async function migrate() {
+function migrate() {
     try {
         console.log('📋 開始建立遊戲室模組資料表...\n');
 
         // 1. 遊戲表 (games)
-        if (!(await tableExists('games'))) {
-            await runSQL(`
+        if (!tableExists('games')) {
+            runSQL(`
                 CREATE TABLE IF NOT EXISTS games (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     game_name_zh VARCHAR(100) NOT NULL,
@@ -86,8 +71,8 @@ async function migrate() {
         }
 
         // 2. 兌換券表 (vouchers)
-        if (!(await tableExists('vouchers'))) {
-            await runSQL(`
+        if (!(tableExists('vouchers'))) {
+            runSQL(`
                 CREATE TABLE IF NOT EXISTS vouchers (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     voucher_name VARCHAR(100) NOT NULL,
@@ -110,8 +95,8 @@ async function migrate() {
         }
 
         // 3. 兌換條件表 (voucher_conditions)
-        if (!(await tableExists('voucher_conditions'))) {
-            await runSQL(`
+        if (!(tableExists('voucher_conditions'))) {
+            runSQL(`
                 CREATE TABLE IF NOT EXISTS voucher_conditions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     voucher_id INTEGER NOT NULL,
@@ -127,8 +112,8 @@ async function migrate() {
         }
 
         // 4. 攤位遊戲綁定表 (booth_games) - 符合 P1-2 業務邏輯
-        if (!(await tableExists('booth_games'))) {
-            await runSQL(`
+        if (!(tableExists('booth_games'))) {
+            runSQL(`
                 CREATE TABLE IF NOT EXISTS booth_games (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     booth_id INTEGER NOT NULL,
@@ -149,8 +134,8 @@ async function migrate() {
         }
 
         // 5. 遊戲日誌表 (game_logs)
-        if (!(await tableExists('game_logs'))) {
-            await runSQL(`
+        if (!(tableExists('game_logs'))) {
+            runSQL(`
                 CREATE TABLE IF NOT EXISTS game_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     project_id INTEGER NOT NULL,
@@ -174,8 +159,8 @@ async function migrate() {
         }
 
         // 6. 遊戲會話表 (game_sessions)
-        if (!(await tableExists('game_sessions'))) {
-            await runSQL(`
+        if (!(tableExists('game_sessions'))) {
+            runSQL(`
                 CREATE TABLE IF NOT EXISTS game_sessions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     project_id INTEGER NOT NULL,
@@ -200,8 +185,8 @@ async function migrate() {
         }
 
         // 7. 兌換記錄表 (voucher_redemptions)
-        if (!(await tableExists('voucher_redemptions'))) {
-            await runSQL(`
+        if (!(tableExists('voucher_redemptions'))) {
+            runSQL(`
                 CREATE TABLE IF NOT EXISTS voucher_redemptions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     voucher_id INTEGER NOT NULL,
@@ -219,16 +204,12 @@ async function migrate() {
         } else {
             console.log('ℹ️  voucher_redemptions 表已存在，檢查 qr_code_base64 欄位...');
 
-            // 檢查是否有 qr_code_base64 欄位
-            const hasQrCodeBase64 = await new Promise((resolve, reject) => {
-                db.all(`PRAGMA table_info(voucher_redemptions)`, (err, columns) => {
-                    if (err) reject(err);
-                    else resolve(columns.some(col => col.name === 'qr_code_base64'));
-                });
-            });
+            // 檢查是否有 qr_code_base64 欄位（同步版本）
+            const columns = db.prepare(`PRAGMA table_info(voucher_redemptions)`).all();
+            const hasQrCodeBase64 = columns.some(col => col.name === 'qr_code_base64');
 
             if (!hasQrCodeBase64) {
-                await runSQL(`
+                runSQL(`
                     ALTER TABLE voucher_redemptions ADD COLUMN qr_code_base64 TEXT
                 `, '新增 qr_code_base64 欄位');
             } else {
@@ -239,18 +220,18 @@ async function migrate() {
         console.log('\n📋 開始建立索引...\n');
 
         // 建立索引
-        await runSQL('CREATE INDEX IF NOT EXISTS idx_game_logs_trace_id ON game_logs(trace_id)', '建立 game_logs trace_id 索引');
-        await runSQL('CREATE INDEX IF NOT EXISTS idx_game_logs_game_id ON game_logs(game_id)', '建立 game_logs game_id 索引');
-        await runSQL('CREATE INDEX IF NOT EXISTS idx_game_logs_created_at ON game_logs(created_at)', '建立 game_logs created_at 索引');
-        await runSQL('CREATE INDEX IF NOT EXISTS idx_game_sessions_trace_id ON game_sessions(trace_id)', '建立 game_sessions trace_id 索引');
-        await runSQL('CREATE INDEX IF NOT EXISTS idx_game_sessions_project_id ON game_sessions(project_id)', '建立 game_sessions project_id 索引');
-        await runSQL('CREATE INDEX IF NOT EXISTS idx_game_sessions_game_id ON game_sessions(game_id)', '建立 game_sessions game_id 索引');
-        await runSQL('CREATE INDEX IF NOT EXISTS idx_booth_games_booth_id ON booth_games(booth_id)', '建立 booth_games booth_id 索引');
-        await runSQL('CREATE INDEX IF NOT EXISTS idx_booth_games_game_id ON booth_games(game_id)', '建立 booth_games game_id 索引');
-        await runSQL('CREATE INDEX IF NOT EXISTS idx_booth_games_voucher_id ON booth_games(voucher_id)', '建立 booth_games voucher_id 索引');
-        await runSQL('CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_trace_id ON voucher_redemptions(trace_id)', '建立 voucher_redemptions trace_id 索引');
-        await runSQL('CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_voucher_id ON voucher_redemptions(voucher_id)', '建立 voucher_redemptions voucher_id 索引');
-        await runSQL('CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_redemption_code ON voucher_redemptions(redemption_code)', '建立 voucher_redemptions redemption_code 索引');
+        runSQL('CREATE INDEX IF NOT EXISTS idx_game_logs_trace_id ON game_logs(trace_id)', '建立 game_logs trace_id 索引');
+        runSQL('CREATE INDEX IF NOT EXISTS idx_game_logs_game_id ON game_logs(game_id)', '建立 game_logs game_id 索引');
+        runSQL('CREATE INDEX IF NOT EXISTS idx_game_logs_created_at ON game_logs(created_at)', '建立 game_logs created_at 索引');
+        runSQL('CREATE INDEX IF NOT EXISTS idx_game_sessions_trace_id ON game_sessions(trace_id)', '建立 game_sessions trace_id 索引');
+        runSQL('CREATE INDEX IF NOT EXISTS idx_game_sessions_project_id ON game_sessions(project_id)', '建立 game_sessions project_id 索引');
+        runSQL('CREATE INDEX IF NOT EXISTS idx_game_sessions_game_id ON game_sessions(game_id)', '建立 game_sessions game_id 索引');
+        runSQL('CREATE INDEX IF NOT EXISTS idx_booth_games_booth_id ON booth_games(booth_id)', '建立 booth_games booth_id 索引');
+        runSQL('CREATE INDEX IF NOT EXISTS idx_booth_games_game_id ON booth_games(game_id)', '建立 booth_games game_id 索引');
+        runSQL('CREATE INDEX IF NOT EXISTS idx_booth_games_voucher_id ON booth_games(voucher_id)', '建立 booth_games voucher_id 索引');
+        runSQL('CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_trace_id ON voucher_redemptions(trace_id)', '建立 voucher_redemptions trace_id 索引');
+        runSQL('CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_voucher_id ON voucher_redemptions(voucher_id)', '建立 voucher_redemptions voucher_id 索引');
+        runSQL('CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_redemption_code ON voucher_redemptions(redemption_code)', '建立 voucher_redemptions redemption_code 索引');
 
         console.log('\n✅ 遷移完成！所有資料表和索引已建立');
         console.log('🎉 遊戲室模組資料庫結構建立成功！');
@@ -259,14 +240,8 @@ async function migrate() {
         console.error('\n❌ 遷移失敗:', error);
         process.exit(1);
     } finally {
-        db.close((err) => {
-            if (err) {
-                console.error('❌ 關閉資料庫失敗:', err);
-                process.exit(1);
-            }
-            console.log('✅ 資料庫連接已關閉');
-            process.exit(0);
-        });
+        db.close();
+        console.log('✅ 資料庫連接已關閉');
     }
 }
 

@@ -86,8 +86,8 @@ function validateDatabase() {
     return new Promise((resolve, reject) => {
         console.log('🔍 驗證資料庫完整性...');
         
-        const sqlite3 = require('sqlite3').verbose();
-        const db = new sqlite3.Database(dbPath);
+        const Database = require('better-sqlite3');
+        const db = new Database(dbPath);
 
         // 檢查主要表格是否存在
         const tables = [

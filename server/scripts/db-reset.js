@@ -2,15 +2,19 @@
 /**
  * 資料庫重置腳本
  * 重置資料庫並填入初始資料
+ *
+ * 後台管理員 users.id:
+ * - 1: admin (super_admin)
+ * - 2: manager (project_manager)
+ * - 3: user (project_user)
+ * - 4: vendor
  */
 
-const sqlite3 = require('sqlite3').verbose();
+require('dotenv').config();
+const Database = require('better-sqlite3');
 const bcrypt = require('bcrypt');
 const path = require('path');
 const fs = require('fs');
-
-// 載入環境變數
-require('dotenv').config();
 const config = require('../config');
 const { getGMT8Timestamp } = require('../utils/timezone');
 
@@ -32,7 +36,8 @@ if (fs.existsSync(dbPath)) {
     console.log('🗑️  已刪除現有資料庫文件');
 }
 
-const db = new sqlite3.Database(dbPath);
+// 建立新資料庫
+const db = new Database(dbPath);
 
 // 初始用戶資料
 const initialUsers = [
@@ -162,236 +167,191 @@ const initialTemplates = [
 ];
 
 async function resetDatabase() {
-    return new Promise((resolve, reject) => {
-        db.serialize(async () => {
-            try {
-                console.log('🏗️  執行資料庫架構初始化...');
+    try {
+        console.log('🏗️  執行資料庫架構初始化...');
 
-                // 讀取並執行 schema.sql
-                const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
+        // 讀取並執行 schema.sql
+        const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
 
-                // 更智能的 SQL 語句分割
-                const statements = [];
-                let currentStatement = '';
-                let inCreateTable = false;
-                let inCreateView = false;
+        // 更智能的 SQL 語句分割
+        const statements = [];
+        let currentStatement = '';
+        let inCreateTable = false;
+        let inCreateView = false;
 
-                const lines = schemaSQL.split('\n');
-                for (const line of lines) {
-                    const trimmedLine = line.trim();
+        const lines = schemaSQL.split('\n');
+        for (const line of lines) {
+            const trimmedLine = line.trim();
 
-                    // 跳過註釋和空行
-                    if (trimmedLine.startsWith('--') || trimmedLine === '') {
-                        continue;
-                    }
-
-                    currentStatement += line + '\n';
-
-                    // 檢查是否是 CREATE TABLE 語句的開始
-                    if (trimmedLine.toUpperCase().startsWith('CREATE TABLE')) {
-                        inCreateTable = true;
-                        inCreateView = false;
-                    }
-
-                    // 檢查是否是 CREATE VIEW 語句的開始
-                    if (trimmedLine.toUpperCase().startsWith('CREATE VIEW')) {
-                        inCreateView = true;
-                        inCreateTable = false;
-                    }
-
-                    // 檢查是否是 CREATE INDEX 語句
-                    const isCreateIndex = trimmedLine.toUpperCase().startsWith('CREATE INDEX');
-
-                    // 如果遇到分號
-                    if (trimmedLine.endsWith(';')) {
-                        // CREATE TABLE 結束條件：遇到 );
-                        if (inCreateTable && (trimmedLine.includes(');') || trimmedLine === ');')) {
-                            statements.push(currentStatement.trim());
-                            currentStatement = '';
-                            inCreateTable = false;
-                        }
-                        // CREATE VIEW 結束條件：遇到 ; 且不是在 SELECT 子句中
-                        else if (inCreateView) {
-                            statements.push(currentStatement.trim());
-                            currentStatement = '';
-                            inCreateView = false;
-                        }
-                        // CREATE INDEX 或其他單行語句
-                        else if (isCreateIndex || (!inCreateTable && !inCreateView)) {
-                            statements.push(currentStatement.trim());
-                            currentStatement = '';
-                        }
-                    }
-                }
-
-                // 添加最後一個語句（如果有的話）
-                if (currentStatement.trim()) {
-                    statements.push(currentStatement.trim());
-                }
-
-                // 執行 SQL 語句
-                for (const statement of statements) {
-                    if (statement.trim()) {
-                        await new Promise((resolve, reject) => {
-                            db.run(statement, (err) => {
-                                if (err) {
-                                    console.warn(`⚠️  執行 SQL 語句失敗: ${err.message}`);
-                                    console.warn(`語句: ${statement.substring(0, 100)}...`);
-                                } else {
-                                    // 只顯示 CREATE 語句的成功信息
-                                    if (statement.toUpperCase().includes('CREATE TABLE')) {
-                                        const tableName = statement.match(/CREATE TABLE.*?(\w+)/i)?.[1];
-                                        console.log(`  ✅ 創建表: ${tableName}`);
-                                    }
-                                }
-                                resolve(); // 繼續執行，即使有錯誤
-                            });
-                        });
-                    }
-                }
-
-                console.log('✅ 資料庫架構初始化完成');
-
-                console.log('👤 建立初始用戶...');
-
-                // 插入用戶資料 (使用 GMT+8 時間戳)
-                const now = getGMT8Timestamp();
-                const userStmt = db.prepare(`
-                    INSERT INTO users (username, email, password_hash, full_name, phone, preferences, role, status, created_by, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?)
-                `);
-
-                for (let i = 0; i < initialUsers.length; i++) {
-                    const user = initialUsers[i];
-                    const passwordHash = await bcrypt.hash(user.password, 10);
-
-                    await new Promise((resolve, reject) => {
-                        userStmt.run([
-                            user.username,
-                            user.email,
-                            passwordHash,
-                            user.full_name,
-                            null, // phone
-                            null, // preferences
-                            user.role,
-                            now,  // created_at (GMT+8)
-                            now   // updated_at (GMT+8)
-                        ], function (err) {
-                            if (err) reject(err);
-                            else {
-                                console.log(`   ✅ ${user.full_name} (${user.role})`);
-                                resolve();
-                            }
-                        });
-                    });
-                }
-                userStmt.finalize();
-
-                console.log('📋 建立初始專案...');
-
-                // 插入專案資料 (使用 GMT+8 時間戳)
-                const projectStmt = db.prepare(`
-                    INSERT INTO event_projects (
-                        project_name, project_code, description, event_date,
-                        event_start_date, event_end_date,
-                        event_location, event_type, status, created_by, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-                `);
-
-                for (const project of initialProjects) {
-                    await new Promise((resolve, reject) => {
-                        projectStmt.run([
-                            project.project_name,
-                            project.project_code,
-                            project.description,
-                            project.event_date,
-                            project.event_start_date,
-                            project.event_end_date,
-                            project.event_location,
-                            project.event_type,
-                            project.status,
-                            now,  // created_at (GMT+8)
-                            now   // updated_at (GMT+8)
-                        ], function (err) {
-                            if (err) reject(err);
-                            else {
-                                console.log(`   ✅ ${project.project_name}`);
-                                resolve();
-                            }
-                        });
-                    });
-                }
-                projectStmt.finalize();
-
-                console.log('📄 建立初始模板...');
-
-                // 插入模板資料 (使用 GMT+8 時間戳)
-                const templateStmt = db.prepare(`
-                    INSERT INTO invitation_templates (
-                        template_name, template_type, template_content,
-                        css_styles, is_default, created_by, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-                `);
-
-                for (const template of initialTemplates) {
-                    await new Promise((resolve, reject) => {
-                        templateStmt.run([
-                            template.template_name,
-                            template.template_type,
-                            template.template_content,
-                            template.css_styles || null,
-                            template.is_default,
-                            now,  // created_at (GMT+8)
-                            now   // updated_at (GMT+8)
-                        ], function (err) {
-                            if (err) reject(err);
-                            else {
-                                console.log(`   ✅ ${template.template_name}`);
-                                resolve();
-                            }
-                        });
-                    });
-                }
-                templateStmt.finalize();
-
-                // 建立用戶專案權限關聯
-                console.log('🔐 設定用戶權限...');
-                const permissionStmt = db.prepare(`
-                    INSERT INTO user_project_permissions (user_id, project_id, permission_level) 
-                    VALUES (?, ?, ?)
-                `);
-
-                // 管理員對所有專案有完整權限
-                await new Promise((resolve) => {
-                    permissionStmt.run([2, 1, 'admin'], resolve); // manager -> project 1
-                });
-                await new Promise((resolve) => {
-                    permissionStmt.run([2, 2, 'admin'], resolve); // manager -> project 2  
-                });
-
-                // 一般用戶對專案有檢視權限
-                await new Promise((resolve) => {
-                    permissionStmt.run([3, 1, 'view'], resolve); // user -> project 1
-                });
-
-                permissionStmt.finalize();
-
-                console.log('✅ 資料庫重置完成！');
-                console.log('\n📋 初始帳號資訊:');
-                console.log('   超級管理員: admin / admin123');
-                console.log('   專案管理員: manager / manager123');
-                console.log('   項目用戶: user / user123');
-                console.log('   廠商用戶: vendor / vendor123');
-                console.log('\n🚀 系統已準備就緒！');
-
-                resolve();
-
-            } catch (error) {
-                console.error('❌ 資料庫重置失敗:', error);
-                reject(error);
+            // 跳過註釋和空行
+            if (trimmedLine.startsWith('--') || trimmedLine === '') {
+                continue;
             }
-        });
-    });
+
+            currentStatement += line + '\n';
+
+            // 檢查是否是 CREATE TABLE 語句的開始
+            if (trimmedLine.toUpperCase().startsWith('CREATE TABLE')) {
+                inCreateTable = true;
+                inCreateView = false;
+            }
+
+            // 檢查是否是 CREATE VIEW 語句的開始
+            if (trimmedLine.toUpperCase().startsWith('CREATE VIEW')) {
+                inCreateView = true;
+                inCreateTable = false;
+            }
+
+            // 檢查是否是 CREATE INDEX 語句
+            const isCreateIndex = trimmedLine.toUpperCase().startsWith('CREATE INDEX');
+
+            // 如果遇到分號
+            if (trimmedLine.endsWith(';')) {
+                // CREATE TABLE 結束條件：遇到 );
+                if (inCreateTable && (trimmedLine.includes(');') || trimmedLine === ');')) {
+                    statements.push(currentStatement.trim());
+                    currentStatement = '';
+                    inCreateTable = false;
+                }
+                // CREATE VIEW 結束條件：遇到 ; 且不是在 SELECT 子句中
+                else if (inCreateView) {
+                    statements.push(currentStatement.trim());
+                    currentStatement = '';
+                    inCreateView = false;
+                }
+                // CREATE INDEX 或其他單行語句
+                else if (isCreateIndex || (!inCreateTable && !inCreateView)) {
+                    statements.push(currentStatement.trim());
+                    currentStatement = '';
+                }
+            }
+        }
+
+        // 添加最後一個語句（如果有的話）
+        if (currentStatement.trim()) {
+            statements.push(currentStatement.trim());
+        }
+
+        // 執行 SQL 語句（better-sqlite3 同步 API）
+        for (const statement of statements) {
+            if (statement.trim()) {
+                try {
+                    db.exec(statement);
+                    // 只顯示 CREATE TABLE 語句的成功信息
+                    if (statement.toUpperCase().includes('CREATE TABLE')) {
+                        const tableName = statement.match(/CREATE TABLE.*?(\w+)/i)?.[1];
+                        console.log(`  ✅ 創建表: ${tableName}`);
+                    }
+                } catch (err) {
+                    console.warn(`⚠️  執行 SQL 語句失敗: ${err.message}`);
+                    console.warn(`語句: ${statement.substring(0, 100)}...`);
+                }
+            }
+        }
+
+        console.log('✅ 資料庫架構初始化完成');
+        console.log('👤 建立初始用戶...');
+
+        // 插入用戶資料 (使用 GMT+8 時間戳)
+        const now = getGMT8Timestamp();
+        const userStmt = db.prepare(`
+            INSERT INTO users (username, email, password_hash, full_name, phone, preferences, role, status, created_by, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?)
+        `);
+
+        for (const user of initialUsers) {
+            const passwordHash = await bcrypt.hash(user.password, 10);
+            userStmt.run(
+                user.username,
+                user.email,
+                passwordHash,
+                user.full_name,
+                null, // phone
+                null, // preferences
+                user.role,
+                now,  // created_at (GMT+8)
+                now   // updated_at (GMT+8)
+            );
+            console.log(`   ✅ ${user.full_name} (${user.role})`);
+        }
+
+        console.log('📋 建立初始專案...');
+
+        // 插入專案資料 (使用 GMT+8 時間戳)
+        const projectStmt = db.prepare(`
+            INSERT INTO event_projects (
+                project_name, project_code, description, event_date,
+                event_start_date, event_end_date,
+                event_location, event_type, status, created_by, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+        `);
+
+        for (const project of initialProjects) {
+            projectStmt.run(
+                project.project_name,
+                project.project_code,
+                project.description,
+                project.event_date,
+                project.event_start_date,
+                project.event_end_date,
+                project.event_location,
+                project.event_type,
+                project.status,
+                now,  // created_at (GMT+8)
+                now   // updated_at (GMT+8)
+            );
+            console.log(`   ✅ ${project.project_name}`);
+        }
+
+        console.log('📄 建立初始模板...');
+
+        // 插入模板資料 (使用 GMT+8 時間戳)
+        const templateStmt = db.prepare(`
+            INSERT INTO invitation_templates (
+                template_name, template_type, template_content,
+                css_styles, is_default, created_by, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+        `);
+
+        for (const template of initialTemplates) {
+            templateStmt.run(
+                template.template_name,
+                template.template_type,
+                template.template_content,
+                template.css_styles || null,
+                template.is_default,
+                now,  // created_at (GMT+8)
+                now   // updated_at (GMT+8)
+            );
+            console.log(`   ✅ ${template.template_name}`);
+        }
+
+        // 建立用戶專案權限關聯
+        console.log('🔐 設定用戶權限...');
+        const permissionStmt = db.prepare(`
+            INSERT INTO user_project_permissions (user_id, project_id, permission_level, assigned_by, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        `);
+
+        // 管理員對所有專案有完整權限 (由 admin user_id=1 指派)
+        permissionStmt.run(2, 1, 'admin', 1, now); // manager -> project 1
+        permissionStmt.run(2, 2, 'admin', 1, now); // manager -> project 2
+
+        // 一般用戶對專案有讀取權限 (read, write, admin)
+        permissionStmt.run(3, 1, 'read', 1, now); // user -> project 1
+
+        console.log('✅ 資料庫重置完成！');
+        console.log('\n📋 初始帳號資訊（後台管理員 users.id）:');
+        console.log('   1. 超級管理員: admin / admin123');
+        console.log('   2. 專案管理員: manager / manager123');
+        console.log('   3. 項目用戶: user / user123');
+        console.log('   4. 廠商用戶: vendor / vendor123');
+        console.log('\n🚀 系統已準備就緒！');
+
+    } catch (error) {
+        console.error('❌ 資料庫重置失敗:', error);
+        throw error;
+    }
 }
 
 // 執行重置

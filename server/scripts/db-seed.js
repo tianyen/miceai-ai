@@ -7,59 +7,32 @@
  * - 使用確定性 ID 生成（每次重啟產生相同的測試資料）
  * - 前端可以依賴固定的 trace_id 進行開發
  * - 支援完整的測試場景
+ *
+ * 測試報名用戶對應表（form_submissions.id = registration_id）：
+ * | 用戶   | registration_id | trace_id                    |
+ * |--------|-----------------|----------------------------|
+ * | 張志明 | 1               | MICE-d074dd3e-e3e27b6b0   |
+ * | 李美玲 | 2               | MICE-d74b09c8-6cfa4a823   |
+ * | 王大明 | 3               | MICE-05207cf7-199967c04   |
+ *
+ * 注意：這些 registration_id 與後台管理員 users.id (1-4) 是不同的概念！
  */
 
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-const crypto = require('crypto');
-const QRCode = require('qrcode');
-
-// 載入環境變數
 require('dotenv').config();
+const Database = require('better-sqlite3');
+const path = require('path');
+const QRCode = require('qrcode');
 const config = require('../config');
+const { TraceIdGenerator, TEST_REGISTRATIONS, ADMIN_USERS } = require('./utils/trace-id-generator');
 
 const dbPath = path.resolve(config.database.path);
+const db = new Database(dbPath);
 
 console.log('🌱 正在添加確定性種子資料...');
 console.log('📝 每次重啟將產生相同的測試資料（ID、trace_id 等）\n');
 
-// ===== 確定性 ID 生成器 =====
-class DeterministicIdGenerator {
-    constructor(seed = 'mice-ai-2025') {
-        this.seed = seed;
-    }
-
-    // 生成確定性的 trace_id (新格式: MICE-{timestamp}-{random})
-    generateTraceId(index) {
-        // 使用確定性的方式生成 timestamp 和 random 部分
-        const hash = crypto.createHash('sha256')
-            .update(`${this.seed}-trace-${index}`)
-            .digest('hex');
-
-        // timestamp 部分: 取前 8 個字符（小寫）
-        const timestamp = hash.substring(0, 8).toLowerCase();
-
-        // random 部分: 取接下來的 9 個字符（小寫）
-        const random = hash.substring(8, 17).toLowerCase();
-
-        return `MICE-${timestamp}-${random}`;
-    }
-
-    // 生成確定性的時間戳（相對於基準日期）
-    generateTimestamp(daysOffset = 0, hoursOffset = 0, minutesOffset = 0) {
-        // 使用執行 npm run setup 時的當下日期作為基準
-        const baseDate = new Date();
-        baseDate.setHours(0, 0, 0, 0); // 設定為今天 00:00:00
-        baseDate.setDate(baseDate.getDate() + daysOffset);
-        baseDate.setHours(baseDate.getHours() + hoursOffset);
-        baseDate.setMinutes(baseDate.getMinutes() + minutesOffset);
-        return baseDate.toISOString().replace('T', ' ').substring(0, 19);
-    }
-}
-
-const idGen = new DeterministicIdGenerator();
-
-const db = new sqlite3.Database(dbPath);
+// 使用共用的 trace_id 生成器
+const idGen = new TraceIdGenerator();
 
 // 種子資料
 const seedData = {
@@ -158,11 +131,23 @@ const seedData = {
     projects: [],
 
     // 表單提交資料（使用確定性 trace_id）
+    //
+    // ⚠️ ID 概念區分：
+    // - form_submissions.id (= registration_id): 報名記錄主鍵，API 返回的 user_id 就是這個值
+    // - form_submissions.user_id: 後台管理員 users.id，通常為 NULL（API 報名用戶無後台帳號）
+    //
+    // 報名用戶對應表：
+    // | registration_id | 姓名   | trace_id                  | form_submissions.user_id |
+    // |-----------------|--------|---------------------------|--------------------------|
+    // | 1               | 張志明 | MICE-d074dd3e-e3e27b6b0   | NULL                     |
+    // | 2               | 李美玲 | MICE-d74b09c8-6cfa4a823   | NULL                     |
+    // | 3               | 王大明 | MICE-05207cf7-199967c04   | NULL                     |
+    //
     submissions: [
         {
             trace_id: idGen.generateTraceId(1),  // 固定的 trace_id
-            project_id: 1,
-            user_id: 3,  // 張志明對應 user_id 3
+            project_id: 1,  // TECH2024
+            user_id: null,  // form_submissions.user_id: 後台管理員 ID，API 報名為 NULL
             submitter_name: '張志明',
             submitter_email: 'chang@example.com',
             submitter_phone: '0912345678',
@@ -176,8 +161,8 @@ const seedData = {
         },
         {
             trace_id: idGen.generateTraceId(2),  // 固定的 trace_id
-            project_id: 1,
-            user_id: 4,  // 李美玲對應 user_id 4
+            project_id: 1,  // TECH2024
+            user_id: null,  // form_submissions.user_id: 後台管理員 ID，API 報名為 NULL
             submitter_name: '李美玲',
             submitter_email: 'li@example.com',
             submitter_phone: '0923456789',
@@ -191,8 +176,8 @@ const seedData = {
         },
         {
             trace_id: idGen.generateTraceId(3),  // 固定的 trace_id
-            project_id: 1,  // 修正為 TECH2024 (與遊戲會話保持一致)
-            user_id: 5,  // 王大明對應 user_id 5
+            project_id: 1,  // TECH2024 (與遊戲會話保持一致)
+            user_id: null,  // form_submissions.user_id: 後台管理員 ID，API 報名為 NULL
             submitter_name: '王大明',
             submitter_email: 'wang@example.com',
             submitter_phone: '0934567890',
@@ -394,326 +379,254 @@ const seedData = {
 };
 
 async function addSeedData() {
-    return new Promise((resolve, reject) => {
-        db.serialize(async () => {
+    try {
+        // 添加活動模板資料
+        console.log('📄 添加活動模板資料...');
+        const templateStmt = db.prepare(`
+            INSERT INTO invitation_templates (
+                template_name, category, template_type, template_content,
+                special_guests, is_default, created_by
+            ) VALUES (?, ?, ?, ?, ?, 0, 1)
+        `);
+
+        const templateIds = [];
+        for (const template of seedData.templates) {
             try {
-                // 添加活動模板資料
-                console.log('📄 添加活動模板資料...');
-                const templateStmt = db.prepare(`
-                    INSERT INTO invitation_templates (
-                        template_name, category, template_type, template_content,
-                        special_guests, is_default, created_by
-                    ) VALUES (?, ?, ?, ?, ?, 0, 1)
-                `);
-
-                const templateIds = [];
-                for (const template of seedData.templates) {
-                    await new Promise((resolve, reject) => {
-                        templateStmt.run([
-                            template.template_name,
-                            template.category,
-                            template.template_type,
-                            template.template_content,
-                            template.special_guests
-                        ], function (err) {
-                            if (err && !err.message.includes('UNIQUE constraint')) {
-                                reject(err);
-                            } else {
-                                if (this.lastID) {
-                                    templateIds.push(this.lastID);
-                                }
-                                console.log(`   ✅ ${template.template_name}`);
-                                resolve();
-                            }
-                        });
-                    });
+                const result = templateStmt.run(
+                    template.template_name,
+                    template.category,
+                    template.template_type,
+                    template.template_content,
+                    template.special_guests
+                );
+                if (result.lastInsertRowid) {
+                    templateIds.push(result.lastInsertRowid);
                 }
-                templateStmt.finalize();
-
-                // 檢查並添加專案資料
-                console.log('📋 添加專案資料...');
-                const projectStmt = db.prepare(`
-                    INSERT INTO event_projects (
-                        project_name, project_code, description, event_date,
-                        event_start_date, event_end_date, event_highlights,
-                        event_location, event_type, status, template_id, created_by
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 2)
-                `);
-
-                for (let i = 0; i < seedData.projects.length; i++) {
-                    const project = seedData.projects[i];
-                    // 為前兩個專案分配模板 ID
-                    const templateId = i < templateIds.length ? templateIds[i] : null;
-
-                    await new Promise((resolve, reject) => {
-                        projectStmt.run([
-                            project.project_name,
-                            project.project_code,
-                            project.description,
-                            project.event_date,
-                            project.event_start_date,
-                            project.event_end_date,
-                            project.event_highlights,
-                            project.event_location,
-                            project.event_type,
-                            project.status,
-                            templateId
-                        ], function (err) {
-                            if (err && !err.message.includes('UNIQUE constraint')) {
-                                reject(err);
-                            } else {
-                                console.log(`   ✅ ${project.project_name}${templateId ? ' (使用模板 ID: ' + templateId + ')' : ''}`);
-                                resolve();
-                            }
-                        });
-                    });
-                }
-                projectStmt.finalize();
-
-                // 更新現有專案的 template_id（如果存在）
-                console.log('🔄 更新現有專案的模板關聯...');
-                if (templateIds.length > 0) {
-                    // 更新第一個專案（TECH2024）使用第一個模板
-                    await new Promise((resolve) => {
-                        db.run(`UPDATE event_projects SET template_id = ? WHERE project_code = 'TECH2024'`,
-                            [templateIds[0]],
-                            (err) => {
-                                if (!err) console.log(`   ✅ 更新 TECH2024 使用模板 ID: ${templateIds[0]}`);
-                                resolve();
-                            }
-                        );
-                    });
-
-                    // 更新第二個專案（AI2024）使用第三個模板（如果存在）
-                    if (templateIds.length >= 3) {
-                        await new Promise((resolve) => {
-                            db.run(`UPDATE event_projects SET template_id = ? WHERE project_code = 'AI2024'`,
-                                [templateIds[2]],
-                                (err) => {
-                                    if (!err) console.log(`   ✅ 更新 AI2024 使用模板 ID: ${templateIds[2]}`);
-                                    resolve();
-                                }
-                            );
-                        });
-                    }
-                }
-
-                // 添加表單提交資料
-                console.log('📝 添加表單提交資料（使用確定性 trace_id）...');
-                const submissionStmt = db.prepare(`
-                    INSERT INTO form_submissions (
-                        trace_id, project_id, user_id, submitter_name, submitter_email, submitter_phone,
-                        company_name, position, participation_level, activity_notifications, product_updates,
-                        status, ip_address, data_consent, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '127.0.0.1', 1, ?)
-                `);
-
-                const submissionIds = [];
-                for (const submission of seedData.submissions) {
-                    await new Promise((resolve, reject) => {
-                        submissionStmt.run([
-                            submission.trace_id,
-                            submission.project_id,
-                            submission.user_id,
-                            submission.submitter_name,
-                            submission.submitter_email,
-                            submission.submitter_phone,
-                            submission.company_name,
-                            submission.position,
-                            submission.participation_level,
-                            submission.activity_notifications,
-                            submission.product_updates,
-                            submission.status,
-                            submission.created_at
-                        ], function (err) {
-                            if (err && !err.message.includes('UNIQUE constraint')) {
-                                reject(err);
-                            } else {
-                                if (this.lastID) {
-                                    submissionIds.push({ id: this.lastID, ...submission });
-                                }
-                                console.log(`   ✅ ${submission.submitter_name} - ${submission.trace_id}`);
-                                resolve();
-                            }
-                        });
-                    });
-                }
-                submissionStmt.finalize();
-
-                // 為每個報名記錄生成 QR Code
-                console.log('🔲 生成 QR Code Base64...');
-                const qrCodeStmt = db.prepare(`
-                    INSERT INTO qr_codes (
-                        project_id, submission_id, qr_code, qr_data, qr_base64, created_at
-                    ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                `);
-
-                for (const submission of submissionIds) {
-                    try {
-                        const qrData = submission.trace_id;
-                        const qrBase64 = await QRCode.toDataURL(qrData, {
-                            type: 'image/png',
-                            width: 300,
-                            margin: 2,
-                            color: {
-                                dark: '#000000',
-                                light: '#FFFFFF'
-                            }
-                        });
-
-                        await new Promise((resolve, reject) => {
-                            qrCodeStmt.run([
-                                submission.project_id,
-                                submission.id,
-                                qrData,
-                                qrData,
-                                qrBase64
-                            ], function (err) {
-                                if (err && !err.message.includes('UNIQUE constraint')) {
-                                    reject(err);
-                                } else {
-                                    console.log(`   ✅ QR Code for ${submission.submitter_name}`);
-                                    resolve();
-                                }
-                            });
-                        });
-                    } catch (error) {
-                        console.error(`   ❌ 生成 QR Code 失敗: ${submission.submitter_name}`, error);
-                    }
-                }
-                qrCodeStmt.finalize();
-
-                // 添加報到記錄
-                console.log('✅ 添加報到記錄（使用確定性 trace_id）...');
-                const checkinStmt = db.prepare(`
-                    INSERT INTO checkin_records (
-                        project_id, submission_id, trace_id, attendee_name,
-                        company_name, phone_number, scanned_by, checkin_time
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                `);
-
-                for (const checkin of seedData.checkins) {
-                    await new Promise((resolve, reject) => {
-                        checkinStmt.run([
-                            checkin.project_id,
-                            checkin.submission_id,
-                            checkin.trace_id,
-                            checkin.attendee_name,
-                            checkin.company_name,
-                            checkin.phone_number,
-                            checkin.scanned_by,
-                            checkin.checkin_time
-                        ], function (err) {
-                            if (err && !err.message.includes('UNIQUE constraint')) {
-                                reject(err);
-                            } else {
-                                console.log(`   ✅ ${checkin.attendee_name} - ${checkin.trace_id}`);
-                                resolve();
-                            }
-                        });
-                    });
-                }
-                checkinStmt.finalize();
-
-                // 添加系統日誌
-                console.log('📊 添加系統日誌...');
-                const logStmt = db.prepare(`
-                    INSERT INTO system_logs (
-                        user_id, action, target_type, target_id, details, ip_address
-                    ) VALUES (?, ?, ?, ?, ?, ?)
-                `);
-
-                for (const log of seedData.logs) {
-                    await new Promise((resolve, reject) => {
-                        logStmt.run([
-                            log.user_id,
-                            log.action,
-                            log.target_type,
-                            log.target_id,
-                            log.details,
-                            log.ip_address
-                        ], function (err) {
-                            if (err) {
-                                console.warn(`   ⚠️ 日誌添加失敗: ${err.message}`);
-                            } else {
-                                console.log(`   ✅ ${log.action}`);
-                            }
-                            resolve();
-                        });
-                    });
-                }
-                logStmt.finalize();
-
-                // 添加參與者互動記錄
-                console.log('🎮 添加參與者互動記錄...');
-                const interactionStmt = db.prepare(`
-                    INSERT INTO participant_interactions (
-                        trace_id, project_id, submission_id, interaction_type,
-                        interaction_target, interaction_data, ip_address
-                    ) VALUES (?, ?, ?, ?, ?, ?, '192.168.1.100')
-                `);
-
-                for (const interaction of seedData.interactions) {
-                    await new Promise((resolve, reject) => {
-                        interactionStmt.run([
-                            interaction.trace_id,
-                            interaction.project_id,
-                            interaction.submission_id,
-                            interaction.interaction_type,
-                            interaction.interaction_target,
-                            interaction.interaction_data
-                        ], function (err) {
-                            if (err && !err.message.includes('UNIQUE constraint')) {
-                                reject(err);
-                            } else {
-                                console.log(`   🎯 ${interaction.interaction_type}: ${interaction.interaction_target}`);
-                                resolve();
-                            }
-                        });
-                    });
-                }
-                interactionStmt.finalize();
-
-                console.log('🌱 種子資料添加完成！');
-                console.log('\n📊 資料統計:');
-
-                // 顯示資料統計
-                const stats = await Promise.all([
-                    new Promise((resolve) => {
-                        db.get("SELECT COUNT(*) as count FROM users", (err, row) => {
-                            resolve(row ? row.count : 0);
-                        });
-                    }),
-                    new Promise((resolve) => {
-                        db.get("SELECT COUNT(*) as count FROM event_projects", (err, row) => {
-                            resolve(row ? row.count : 0);
-                        });
-                    }),
-                    new Promise((resolve) => {
-                        db.get("SELECT COUNT(*) as count FROM form_submissions", (err, row) => {
-                            resolve(row ? row.count : 0);
-                        });
-                    }),
-                    new Promise((resolve) => {
-                        db.get("SELECT COUNT(*) as count FROM system_logs", (err, row) => {
-                            resolve(row ? row.count : 0);
-                        });
-                    })
-                ]);
-
-                console.log(`   👤 用戶: ${stats[0]} 個`);
-                console.log(`   📋 專案: ${stats[1]} 個`);
-                console.log(`   📝 表單提交: ${stats[2]} 筆`);
-                console.log(`   📊 系統日誌: ${stats[3]} 筆`);
-
-                resolve();
-
-            } catch (error) {
-                console.error('❌ 種子資料添加失敗:', error);
-                reject(error);
+                console.log(`   ✅ ${template.template_name}`);
+            } catch (err) {
+                if (!err.message.includes('UNIQUE constraint')) throw err;
             }
-        });
-    });
+        }
+
+        // 檢查並添加專案資料
+        console.log('📋 添加專案資料...');
+        const projectStmt = db.prepare(`
+            INSERT INTO event_projects (
+                project_name, project_code, description, event_date,
+                event_start_date, event_end_date, event_highlights,
+                event_location, event_type, status, template_id, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 2)
+        `);
+
+        for (let i = 0; i < seedData.projects.length; i++) {
+            const project = seedData.projects[i];
+            const templateId = i < templateIds.length ? templateIds[i] : null;
+
+            try {
+                projectStmt.run(
+                    project.project_name,
+                    project.project_code,
+                    project.description,
+                    project.event_date,
+                    project.event_start_date,
+                    project.event_end_date,
+                    project.event_highlights,
+                    project.event_location,
+                    project.event_type,
+                    project.status,
+                    templateId
+                );
+                console.log(`   ✅ ${project.project_name}${templateId ? ' (使用模板 ID: ' + templateId + ')' : ''}`);
+            } catch (err) {
+                if (!err.message.includes('UNIQUE constraint')) throw err;
+            }
+        }
+
+        // 更新現有專案的 template_id（如果存在）
+        console.log('🔄 更新現有專案的模板關聯...');
+        if (templateIds.length > 0) {
+            try {
+                db.prepare(`UPDATE event_projects SET template_id = ? WHERE project_code = 'TECH2024'`)
+                    .run(templateIds[0]);
+                console.log(`   ✅ 更新 TECH2024 使用模板 ID: ${templateIds[0]}`);
+            } catch (err) { /* ignore */ }
+
+            if (templateIds.length >= 3) {
+                try {
+                    db.prepare(`UPDATE event_projects SET template_id = ? WHERE project_code = 'AI2024'`)
+                        .run(templateIds[2]);
+                    console.log(`   ✅ 更新 AI2024 使用模板 ID: ${templateIds[2]}`);
+                } catch (err) { /* ignore */ }
+            }
+        }
+
+        // 添加表單提交資料
+        console.log('📝 添加表單提交資料（使用確定性 trace_id）...');
+        const submissionStmt = db.prepare(`
+            INSERT INTO form_submissions (
+                trace_id, project_id, user_id, submitter_name, submitter_email, submitter_phone,
+                company_name, position, participation_level, activity_notifications, product_updates,
+                status, ip_address, data_consent, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '127.0.0.1', 1, ?)
+        `);
+
+        const submissionIds = [];
+        for (const submission of seedData.submissions) {
+            try {
+                const result = submissionStmt.run(
+                    submission.trace_id,
+                    submission.project_id,
+                    submission.user_id,
+                    submission.submitter_name,
+                    submission.submitter_email,
+                    submission.submitter_phone,
+                    submission.company_name,
+                    submission.position,
+                    submission.participation_level,
+                    submission.activity_notifications,
+                    submission.product_updates,
+                    submission.status,
+                    submission.created_at
+                );
+                if (result.lastInsertRowid) {
+                    submissionIds.push({ id: result.lastInsertRowid, ...submission });
+                }
+                console.log(`   ✅ ${submission.submitter_name} - ${submission.trace_id}`);
+            } catch (err) {
+                if (!err.message.includes('UNIQUE constraint')) throw err;
+            }
+        }
+
+        // 為每個報名記錄生成 QR Code
+        console.log('🔲 生成 QR Code Base64...');
+        const qrCodeStmt = db.prepare(`
+            INSERT INTO qr_codes (
+                project_id, submission_id, qr_code, qr_data, qr_base64, created_at
+            ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `);
+
+        for (const submission of submissionIds) {
+            try {
+                const qrData = submission.trace_id;
+                const qrBase64 = await QRCode.toDataURL(qrData, {
+                    type: 'image/png',
+                    width: 300,
+                    margin: 2,
+                    color: {
+                        dark: '#000000',
+                        light: '#FFFFFF'
+                    }
+                });
+
+                qrCodeStmt.run(
+                    submission.project_id,
+                    submission.id,
+                    qrData,
+                    qrData,
+                    qrBase64
+                );
+                console.log(`   ✅ QR Code for ${submission.submitter_name}`);
+            } catch (error) {
+                if (!error.message?.includes('UNIQUE constraint')) {
+                    console.error(`   ❌ 生成 QR Code 失敗: ${submission.submitter_name}`, error);
+                }
+            }
+        }
+
+        // 添加報到記錄
+        console.log('✅ 添加報到記錄（使用確定性 trace_id）...');
+        const checkinStmt = db.prepare(`
+            INSERT INTO checkin_records (
+                project_id, submission_id, trace_id, attendee_name,
+                company_name, phone_number, scanned_by, checkin_time
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        for (const checkin of seedData.checkins) {
+            try {
+                checkinStmt.run(
+                    checkin.project_id,
+                    checkin.submission_id,
+                    checkin.trace_id,
+                    checkin.attendee_name,
+                    checkin.company_name,
+                    checkin.phone_number,
+                    checkin.scanned_by,
+                    checkin.checkin_time
+                );
+                console.log(`   ✅ ${checkin.attendee_name} - ${checkin.trace_id}`);
+            } catch (err) {
+                if (!err.message.includes('UNIQUE constraint')) throw err;
+            }
+        }
+
+        // 添加系統日誌
+        console.log('📊 添加系統日誌...');
+        const logStmt = db.prepare(`
+            INSERT INTO system_logs (
+                user_id, action, target_type, target_id, details, ip_address
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        `);
+
+        for (const log of seedData.logs) {
+            try {
+                logStmt.run(
+                    log.user_id,
+                    log.action,
+                    log.target_type,
+                    log.target_id,
+                    log.details,
+                    log.ip_address
+                );
+                console.log(`   ✅ ${log.action}`);
+            } catch (err) {
+                console.warn(`   ⚠️ 日誌添加失敗: ${err.message}`);
+            }
+        }
+
+        // 添加參與者互動記錄
+        console.log('🎮 添加參與者互動記錄...');
+        const interactionStmt = db.prepare(`
+            INSERT INTO participant_interactions (
+                trace_id, project_id, submission_id, interaction_type,
+                interaction_target, interaction_data, ip_address
+            ) VALUES (?, ?, ?, ?, ?, ?, '192.168.1.100')
+        `);
+
+        for (const interaction of seedData.interactions) {
+            try {
+                interactionStmt.run(
+                    interaction.trace_id,
+                    interaction.project_id,
+                    interaction.submission_id,
+                    interaction.interaction_type,
+                    interaction.interaction_target,
+                    interaction.interaction_data
+                );
+                console.log(`   🎯 ${interaction.interaction_type}: ${interaction.interaction_target}`);
+            } catch (err) {
+                if (!err.message.includes('UNIQUE constraint')) throw err;
+            }
+        }
+
+        console.log('🌱 種子資料添加完成！');
+        console.log('\n📊 資料統計:');
+
+        // 顯示資料統計（better-sqlite3 同步 API）
+        const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get().count;
+        const projectCount = db.prepare("SELECT COUNT(*) as count FROM event_projects").get().count;
+        const submissionCount = db.prepare("SELECT COUNT(*) as count FROM form_submissions").get().count;
+        const logCount = db.prepare("SELECT COUNT(*) as count FROM system_logs").get().count;
+
+        console.log(`   👤 用戶: ${userCount} 個`);
+        console.log(`   📋 專案: ${projectCount} 個`);
+        console.log(`   📝 表單提交: ${submissionCount} 筆`);
+        console.log(`   📊 系統日誌: ${logCount} 筆`);
+
+    } catch (error) {
+        console.error('❌ 種子資料添加失敗:', error);
+        throw error;
+    }
 }
 
 // 執行種子資料添加
@@ -722,15 +635,16 @@ addSeedData()
         console.log('\n' + '='.repeat(80));
         console.log('📋 固定的測試資料（前端可以依賴這些值）');
         console.log('='.repeat(80));
-        console.log('\n🎯 專案 Codes:');
-        console.log('   - TECH2024 (ID: 1) - 2024年度科技論壇');
-        console.log('   - AI2024 (ID: 2) - AI產業交流會');
-        console.log('   - INFOMONTH2025 (ID: 5) - 資訊月互動許願樹');
 
-        console.log('\n🎫 固定的 Trace IDs:');
-        console.log(`   - User 1 (張志明): ${idGen.generateTraceId(1)}`);
-        console.log(`   - User 2 (李美玲): ${idGen.generateTraceId(2)}`);
-        console.log(`   - User 3 (王大明): ${idGen.generateTraceId(3)}`);
+        console.log('\n👤 後台管理員 (users.id):');
+        Object.values(ADMIN_USERS).forEach(u => {
+            console.log(`   - ${u.id}: ${u.username} (${u.role})`);
+        });
+
+        console.log('\n🎫 測試報名用戶 (registration_id = form_submissions.id):');
+        Object.values(TEST_REGISTRATIONS).forEach(r => {
+            console.log(`   - ${r.registration_id}: ${r.name} - ${r.traceId}`);
+        });
 
         console.log('\n📅 時間戳範例:');
         console.log(`   - 5天前 10:00: ${idGen.generateTimestamp(-5, 10)}`);
