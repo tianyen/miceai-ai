@@ -65,7 +65,9 @@ function handleServiceError(res, error, defaultMessage) {
  *                 example: "MICE-05207cf7-199967c04"
  *               user_id:
  *                 type: string
- *                 description: 用戶 ID（選填）
+ *                 description: |
+ *                   用戶識別 ID（選填），可傳入報名 API 返回的 user_id 或 registration_id
+ *                   用於追蹤玩家身份和統計分析
  *                 example: "3"
  *               project_id:
  *                 type: integer
@@ -185,7 +187,8 @@ router.post('/:gameId/sessions/start', async (req, res) => {
  *                 example: "MICE-05207cf7-199967c04"
  *               user_id:
  *                 type: string
- *                 description: 用戶 ID（選填）
+ *                 description: |
+ *                   用戶識別 ID（選填），可傳入報名 API 返回的 user_id 或 registration_id
  *                 example: "3"
  *               project_id:
  *                 type: integer
@@ -318,7 +321,8 @@ router.post('/:gameId/logs', async (req, res) => {
  *                 example: "MICE-05207cf7-199967c04"
  *               user_id:
  *                 type: string
- *                 description: 用戶 ID（選填）
+ *                 description: |
+ *                   用戶識別 ID（選填），可傳入報名 API 返回的 user_id 或 registration_id
  *                 example: "3"
  *               project_id:
  *                 type: integer

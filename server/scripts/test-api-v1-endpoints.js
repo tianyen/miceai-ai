@@ -131,14 +131,18 @@ async function runTests() {
             [1]
         );
         if (submissions.length === 0) throw new Error('沒有報名記錄');
-        
+
+        // 檢查是否有 user_id（種子資料應設置）
+        const hasUserId = submissions.some(s => s.user_id !== null);
+        if (!hasUserId) throw new Error('沒有設置 user_id 的報名記錄');
+
         // 檢查是否有 QR Code
         const qrCodes = await query(
             'SELECT * FROM qr_codes WHERE project_id = ?',
             [1]
         );
         if (qrCodes.length === 0) throw new Error('沒有 QR Code 記錄');
-        
+
         // 檢查 QR Code Base64
         const hasBase64 = qrCodes.some(qr => qr.qr_base64 && qr.qr_base64.length > 0);
         if (!hasBase64) throw new Error('QR Code Base64 未生成');
@@ -154,6 +158,7 @@ async function runTests() {
         );
         if (!submission) throw new Error('找不到報名記錄');
         if (!submission.trace_id) throw new Error('trace_id 為空');
+        // user_id 在 API 回應中會作為遊戲識別使用（值等於 registration_id）
     });
 
     // 8. GET /api/v1/qr-codes/{traceId}

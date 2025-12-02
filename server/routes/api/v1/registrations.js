@@ -130,6 +130,13 @@ function handleServiceError(res, error, defaultMessage) {
  *                   properties:
  *                     registration_id:
  *                       type: integer
+ *                       description: 報名記錄 ID
+ *                       example: 3
+ *                     user_id:
+ *                       type: integer
+ *                       description: |
+ *                         用戶識別 ID，用於遊戲 API 的 user_id 參數
+ *                         值與 registration_id 相同，方便前端串接遊戲功能
  *                       example: 3
  *                     trace_id:
  *                       type: string
@@ -227,6 +234,7 @@ router.post('/events/:eventId/registrations', [
 
         return responses.success(res, {
             registration_id: result.registrationId,
+            user_id: result.registrationId,  // 用於遊戲 API 的 user_id 參數
             trace_id: result.traceId,
             pass_code: result.passCode,
             project_code: result.projectCode,

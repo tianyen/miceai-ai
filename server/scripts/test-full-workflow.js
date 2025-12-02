@@ -51,7 +51,10 @@ async function testFullWorkflow() {
             `SELECT * FROM form_submissions WHERE trace_id = ?`,
             [traceId]
         );
-        console.log(`   ✅ 報名 ID: ${registration.id}, 姓名: ${registration.submitter_name}\n`);
+        // registration.id 就是 API 返回的 registration_id 和 user_id
+        const userId = registration.id;
+        console.log(`   ✅ 報名 ID: ${registration.id}, 姓名: ${registration.submitter_name}`);
+        console.log(`   ✅ user_id (用於遊戲 API): ${userId}\n`);
 
         // 步驟 2: 模擬報到
         console.log('✅ 步驟 2: 模擬報到');
@@ -80,13 +83,14 @@ async function testFullWorkflow() {
             console.log(`   ℹ️  已報到過\n`);
         }
 
-        // 步驟 3: 檢查遊戲會話
+        // 步驟 3: 檢查遊戲會話（使用 trace_id + user_id 追蹤）
         console.log('🎮 步驟 3: 檢查遊戲會話');
         const session = await get(
             `SELECT * FROM game_sessions WHERE trace_id = ?`,
             [traceId]
         );
-        console.log(`   ✅ Session ID: ${session.id}, 分數: ${session.final_score}\n`);
+        console.log(`   ✅ Session ID: ${session.id}, 分數: ${session.final_score}`);
+        console.log(`   ✅ user_id 記錄: ${session.user_id || '(未設置)'}\n`);
 
         // 步驟 4: 檢查兌換券
         console.log('🎁 步驟 4: 檢查兌換券');
