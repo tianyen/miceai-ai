@@ -198,13 +198,17 @@ async function seed() {
         if (!project) {
             project = getSQL("SELECT id, project_name, project_code FROM event_projects LIMIT 1");
         }
+
+        // 同時取得 MOON2025 專案
+        const moonProject = getSQL("SELECT id, project_name, project_code FROM event_projects WHERE project_code = 'MOON2025' LIMIT 1");
+
         let booth1Id, booth2Id, booth3Id;
 
         if (boothsTableExists && project) {
             const projectId = project.id;
             console.log(`📝 使用專案: ${project.project_name} (${project.project_code}) - ID: ${projectId}`);
 
-            // 新增 3 個攤位
+            // 為 TECH2024 新增 3 個攤位
             booth1Id = runSQL(`
                 INSERT INTO booths (project_id, booth_name, booth_code, location, description, is_active)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -222,6 +226,17 @@ async function seed() {
                 VALUES (?, ?, ?, ?, ?, ?)
             `, [projectId, 'C區攤位', 'BOOTH-C1', '展場 C 區出口處', '體驗攤位，提供飛鏢遊戲體驗', 1]);
             console.log(`✅ 新增攤位: C區攤位 (ID: ${booth3Id}, Code: BOOTH-C1)`);
+
+            // 為 MOON2025 新增攤位
+            if (moonProject) {
+                console.log(`📝 使用專案: ${moonProject.project_name} (${moonProject.project_code}) - ID: ${moonProject.id}`);
+
+                const moonBooth1Id = runSQL(`
+                    INSERT INTO booths (project_id, booth_name, booth_code, location, description, is_active)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                `, [moonProject.id, 'B1戶外空地', 'MOON-B1', '誠品生活松菸店 B1戶外空地', '沈浸式露天電影院主場地', 1]);
+                console.log(`✅ 新增攤位: B1戶外空地 (ID: ${moonBooth1Id}, Code: MOON-B1)`);
+            }
         } else if (!boothsTableExists) {
             console.log('⚠️  booths 表尚未建立，跳過攤位建立（請先執行 npm run migrate:booths）');
         } else {

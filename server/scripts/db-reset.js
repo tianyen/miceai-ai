@@ -71,29 +71,29 @@ const initialUsers = [
     }
 ];
 
-// 初始專案資料（使用動態日期）
+// 初始專案資料
 const initialProjects = [
     {
-        project_name: '資訊月互動許願樹',
-        project_code: 'WISH2025',
-        description: '資訊月互動許願樹體驗活動',
-        event_date: '2025-12-01',
-        event_start_date: '2025-11-30',
-        event_end_date: '2025-12-08',
+        project_name: '2024 資訊月互動許願樹',
+        project_code: 'TECH2024',
+        description: '2024 資訊月主舞台互動許願樹活動',
+        event_date: '2024-12-01',
+        event_start_date: '2024-12-01',
+        event_end_date: '2024-12-03',
         event_location: '台北世貿一館',
         event_type: 'exhibition',
         status: 'completed'
     },
     {
-        project_name: '月光映像館',
+        project_name: '誠品X天衍 平安夜聯名公益｜沈浸式露天電影院',
         project_code: 'MOON2025',
-        description: '月光映像館聖誕特展',
+        description: '誠品X天衍 平安夜聯名公益活動，沈浸式露天電影院體驗 (5:30-8:30 PM)',
         event_date: '2025-12-24',
         event_start_date: '2025-12-24',
         event_end_date: '2025-12-24',
-        event_location: '信義誠品',
+        event_location: '誠品生活松菸店',
         event_type: 'exhibition',
-        status: 'draft'
+        status: 'active'
     }
 ];
 

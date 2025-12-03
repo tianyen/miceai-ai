@@ -57,23 +57,72 @@ function handleServiceError(res, error, defaultMessage) {
  *     description: |
  *       提交活動報名資料，系統會自動生成 QR Code Base64 並返回 trace_id
  *
- *       **前端串接流程**：
- *       1. 先調用 `GET /api/v1/events/code/{code}` 查詢活動詳情
- *       2. 從回應中獲取 `data.id` 作為 `eventId`
- *       3. 使用該 `eventId` 調用此端點提交報名
+ *       ---
+ *       ## 📋 前端串接教學
  *
- *       **範例**：
+ *       ### 步驟 1: 查詢活動資訊
  *       ```javascript
- *       // 步驟 1: 查詢活動
- *       const event = await fetch('/api/v1/events/code/TECH2024').then(r => r.json());
- *       const eventId = event.data.id;  // 1
- *
- *       // 步驟 2: 提交報名
- *       const registration = await fetch(`/api/v1/events/${eventId}/registrations`, {
- *         method: 'POST',
- *         body: JSON.stringify({ name: '王小明', ... })
- *       });
+ *       const eventRes = await fetch('/api/v1/events/code/TECH2024');
+ *       const eventData = await eventRes.json();
+ *       const eventId = eventData.data.id;  // 獲取活動 ID
  *       ```
+ *
+ *       ### 步驟 2: 提交報名表單
+ *       ```javascript
+ *       const response = await fetch(`/api/v1/events/${eventId}/registrations`, {
+ *         method: 'POST',
+ *         headers: { 'Content-Type': 'application/json' },
+ *         body: JSON.stringify({
+ *           // ✅ 必填欄位
+ *           name: '王大明',
+ *           email: 'wang@example.com',
+ *           phone: '0912345678',
+ *           data_consent: true,
+ *
+ *           // ⭕ 選填欄位
+ *           company: '科技公司',           // 公司名稱
+ *           position: '工程師',            // 職位
+ *           gender: '男',                  // 性別: 男/女/其他
+ *           title: '先生',                 // 尊稱: 先生/女士/博士/教授
+ *           notes: '需要素食餐點',         // 留言備註
+ *           marketing_consent: false       // 行銷同意
+ *         })
+ *       });
+ *       const result = await response.json();
+ *       ```
+ *
+ *       ### 步驟 3: 處理回應
+ *       ```javascript
+ *       if (result.success) {
+ *         const { trace_id, user_id, qr_code } = result.data;
+ *
+ *         // 儲存 trace_id 用於後續查詢
+ *         localStorage.setItem('trace_id', trace_id);
+ *
+ *         // user_id 用於遊戲 API 串接
+ *         localStorage.setItem('user_id', user_id);
+ *
+ *         // 顯示 QR Code (Base64 格式)
+ *         document.getElementById('qrcode').src = qr_code.base64;
+ *       }
+ *       ```
+ *
+ *       ---
+ *       ## 📌 欄位說明
+ *
+ *       | 欄位 | 類型 | 必填 | 說明 |
+ *       |------|------|:----:|------|
+ *       | name | string | ✅ | 姓名 (2-50字) |
+ *       | email | string | ✅ | 電子郵件 |
+ *       | phone | string | ✅ | 手機號碼 |
+ *       | data_consent | boolean | ✅ | 資料使用同意 (必須為 true) |
+ *       | company | string | ⭕ | 公司名稱 (最多100字) |
+ *       | position | string | ⭕ | 職位 (最多50字) |
+ *       | gender | string | ⭕ | 性別: `男` / `女` / `其他` |
+ *       | title | string | ⭕ | 尊稱: `先生` / `女士` / `博士` / `教授` |
+ *       | notes | string | ⭕ | 留言備註 (最多500字) |
+ *       | marketing_consent | boolean | ⭕ | 行銷推廣同意 |
+ *
  *     parameters:
  *       - in: path
  *         name: eventId

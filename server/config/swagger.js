@@ -20,27 +20,28 @@ const swaggerDefinition = {
       'npm start      # 啟動開發服務器\n' +
       '```\n\n' +
       '### 2. 測試帳號\n\n' +
-      '- **管理員**: `admin` / `admin123`\n' +
-      '- **廠商**: `vendor1` / `vendor123`\n' +
-      '- **專案經理**: `pm1` / `pm123`\n\n' +
-      '### 3. 測試資料\n\n' +
-      '執行 `npm run setup` 後，系統會自動創建確定性測試資料（每次執行產生相同的 ID 和 trace_id）：\n\n' +
-      '- **活動專案**: TECH2024, WORKSHOP2024, INFO2024\n' +
-      '- **測試 trace_id**: `MICE-d074dd3e-e3e27b6b0`, `MICE-05207cf7-199967c04`, `MICE-8c4c3742-5c8b4a8e3`\n' +
-      '- **攤位**: 7 個攤位分佈在 3 個專案中\n' +
-      '- **遊戲**: Loki 飛鏢遊戲、測試遊戲\n' +
-      '- **兌換券**: 咖啡券、紀念品券、折扣券\n\n' +
-      '### 4. 完整文檔\n\n' +
-      '詳細的測試資料、使用範例和 Schema 說明請參考：\n' +
-      '- [Swagger 對接指南](https://github.com/your-repo/blob/master/claude/docs/SWAGGER_INTEGRATION_GUIDE.md)\n' +
-      '- [系統技術規格](https://github.com/your-repo/blob/master/claude/docs/spec.md)\n' +
-      '- [用戶旅程文檔](https://github.com/your-repo/blob/master/claude/docs/user-journey.md)\n\n' +
+      '| 角色 | 帳號 | 密碼 |\n' +
+      '|------|------|------|\n' +
+      '| 管理員 | `admin` | `admin123` |\n' +
+      '| 專案經理 | `pm1` | `pm123` |\n' +
+      '| 廠商 | `vendor1` | `vendor123` |\n\n' +
+      '### 3. 測試專案\n\n' +
+      '| ID | 專案代碼 | 名稱 | 狀態 | 日期 |\n' +
+      '|----|----------|------|------|------|\n' +
+      '| 1 | `TECH2024` | 2024 資訊月互動許願樹 | 已完成 | 2024-12-01 ~ 12-03 |\n' +
+      '| 2 | `MOON2025` | 誠品X天衍 平安夜聯名公益｜沈浸式露天電影院 | 進行中 | 2025-12-24 |\n\n' +
+      '### 4. 前端串接流程\n\n' +
+      '```\n' +
+      '1. GET /api/v1/events/{eventId} → 取得活動資訊\n' +
+      '2. POST /api/v1/events/{eventId}/registrations → 報名並取得 trace_id、user_id\n' +
+      '3. POST /api/v1/games/{gameId}/start → 開始遊戲 (傳入 user_id)\n' +
+      '4. POST /api/v1/games/{gameId}/end → 結束遊戲取得兌換券 QR Code\n' +
+      '```\n\n' +
       '---\n\n' +
       '**注意事項：**\n' +
       '- 本文件僅包含前端串接使用的 API v1 路由（`/api/v1/`）\n' +
-      '- 後台管理功能（如攤位管理、兌換券管理等）位於 `/admin/` 路由，為管理 UI 使用，不包含於此 API 文檔中\n' +
-      '- 後台管理功能需要登入驗證，請直接透過管理介面操作\n' +
-      '- 所有 API 回應使用統一格式：`{ success: true/false, message, data/error }`',
+      '- 後台管理功能位於 `/admin/` 路由，需登入驗證\n' +
+      '- 所有 API 回應格式：`{ success: true/false, message, data/error }`',
   },
   servers: [
     {
@@ -275,27 +276,26 @@ const swaggerDefinition = {
             },
             example: [
               { id: 1, username: 'admin', password: 'admin123', role: 'super_admin' },
-              { id: 2, username: 'vendor1', password: 'vendor123', role: 'vendor' },
-              { id: 3, username: 'pm1', password: 'pm123', role: 'project_manager' }
+              { id: 2, username: 'pm1', password: 'pm123', role: 'project_manager' },
+              { id: 3, username: 'vendor1', password: 'vendor123', role: 'vendor' }
             ]
           },
           events: {
             type: 'array',
             items: { $ref: '#/components/schemas/Event' },
             example: [
-              { id: 1, project_code: 'TECH2024', project_name: '2024 科技論壇', status: 'active' },
-              { id: 2, project_code: 'WORKSHOP2024', project_name: '2024 技術工作坊', status: 'active' },
-              { id: 3, project_code: 'INFO2024', project_name: '2024 資訊月', status: 'active' }
+              { id: 1, project_code: 'TECH2024', project_name: '2024 資訊月互動許願樹', status: 'completed', date: '2024-12-01 ~ 12-03' },
+              { id: 2, project_code: 'MOON2025', project_name: '誠品X天衍 平安夜聯名公益｜沈浸式露天電影院', status: 'active', date: '2025-12-24' }
             ]
           },
-          trace_ids: {
+          booths: {
             type: 'array',
-            description: '確定性生成的 trace_id（每次 npm run setup 都相同）',
-            items: { type: 'string' },
+            description: '攤位資料',
+            items: { type: 'object' },
             example: [
-              'MICE-d074dd3e-e3e27b6b0',
-              'MICE-05207cf7-199967c04',
-              'MICE-8c4c3742-5c8b4a8e3'
+              { id: 1, project_id: 1, booth_code: 'BOOTH-A1', booth_name: 'A區攤位' },
+              { id: 2, project_id: 1, booth_code: 'BOOTH-B1', booth_name: 'B區攤位' },
+              { id: 3, project_id: 2, booth_code: 'MOON-B1', booth_name: 'B1戶外空地' }
             ]
           }
         }

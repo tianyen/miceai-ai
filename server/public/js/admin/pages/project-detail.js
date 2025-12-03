@@ -56,6 +56,9 @@ function switchTab(tabName) {
         case 'qr-scanner':
             // QR掃描頁面不需要自動載入
             break;
+        case 'booths':
+            loadProjectBooths();
+            break;
         case 'games':
             loadProjectGames();
             break;
@@ -726,6 +729,125 @@ function deleteBusinessCard(cardId, cardName) {
             }
         });
     }
+}
+
+// ========== 攤位設定相關函數 ==========
+
+// 載入專案攤位列表
+function loadProjectBooths() {
+    $.ajax({
+        url: `/admin/projects/${projectId}/booths`,
+        method: 'GET',
+        success: function(html) {
+            $('#project-booths-table').html(html);
+        },
+        error: function() {
+            $('#project-booths-table').html('<tr><td colspan="7" class="text-center text-danger">載入失敗</td></tr>');
+        }
+    });
+}
+
+// 重新整理攤位列表
+function refreshBooths() {
+    loadProjectBooths();
+    showNotification('攤位列表已更新', 'info');
+}
+
+// 新增攤位模態框
+function addBoothModal() {
+    const modalHtml = `
+        <div class="modal-overlay" id="add-booth-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>新增攤位</h3>
+                    <button class="close-btn" onclick="closeAddBoothModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="add-booth-form">
+                        <div class="form-group">
+                            <label>攤位名稱 <span class="required">*</span></label>
+                            <input type="text" name="booth_name" class="form-control" required placeholder="例如：A區攤位">
+                        </div>
+                        <div class="form-group">
+                            <label>攤位代碼 <span class="required">*</span></label>
+                            <input type="text" name="booth_code" class="form-control" required placeholder="例如：BOOTH-A1">
+                        </div>
+                        <div class="form-group">
+                            <label>位置</label>
+                            <input type="text" name="location" class="form-control" placeholder="例如：展場 A 區入口處">
+                        </div>
+                        <div class="form-group">
+                            <label>說明</label>
+                            <textarea name="description" class="form-control" rows="3" placeholder="攤位說明..."></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeAddBoothModal()">取消</button>
+                    <button class="btn btn-primary" onclick="submitAddBooth()">新增</button>
+                </div>
+            </div>
+        </div>
+    `;
+    $('#modal-container').html(modalHtml);
+}
+
+function closeAddBoothModal() {
+    $('#add-booth-modal').remove();
+}
+
+function submitAddBooth() {
+    const formData = {
+        booth_name: $('input[name="booth_name"]').val(),
+        booth_code: $('input[name="booth_code"]').val(),
+        location: $('input[name="location"]').val(),
+        description: $('textarea[name="description"]').val()
+    };
+
+    if (!formData.booth_name || !formData.booth_code) {
+        showNotification('請填寫必填欄位', 'error');
+        return;
+    }
+
+    $.ajax({
+        url: `/admin/projects/${projectId}/booths`,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(formData),
+        success: function(response) {
+            if (response.success) {
+                showNotification('攤位新增成功', 'success');
+                closeAddBoothModal();
+                loadProjectBooths();
+            } else {
+                showNotification(response.message || '新增失敗', 'error');
+            }
+        },
+        error: function() {
+            showNotification('新增失敗，請稍後再試', 'error');
+        }
+    });
+}
+
+// 刪除攤位
+function deleteBooth(boothId) {
+    if (!confirm('確定要刪除此攤位嗎？')) return;
+
+    $.ajax({
+        url: `/admin/projects/${projectId}/booths/${boothId}`,
+        method: 'DELETE',
+        success: function(response) {
+            if (response.success) {
+                showNotification('攤位已刪除', 'success');
+                loadProjectBooths();
+            } else {
+                showNotification(response.message || '刪除失敗', 'error');
+            }
+        },
+        error: function() {
+            showNotification('刪除失敗，請稍後再試', 'error');
+        }
+    });
 }
 
 // ========== 遊戲設定相關函數 ==========

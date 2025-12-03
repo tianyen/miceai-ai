@@ -84,6 +84,7 @@
         <button class="tab-btn" data-tab="tracking">參加者追蹤</button>
         <button class="tab-btn" data-tab="business-cards">QR Code 名片</button>
         <button class="tab-btn" data-tab="qr-scanner">QR掃描</button>
+        <button class="tab-btn" data-tab="booths">攤位設定</button>
         <button class="tab-btn" data-tab="games">遊戲設定</button>
         {{#if (eq project.project_code 'INFOMONTH2025')}}
         <button class="tab-btn" data-tab="wish-tree">🌳 許願樹</button>
@@ -328,6 +329,47 @@
                     <li>系統會自動識別並處理簽到</li>
                     <li>掃描結果會即時更新到簽到記錄中</li>
                 </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 攤位設定 -->
+    <div class="tab-content" id="booths-tab">
+        <div class="section-header">
+            <h3>攤位設定</h3>
+            <div class="section-actions">
+                <button class="btn btn-success" onclick="addBoothModal()">
+                    <i class="fas fa-plus"></i> 新增攤位
+                </button>
+                <button class="btn btn-secondary" onclick="refreshBooths()">
+                    <i class="fas fa-sync-alt"></i> 重新整理
+                </button>
+            </div>
+        </div>
+
+        <div class="data-table-container">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>攤位名稱</th>
+                            <th>代碼</th>
+                            <th>位置</th>
+                            <th>狀態</th>
+                            <th>綁定遊戲</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="project-booths-table">
+                        <tr>
+                            <td colspan="7" class="text-center">
+                                <div class="spinner"></div>
+                                <p>載入中...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>

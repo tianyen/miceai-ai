@@ -604,6 +604,123 @@ router.delete('/:projectId/games/:bindingId', async (req, res) => {
     }
 });
 
+// ===== 攤位管理 API =====
+
+// 獲取專案攤位列表（HTML 片段）
+router.get('/:projectId/booths', async (req, res) => {
+    try {
+        const projectId = req.params.projectId;
+        const db = require('../../config/database');
+
+        const booths = db.querySync(`
+            SELECT b.*,
+                   (SELECT COUNT(*) FROM booth_games bg WHERE bg.booth_id = b.id) as game_count
+            FROM booths b
+            WHERE b.project_id = ?
+            ORDER BY b.id
+        `, [projectId]);
+
+        if (!booths || booths.length === 0) {
+            return responses.html(res, `
+                <tr>
+                    <td colspan="7" class="text-center text-muted">
+                        <i class="fas fa-info-circle"></i> 尚未建立任何攤位
+                    </td>
+                </tr>
+            `);
+        }
+
+        let html = '';
+        booths.forEach(booth => {
+            const statusBadge = booth.is_active
+                ? '<span class="badge bg-success">啟用</span>'
+                : '<span class="badge bg-secondary">停用</span>';
+
+            html += `
+                <tr>
+                    <td>${booth.id}</td>
+                    <td>${booth.booth_name}</td>
+                    <td><code>${booth.booth_code}</code></td>
+                    <td>${booth.location || '-'}</td>
+                    <td>${statusBadge}</td>
+                    <td>${booth.game_count} 個遊戲</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="deleteBooth(${booth.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        return responses.html(res, html);
+    } catch (error) {
+        console.error('獲取攤位列表失敗:', error);
+        return responses.html(res, `
+            <tr>
+                <td colspan="7" class="text-center text-danger">
+                    <i class="fas fa-exclamation-triangle"></i> 載入失敗
+                </td>
+            </tr>
+        `);
+    }
+});
+
+// 新增專案攤位
+router.post('/:projectId/booths', async (req, res) => {
+    try {
+        const projectId = req.params.projectId;
+        const { booth_name, booth_code, location, description } = req.body;
+
+        if (!booth_name || !booth_code) {
+            return responses.badRequest(res, '攤位名稱和代碼為必填');
+        }
+
+        const db = require('../../config/database');
+
+        // 檢查代碼是否已存在
+        const existing = db.getSync('SELECT id FROM booths WHERE booth_code = ?', [booth_code]);
+        if (existing) {
+            return responses.badRequest(res, '攤位代碼已存在');
+        }
+
+        const result = db.runSync(`
+            INSERT INTO booths (project_id, booth_name, booth_code, location, description, is_active)
+            VALUES (?, ?, ?, ?, ?, 1)
+        `, [projectId, booth_name, booth_code, location || null, description || null]);
+
+        return responses.success(res, { id: result.lastID }, '攤位新增成功');
+    } catch (error) {
+        console.error('新增攤位失敗:', error);
+        return responses.serverError(res, '新增攤位失敗');
+    }
+});
+
+// 刪除專案攤位
+router.delete('/:projectId/booths/:boothId', async (req, res) => {
+    try {
+        const { projectId, boothId } = req.params;
+        const db = require('../../config/database');
+
+        // 檢查攤位是否屬於該專案
+        const booth = db.getSync('SELECT id FROM booths WHERE id = ? AND project_id = ?', [boothId, projectId]);
+        if (!booth) {
+            return responses.notFound(res, '找不到此攤位');
+        }
+
+        // 刪除相關的遊戲綁定
+        db.runSync('DELETE FROM booth_games WHERE booth_id = ?', [boothId]);
+
+        // 刪除攤位
+        db.runSync('DELETE FROM booths WHERE id = ?', [boothId]);
+
+        return responses.success(res, null, '攤位已刪除');
+    } catch (error) {
+        console.error('刪除攤位失敗:', error);
+        return responses.serverError(res, '刪除攤位失敗');
+    }
+});
+
 // ===== 報名表單配置 API =====
 
 // 取得專案報名表單配置
