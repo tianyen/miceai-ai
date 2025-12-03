@@ -256,10 +256,10 @@ router.post('/events/:eventId/registrations', [
             gender: gender || null,
             title: title || null,
             notes: notes || null,
-            dataConsent: data_consent,
-            marketingConsent: marketing_consent || false,
-            ipAddress: req.ip || req.connection.remoteAddress,
-            userAgent: req.get('User-Agent')
+            dataConsent: data_consent === true || data_consent === 'true' || data_consent === 1 ? 1 : 0,
+            marketingConsent: marketing_consent === true || marketing_consent === 'true' || marketing_consent === 1 ? 1 : 0,
+            ipAddress: req.ip || req.connection.remoteAddress || null,
+            userAgent: req.get('User-Agent') || null
         });
 
         console.log('活動報名成功:', {

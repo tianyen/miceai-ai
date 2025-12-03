@@ -120,7 +120,15 @@ class GameRepository extends BaseRepository {
                 project_id, game_id, booth_id, trace_id, user_id,
                 ip_address, user_agent
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [projectId, gameId, boothId, traceId, userId, ipAddress, userAgent]);
+        `, [
+            projectId,
+            gameId,
+            boothId || null,
+            traceId,
+            userId || null,
+            ipAddress || null,
+            userAgent || null
+        ]);
     }
 
     /**
@@ -212,9 +220,18 @@ class GameRepository extends BaseRepository {
                 ip_address, user_agent
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
-            projectId, gameId, boothId, traceId, userId,
-            logLevel, message, userAction, score, playTime,
-            ipAddress, userAgent
+            projectId,
+            gameId,
+            boothId || null,
+            traceId,
+            userId || null,
+            logLevel || 'info',
+            message || null,
+            userAction || null,
+            score || 0,
+            playTime || 0,
+            ipAddress || null,
+            userAgent || null
         ]);
     }
 

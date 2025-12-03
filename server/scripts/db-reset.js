@@ -85,14 +85,14 @@ const initialProjects = [
         status: 'active'
     },
     {
-        project_name: 'AI產業交流會',
-        project_code: 'AI2024',
-        description: '人工智慧產業交流研討會',
-        event_date: generateDate(14), // 14天後
-        event_start_date: generateDate(14),
-        event_end_date: generateDate(14),
-        event_location: '信義區展演廳',
-        event_type: 'workshop',
+        project_name: '月光映像館',
+        project_code: 'MOON2025',
+        description: '月光映像館聖誕特展',
+        event_date: '2025-12-24',
+        event_start_date: '2025-12-24',
+        event_end_date: '2025-12-24',
+        event_location: '信義誠品',
+        event_type: 'exhibition',
         status: 'draft'
     }
 ];

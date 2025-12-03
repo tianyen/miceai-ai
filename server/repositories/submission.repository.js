@@ -365,12 +365,12 @@ class SubmissionRepository extends BaseRepository {
             data.title || null,
             data.notes || null,
             data.passCode,
-            data.dataConsent,
-            data.marketingConsent || false,
-            data.marketingConsent || false,
-            data.marketingConsent || false,
-            data.ipAddress,
-            data.userAgent,
+            data.dataConsent ? 1 : 0,
+            data.marketingConsent ? 1 : 0,
+            data.marketingConsent ? 1 : 0,  // activity_notifications
+            data.marketingConsent ? 1 : 0,  // product_updates
+            data.ipAddress || null,
+            data.userAgent || null,
             'pending'
         ]);
     }

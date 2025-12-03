@@ -453,9 +453,9 @@ async function addSeedData() {
 
             if (templateIds.length >= 3) {
                 try {
-                    db.prepare(`UPDATE event_projects SET template_id = ? WHERE project_code = 'AI2024'`)
+                    db.prepare(`UPDATE event_projects SET template_id = ? WHERE project_code = 'MOON2025'`)
                         .run(templateIds[2]);
-                    console.log(`   ✅ 更新 AI2024 使用模板 ID: ${templateIds[2]}`);
+                    console.log(`   ✅ 更新 MOON2025 使用模板 ID: ${templateIds[2]}`);
                 } catch (err) { /* ignore */ }
             }
         }

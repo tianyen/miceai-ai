@@ -422,8 +422,8 @@ class CheckinService extends BaseService {
             registration.submission_id,
             traceId,
             registration.submitter_name,
-            scannerUserId,
-            scannerLocation,
+            scannerUserId || null,
+            scannerLocation || null,
             checkInTime
         ]);
 
@@ -442,7 +442,7 @@ class CheckinService extends BaseService {
                 participant_id, scan_time, scanner_location,
                 scanner_user_id, scan_result, created_at
             ) VALUES (?, CURRENT_TIMESTAMP, ?, ?, 'success', CURRENT_TIMESTAMP)
-        `, [registration.submission_id, scannerLocation, scannerUserId]);
+        `, [registration.submission_id, scannerLocation || null, scannerUserId || null]);
 
         // 記錄參與者互動
         await this.recordInteraction({
