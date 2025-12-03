@@ -446,9 +446,9 @@ async function addSeedData() {
         console.log('🔄 更新現有專案的模板關聯...');
         if (templateIds.length > 0) {
             try {
-                db.prepare(`UPDATE event_projects SET template_id = ? WHERE project_code = 'TECH2024'`)
+                db.prepare(`UPDATE event_projects SET template_id = ? WHERE project_code = 'WISH2025'`)
                     .run(templateIds[0]);
-                console.log(`   ✅ 更新 TECH2024 使用模板 ID: ${templateIds[0]}`);
+                console.log(`   ✅ 更新 WISH2025 使用模板 ID: ${templateIds[0]}`);
             } catch (err) { /* ignore */ }
 
             if (templateIds.length >= 3) {

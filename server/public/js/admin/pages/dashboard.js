@@ -91,8 +91,13 @@
 
             let html = '';
             projects.forEach((project) => {
-                const statusClass = project.status === 'active' ? 'success' : 'primary';
-                const statusText = project.status === 'active' ? '進行中' : '已完成';
+                // 狀態對應：draft=草稿, active=進行中, completed=已完成
+                const statusMap = {
+                    'draft': { class: 'warning', text: '草稿' },
+                    'active': { class: 'success', text: '進行中' },
+                    'completed': { class: 'primary', text: '已完成' }
+                };
+                const statusInfo = statusMap[project.status] || { class: 'secondary', text: project.status };
                 html += `
                     <div class="project-item">
                         <div class="project-info">
@@ -100,7 +105,7 @@
                                 <span class="badge badge-secondary">#${project.id}</span>
                                 ${project.project_name || project.name || 'unnamed'}
                             </h4>
-                            <span class="badge badge-${statusClass}">${statusText}</span>
+                            <span class="badge badge-${statusInfo.class}">${statusInfo.text}</span>
                         </div>
                         <div class="project-date">${project.created_at}</div>
                     </div>

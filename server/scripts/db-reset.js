@@ -74,15 +74,15 @@ const initialUsers = [
 // 初始專案資料（使用動態日期）
 const initialProjects = [
     {
-        project_name: '2024年度科技論壇',
-        project_code: 'TECH2024',
-        description: '年度科技趨勢論壇活動',
-        event_date: generateDate(7), // 7天後
-        event_start_date: generateDate(7),
-        event_end_date: generateDate(7),
-        event_location: '台北國際會議中心',
-        event_type: 'conference',
-        status: 'active'
+        project_name: '資訊月互動許願樹',
+        project_code: 'WISH2025',
+        description: '資訊月互動許願樹體驗活動',
+        event_date: '2025-12-01',
+        event_start_date: '2025-11-30',
+        event_end_date: '2025-12-08',
+        event_location: '台北世貿一館',
+        event_type: 'exhibition',
+        status: 'completed'
     },
     {
         project_name: '月光映像館',
