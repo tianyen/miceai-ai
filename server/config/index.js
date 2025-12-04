@@ -79,5 +79,21 @@ module.exports = {
         title: process.env.SWAGGER_TITLE || 'MICE-AI  API',
         description: process.env.SWAGGER_DESCRIPTION || 'MICE-AI 的 RESTful API 文件，包含管理後台和前端 API',
         version: process.env.SWAGGER_VERSION || '1.0.0'
+    },
+
+    // Email 配置 (Google SMTP)
+    email: {
+        enabled: process.env.SMTP_ENABLED === 'true',
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT) || 587,
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+        },
+        from: {
+            name: process.env.SMTP_FROM_NAME || 'MICE-AI 活動系統',
+            email: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER
+        }
     }
 };

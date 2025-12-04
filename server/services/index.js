@@ -24,6 +24,7 @@ const businessCardService = require('./businessCard.service');
 const templateService = require('./template.service');
 const userService = require('./user.service');
 const wishTreeService = require('./wishTree.service');
+const emailService = require('./email.service');
 
 module.exports = {
     checkinService,
@@ -41,5 +42,6 @@ module.exports = {
     businessCardService,
     templateService,
     userService,
-    wishTreeService
+    wishTreeService,
+    emailService
 };

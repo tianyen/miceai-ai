@@ -677,6 +677,7 @@ class CheckinController {
             const offset = (page - 1) * limit;
             const projectId = req.query.project_id;
             const search = req.query.search;
+            const status = req.query.status; // 報到狀態篩選
             const userId = req.user.id;
             const userRole = req.user.role;
 
@@ -689,6 +690,9 @@ class CheckinController {
                     fs.company_name,
                     fs.position,
                     fs.created_at as registration_time,
+                    fs.group_id,
+                    fs.parent_submission_id,
+                    parent.submitter_name as parent_name,
                     cr.checkin_time,
                     cr.id as checkin_id,
                     p.project_name,
@@ -698,11 +702,13 @@ class CheckinController {
                 LEFT JOIN checkin_records cr ON fs.id = cr.submission_id
                 LEFT JOIN event_projects p ON fs.project_id = p.id
                 LEFT JOIN qr_codes qr ON fs.id = qr.submission_id
+                LEFT JOIN form_submissions parent ON fs.parent_submission_id = parent.id
                 WHERE 1=1
             `;
             let countQuery = `
                 SELECT COUNT(DISTINCT fs.id) as count
                 FROM form_submissions fs
+                LEFT JOIN checkin_records cr ON fs.id = cr.submission_id
                 LEFT JOIN event_projects p ON fs.project_id = p.id
                 WHERE 1=1
             `;
@@ -723,6 +729,15 @@ class CheckinController {
                 query += ` AND fs.project_id = ?`;
                 countQuery += ` AND fs.project_id = ?`;
                 queryParams.push(projectId);
+            }
+
+            // 報到狀態過濾
+            if (status === 'checked_in') {
+                query += ` AND cr.id IS NOT NULL`;
+                countQuery += ` AND cr.id IS NOT NULL`;
+            } else if (status === 'not_checked_in') {
+                query += ` AND cr.id IS NULL`;
+                countQuery += ` AND cr.id IS NULL`;
             }
 
             // 搜索过滤
@@ -746,7 +761,7 @@ class CheckinController {
                 if (participants.length === 0) {
                     html = `
                         <tr>
-                            <td colspan="7" class="empty-state">
+                            <td colspan="8" class="empty-state">
                                 <div class="empty-icon">👥</div>
                                 <div class="empty-text">
                                     <h4>尚无参与者资料</h4>
@@ -779,11 +794,33 @@ class CheckinController {
                                 .replace(/'/g, '&#39;');
                         };
 
+                        // 團體報名標記
+                        let groupBadge = '';
+                        if (participant.group_id) {
+                            if (participant.parent_submission_id) {
+                                // 這是團員，顯示主報名人
+                                groupBadge = `<div class="group-badge group-member" title="團體報名成員">
+                                    <i class="fas fa-user-friends"></i>
+                                    <span class="group-label">隨 ${escapeHtml(participant.parent_name)} 報名</span>
+                                </div>`;
+                            } else {
+                                // 這是主報名人
+                                groupBadge = `<div class="group-badge group-leader" title="團體報名主報名人">
+                                    <i class="fas fa-users"></i>
+                                    <span class="group-label">團體報名</span>
+                                </div>`;
+                            }
+                        }
+
                         html += `
                             <tr>
                                 <td>
+                                    <span class="badge badge-secondary">${participant.submission_id}</span>
+                                </td>
+                                <td>
                                     <div class="participant-info">
                                         <strong>${escapeHtml(participant.submitter_name)}</strong>
+                                        ${groupBadge}
                                         <div class="participant-email">${escapeHtml(participant.submitter_email)}</div>
                                     </div>
                                 </td>
@@ -852,12 +889,14 @@ class CheckinController {
             const limit = parseInt(req.query.limit) || 20;
             const projectId = req.query.project_id;
             const search = req.query.search;
+            const status = req.query.status; // 報到狀態篩選
             const userId = req.user.id;
             const userRole = req.user.role;
 
             let countQuery = `
                 SELECT COUNT(DISTINCT fs.id) as count
                 FROM form_submissions fs
+                LEFT JOIN checkin_records cr ON fs.id = cr.submission_id
                 LEFT JOIN event_projects p ON fs.project_id = p.id
                 WHERE 1=1
             `;
@@ -877,6 +916,13 @@ class CheckinController {
                 queryParams.push(projectId);
             }
 
+            // 報到狀態過濾
+            if (status === 'checked_in') {
+                countQuery += ` AND cr.id IS NOT NULL`;
+            } else if (status === 'not_checked_in') {
+                countQuery += ` AND cr.id IS NULL`;
+            }
+
             // 搜索过滤
             if (search && search.trim()) {
                 const searchTerm = `%${search.trim()}%`;
@@ -888,7 +934,9 @@ class CheckinController {
             const total = totalResult.count;
             const pages = Math.ceil(total / limit);
 
-            let paginationHtml = '<div class="pagination-info">';
+            // 隱藏元素，用於 JS 讀取總數並更新 #total-count
+            let paginationHtml = `<span id="pagination-total" data-total="${total}" style="display:none;"></span>`;
+            paginationHtml += '<div class="pagination-info">';
             paginationHtml += `<span>共 ${total} 位参与者，第 ${page} 页 / 共 ${pages} 页</span>`;
             paginationHtml += '</div>';
 

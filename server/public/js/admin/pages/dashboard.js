@@ -57,6 +57,13 @@
             $('#users-change')
                 .text(usersChange)
                 .addClass(stats.newUsersThisWeek > 0 ? 'positive' : 'negative');
+
+            // 郵件統計
+            $('#email-sent-total').text(stats.emailSentTotal || 0);
+            const emailToday = stats.emailSentToday || 0;
+            $('#email-sent-today')
+                .text('今日 ' + emailToday + ' 封')
+                .addClass(emailToday > 0 ? 'positive' : '');
         },
 
         renderStatsError() {
@@ -66,6 +73,8 @@
             $('#active-projects-change').text('無資料');
             $('#total-users').text('0');
             $('#users-change').text('無資料');
+            $('#email-sent-total').text('0');
+            $('#email-sent-today').text('無資料');
         },
 
         loadRecentProjects() {

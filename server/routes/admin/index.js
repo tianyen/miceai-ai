@@ -22,6 +22,7 @@ const vouchersRoutes = require('./vouchers');
 const boothsRoutes = require('./booths');
 const gameAnalyticsRoutes = require('./game-analytics');
 const wishTreeRoutes = require('./wish-tree');
+const emailManagementRoutes = require('./email-management');
 
 // 根路徑重定向到登入頁面
 router.get('/', (req, res) => {
@@ -50,6 +51,7 @@ router.use('/vouchers', authenticateSession, vouchersRoutes);
 router.use('/booths', authenticateSession, boothsRoutes);
 router.use('/game-analytics', authenticateSession, gameAnalyticsRoutes);
 router.use('/wish-tree', authenticateSession, wishTreeRoutes);
+router.use('/email-management', authenticateSession, emailManagementRoutes);
 
 // 設定頁面
 router.get('/settings', authenticateSession, (req, res) => {

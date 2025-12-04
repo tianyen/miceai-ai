@@ -7,6 +7,7 @@ const BaseService = require('./base.service');
 const submissionRepository = require('../repositories/submission.repository');
 const qrCodeRepository = require('../repositories/qrCode.repository');
 const projectRepository = require('../repositories/project.repository');
+const emailService = require('./email.service');
 const { generateTraceId } = require('../utils/traceId');
 const QRCode = require('qrcode');
 
@@ -69,15 +70,7 @@ class RegistrationService extends BaseService {
         }
 
         // 5. 生成唯一的 trace_id
-        let traceId;
-        let attempts = 0;
-        do {
-            traceId = generateTraceId();
-            attempts++;
-            if (attempts > 10) {
-                throw new Error('無法生成唯一的追蹤 ID');
-            }
-        } while (await this.submissionRepo.traceIdExists(traceId));
+        const traceId = await this._generateUniqueTraceId();
 
         // 5.5 生成 6 位數通行碼
         const passCode = Math.random().toString().slice(2, 8);
@@ -102,19 +95,14 @@ class RegistrationService extends BaseService {
         });
 
         // 7. 生成 QR Code
-        const qrBase64 = await QRCode.toDataURL(traceId, {
-            type: 'image/png',
-            width: 300,
-            margin: 2,
-            color: { dark: '#000000', light: '#FFFFFF' }
-        });
-
+        const qrData = await this._generateQrData(eventId, traceId);
+        
         await this.qrCodeRepo.createQrCodeWithBase64({
             projectId: eventId,
             submissionId: result.lastID,
-            qrCode: traceId,
-            qrData: traceId,
-            qrBase64
+            qrCode: qrData.qrCode,
+            qrData: qrData.qrData,
+            qrBase64: qrData.qrBase64
         });
 
         // 8. 記錄互動日誌
@@ -140,6 +128,18 @@ class RegistrationService extends BaseService {
             eventName: event.project_name
         });
 
+        // 9. 非同步發送邀請信（不阻塞主流程）
+        this._sendRegistrationEmailAsync({
+            name,
+            email,
+            traceId,
+            passCode,
+            eventName: event.project_name,
+            eventDate: event.event_date,
+            eventLocation: event.event_location,
+            qrBase64: qrData.qrBase64
+        });
+
         return {
             registrationId: result.lastID,
             traceId,
@@ -157,6 +157,188 @@ class RegistrationService extends BaseService {
             }
         };
     }
+
+    /**
+     * 提交團體報名
+     * @param {Object} data - 報名資料 { eventId, primaryParticipant, participants }
+     * @returns {Promise<Object>}
+     */
+    async submitBatchRegistration(data) {
+        const {
+            eventId, primaryParticipant, participants = [],
+            ipAddress, userAgent
+        } = data;
+
+        const totalCount = 1 + participants.length;
+        if (totalCount > 5) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                message: '團體報名人數上限為 5 人'
+            });
+        }
+
+        // 1. 檢查活動
+        const event = await this.projectRepo.findActiveById(eventId);
+        if (!event) {
+            this.throwError(this.ErrorCodes.PROJECT_NOT_FOUND, {
+                message: '活動不存在或未開放報名'
+            });
+        }
+
+        // 2. 檢查截止時間
+        if (event.registration_deadline && new Date() > new Date(event.registration_deadline)) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                message: '報名已截止'
+            });
+        }
+
+        // 3. 檢查名額
+        if (event.max_participants > 0) {
+            const currentCount = await this.submissionRepo.countByProject(eventId);
+            if (currentCount + totalCount > event.max_participants) {
+                this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                    message: `活動名額不足，剩餘 ${event.max_participants - currentCount} 個名額`
+                });
+            }
+        }
+
+        // 4. 檢查主報名人是否重複
+        const existing = await this.submissionRepo.findByProjectAndEmail(eventId, primaryParticipant.email);
+        if (existing) {
+            this.throwError(this.ErrorCodes.DUPLICATE_ENTRY, {
+                message: '主報名人電子郵件已報名過此活動'
+            });
+        }
+
+        // 5. 準備資料
+        const groupId = `GRP-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+        const registrations = [];
+        const qrCodes = [];
+        
+        // 5.1 處理主報名人
+        const primaryTraceId = await this._generateUniqueTraceId();
+        const primaryPassCode = Math.random().toString().slice(2, 8);
+        
+        const primaryReg = {
+            ...primaryParticipant,
+            traceId: primaryTraceId,
+            passCode: primaryPassCode,
+            projectId: eventId,
+            groupId,
+            isPrimary: true,
+            dataConsent: primaryParticipant.dataConsent,
+            marketingConsent: primaryParticipant.marketingConsent,
+            ipAddress,
+            userAgent
+        };
+        registrations.push(primaryReg);
+        qrCodes.push(await this._generateQrData(eventId, primaryTraceId));
+
+        // 5.2 處理同行者
+        for (const p of participants) {
+            const traceId = await this._generateUniqueTraceId();
+            const passCode = Math.random().toString().slice(2, 8);
+            
+            const reg = {
+                ...p,
+                email: p.email || primaryParticipant.email, // 若無 Email 則使用主報名人
+                traceId,
+                passCode,
+                projectId: eventId,
+                groupId,
+                isPrimary: false,
+                dataConsent: primaryParticipant.dataConsent, // 繼承主報名人同意
+                marketingConsent: primaryParticipant.marketingConsent,
+                ipAddress,
+                userAgent
+            };
+            registrations.push(reg);
+            qrCodes.push(await this._generateQrData(eventId, traceId));
+        }
+
+        // 6. 執行批量寫入 Transaction
+        const results = this.submissionRepo.createBatchRegistrations(registrations, qrCodes);
+
+        // 7. 記錄日誌 (僅記一筆代表)
+        await this._logInteraction({
+            traceId: primaryTraceId,
+            projectId: eventId,
+            submissionId: results[0].submissionId, // 主報名人 ID
+            type: 'group_registration',
+            target: 'registration_api_v1',
+            data: {
+                group_id: groupId,
+                count: totalCount,
+                primary_name: primaryParticipant.name,
+                event_name: event.project_name
+            },
+            ipAddress,
+            userAgent
+        });
+
+        // 8. 非同步發送邀請信
+        this._sendGroupRegistrationEmailsAsync({
+            registrations,
+            qrCodes,
+            eventName: event.project_name,
+            eventDate: event.event_date,
+            eventLocation: event.event_location,
+            primaryName: primaryParticipant.name
+        });
+
+        return {
+            success: true,
+            groupId,
+            count: totalCount,
+            projectCode: event.project_code,
+            registrations: results.map(r => {
+                const regData = registrations.find(reg => reg.traceId === r.traceId);
+                return {
+                    name: regData.name,
+                    traceId: r.traceId,
+                    passCode: regData.passCode,
+                    isPrimary: regData.isPrimary,
+                    qrCode: {
+                        data: r.traceId,
+                        url: `/api/v1/qr-codes/${r.traceId}`
+                    }
+                };
+            })
+        };
+    }
+
+    /**
+     * 輔助方法：生成唯一 trace ID
+     */
+    async _generateUniqueTraceId() {
+        let traceId;
+        let attempts = 0;
+        do {
+            traceId = generateTraceId();
+            attempts++;
+            if (attempts > 10) throw new Error('無法生成唯一的追蹤 ID');
+        } while (await this.submissionRepo.traceIdExists(traceId));
+        return traceId;
+    }
+
+    /**
+     * 輔助方法：生成 QR Data
+     */
+    async _generateQrData(projectId, traceId) {
+        const qrBase64 = await QRCode.toDataURL(traceId, {
+            type: 'image/png',
+            width: 300,
+            margin: 2,
+            color: { dark: '#000000', light: '#FFFFFF' }
+        });
+        return {
+            projectId,
+            traceId, 
+            qrCode: traceId,
+            qrData: traceId,
+            qrBase64
+        };
+    }
+
 
     /**
      * 驗證通行碼
@@ -231,7 +413,10 @@ class RegistrationService extends BaseService {
                 email: registration.submitter_email,
                 phone: registration.submitter_phone,
                 company: registration.company_name,
-                position: registration.position
+                position: registration.position,
+                title: registration.title,
+                gender: registration.gender,
+                notes: registration.notes
             },
             qrCode: {
                 data: registration.qr_data,
@@ -310,6 +495,121 @@ class RegistrationService extends BaseService {
             // 日誌失敗不應該阻止主流程
             this.logError('_logInteraction', error);
         }
+    }
+
+    /**
+     * 非同步發送單人報名邀請信
+     * @private
+     */
+    _sendRegistrationEmailAsync(data) {
+        setImmediate(async () => {
+            try {
+                await emailService.sendRegistrationEmail(data);
+            } catch (error) {
+                this.logError('_sendRegistrationEmailAsync', error);
+            }
+        });
+    }
+
+    /**
+     * 非同步發送團體報名邀請信（所有成員）
+     * @private
+     */
+    _sendGroupRegistrationEmailsAsync({ registrations, qrCodes, eventName, eventDate, eventLocation, primaryName }) {
+        setImmediate(async () => {
+            try {
+                // 準備成員列表供主報名人郵件使用
+                const allParticipants = registrations.map(r => ({
+                    name: r.name,
+                    isPrimary: r.isPrimary
+                }));
+
+                for (const reg of registrations) {
+                    const qr = qrCodes.find(q => q.traceId === reg.traceId);
+                    if (!qr) continue;
+
+                    if (reg.isPrimary) {
+                        // 主報名人：發送團體確認信
+                        await emailService.sendGroupRegistrationEmail({
+                            primaryName: reg.name,
+                            primaryEmail: reg.email,
+                            primaryTraceId: reg.traceId,
+                            primaryPassCode: reg.passCode,
+                            eventName,
+                            eventDate,
+                            eventLocation,
+                            qrBase64: qr.qrBase64,
+                            participants: allParticipants
+                        });
+                    } else {
+                        // 同行者：發送個人入場憑證
+                        await emailService.sendGroupMemberEmail({
+                            name: reg.name,
+                            email: reg.email,
+                            traceId: reg.traceId,
+                            passCode: reg.passCode,
+                            eventName,
+                            eventDate,
+                            eventLocation,
+                            qrBase64: qr.qrBase64,
+                            primaryName
+                        });
+                    }
+                }
+            } catch (error) {
+                this.logError('_sendGroupRegistrationEmailsAsync', error);
+            }
+        });
+    }
+
+    /**
+     * 重新發送邀請信
+     * @param {string} traceId - 追蹤 ID
+     * @returns {Promise<Object>}
+     */
+    async resendInvitationEmail(traceId) {
+        // 查詢報名資訊
+        const registration = await this.submissionRepo.findRegistrationByTraceId(traceId);
+        if (!registration) {
+            this.throwError(this.ErrorCodes.NOT_FOUND, {
+                message: '找不到報名記錄'
+            });
+        }
+
+        // 查詢 QR Code
+        const qrRecord = await this.qrCodeRepo.findByTraceId(traceId);
+        if (!qrRecord) {
+            this.throwError(this.ErrorCodes.NOT_FOUND, {
+                message: '找不到 QR Code 記錄'
+            });
+        }
+
+        // 查詢 pass_code
+        const submission = await this.submissionRepo.findByTraceId(traceId);
+
+        // 發送郵件
+        const result = await emailService.sendRegistrationEmail({
+            name: registration.submitter_name,
+            email: registration.submitter_email,
+            traceId,
+            passCode: submission.pass_code,
+            eventName: registration.event_name,
+            eventDate: registration.event_date,
+            eventLocation: registration.event_location,
+            qrBase64: qrRecord.qr_base64
+        });
+
+        this.log('resendInvitationEmail', {
+            traceId,
+            email: registration.submitter_email,
+            success: result.success
+        });
+
+        return {
+            success: result.success,
+            email: registration.submitter_email,
+            message: result.success ? '邀請信已重新發送' : '發送失敗'
+        };
     }
 }
 

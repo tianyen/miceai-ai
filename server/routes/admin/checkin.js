@@ -7,19 +7,42 @@ const database = require('../../config/database');
 const responses = require('../../utils/responses');
 
 // 報到管理頁面
-router.get('/', (req, res) => {
-    res.render('admin/checkin-management', {
-        layout: 'admin',
-        pageTitle: '報到管理',
-        currentPage: 'checkin-management',
-        user: req.user,
-        breadcrumbs: [
-            { name: '儀表板', url: '/admin/dashboard' },
-            { name: '報到管理' }
-        ],
-        additionalCSS: ['/css/admin/pages/checkin-management.css'],
-        additionalJS: ['/js/admin/pages/checkin-management.js']
-    });
+router.get('/', async (req, res) => {
+    try {
+        // 從資料庫載入專案列表
+        const projects = await database.query(
+            `SELECT id, project_name, project_code FROM event_projects ORDER BY id DESC`
+        );
+
+        res.render('admin/checkin-management', {
+            layout: 'admin',
+            pageTitle: '報到管理',
+            currentPage: 'checkin-management',
+            user: req.user,
+            projects: projects,
+            breadcrumbs: [
+                { name: '儀表板', url: '/admin/dashboard' },
+                { name: '報到管理' }
+            ],
+            additionalCSS: ['/css/admin/pages/checkin-management.css'],
+            additionalJS: ['/js/admin/pages/checkin-management.js']
+        });
+    } catch (error) {
+        console.error('載入報到管理頁面失敗:', error);
+        res.render('admin/checkin-management', {
+            layout: 'admin',
+            pageTitle: '報到管理',
+            currentPage: 'checkin-management',
+            user: req.user,
+            projects: [],
+            breadcrumbs: [
+                { name: '儀表板', url: '/admin/dashboard' },
+                { name: '報到管理' }
+            ],
+            additionalCSS: ['/css/admin/pages/checkin-management.css'],
+            additionalJS: ['/js/admin/pages/checkin-management.js']
+        });
+    }
 });
 
 // Webcam 掃描器獨立視窗（無 layout）

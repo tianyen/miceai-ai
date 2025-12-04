@@ -58,7 +58,7 @@ class BoothRepository extends BaseRepository {
             params.push(projectId);
         }
 
-        sql += ' GROUP BY b.id ORDER BY b.created_at DESC';
+        sql += ' GROUP BY b.id ORDER BY b.project_id ASC, b.booth_name ASC';
 
         return this.rawAll(sql, params);
     }

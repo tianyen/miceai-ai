@@ -1,0 +1,885 @@
+{{!-- 郵件管理頁面 --}}
+
+<div class="content-header">
+    <h1><i class="fas fa-envelope"></i> 邀請信管理</h1>
+    <p>查看報名者並重新發送邀請信</p>
+</div>
+
+<!-- SMTP 狀態 -->
+<div class="smtp-status-bar">
+    <div class="smtp-status">
+        <span class="status-label">SMTP 狀態：</span>
+        {{#if emailEnabled}}
+        <span class="status-badge status-enabled"><i class="fas fa-check-circle"></i> 已啟用</span>
+        {{else}}
+        <span class="status-badge status-disabled"><i class="fas fa-times-circle"></i> 未啟用</span>
+        {{/if}}
+    </div>
+    <button class="btn btn-secondary btn-sm" id="btn-test-smtp">
+        <i class="fas fa-plug"></i> 測試連線
+    </button>
+</div>
+
+<!-- 篩選器 -->
+<div class="filter-bar">
+    <div class="filter-group">
+        <label for="project-select">選擇專案：</label>
+        <select id="project-select" class="form-control">
+            <option value="">-- 請選擇專案 --</option>
+            {{#each projects}}
+            <option value="{{this.id}}">{{this.project_name}}</option>
+            {{/each}}
+        </select>
+    </div>
+    <div class="filter-group">
+        <label for="search-input">搜尋：</label>
+        <input type="text" id="search-input" class="form-control" placeholder="姓名或 Email...">
+    </div>
+    <div class="filter-group">
+        <label>
+            <input type="checkbox" id="group-only-checkbox"> 僅顯示團體報名
+        </label>
+    </div>
+    <div class="filter-actions">
+        <button class="btn btn-primary" id="btn-search">
+            <i class="fas fa-search"></i> 查詢
+        </button>
+    </div>
+</div>
+
+<!-- 批量操作 -->
+<div class="batch-actions" id="batch-actions" style="display: none;">
+    <span class="selected-count">已選擇 <strong id="selected-count">0</strong> 人</span>
+    <button class="btn btn-success" id="btn-batch-resend">
+        <i class="fas fa-paper-plane"></i> 批量重寄邀請信
+    </button>
+    <button class="btn btn-secondary" id="btn-clear-selection">
+        <i class="fas fa-times"></i> 清除選擇
+    </button>
+</div>
+
+<!-- 報名者列表 -->
+<div class="data-table-container">
+    <div class="table-header">
+        <h3>報名者列表</h3>
+        <div class="table-stats">
+            <span>總計：<strong id="total-count">0</strong> 筆</span>
+        </div>
+    </div>
+
+    <div class="table-content">
+        <table class="data-table" id="registrations-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px;">
+                        <input type="checkbox" id="select-all-checkbox" title="全選">
+                    </th>
+                    <th>姓名</th>
+                    <th>Email</th>
+                    <th>電話</th>
+                    <th>類型</th>
+                    <th>狀態</th>
+                    <th>報名時間</th>
+                    <th style="width: 120px;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="registrations-tbody">
+                <tr>
+                    <td colspan="8" class="empty-cell">
+                        <i class="fas fa-info-circle"></i> 請選擇專案後查詢
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 團體詳情 Modal -->
+<div id="group-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-users"></i> 團體成員</h3>
+            <button class="btn-close" id="btn-close-modal"></button>
+        </div>
+        <div class="modal-body" id="group-modal-body">
+            <!-- 動態填充 -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="btn-modal-close">關閉</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .smtp-status-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 1rem;
+    }
+
+    .smtp-status {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .status-label {
+        font-weight: 500;
+        color: var(--gray-700);
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: var(--border-radius-sm);
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .status-enabled {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .status-disabled {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .filter-bar {
+        display: flex;
+        gap: 1.5rem;
+        align-items: flex-end;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+        flex-wrap: wrap;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-group label {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--gray-700);
+    }
+
+    .filter-group select,
+    .filter-group input[type="text"] {
+        min-width: 200px;
+    }
+
+    .filter-actions {
+        margin-left: auto;
+    }
+
+    .batch-actions {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+        background: #e3f2fd;
+        border-radius: var(--border-radius);
+        margin-bottom: 1rem;
+    }
+
+    .selected-count {
+        color: var(--gray-700);
+    }
+
+    .empty-cell {
+        text-align: center;
+        padding: 2rem !important;
+        color: var(--gray-500);
+    }
+
+    .empty-cell i {
+        margin-right: 0.5rem;
+    }
+
+    .type-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: var(--border-radius-sm);
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .type-individual {
+        background-color: #e3f2fd;
+        color: #1565c0;
+    }
+
+    .type-group {
+        background-color: #fff3e0;
+        color: #e65100;
+    }
+
+    .type-group-primary {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .group-expand-btn {
+        background: none;
+        border: none;
+        color: var(--primary-color);
+        cursor: pointer;
+        padding: 0.25rem;
+        font-size: 0.875rem;
+    }
+
+    .group-expand-btn:hover {
+        text-decoration: underline;
+    }
+
+    /* Modal 樣式 */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: var(--border-radius);
+        width: 90%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .modal-body {
+        padding: 1rem;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .modal-footer {
+        padding: 1rem;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+
+    .btn-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--gray-600);
+        line-height: 1;
+    }
+
+    .btn-close:hover {
+        color: var(--gray-800);
+    }
+
+    .member-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .member-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .member-item:last-child {
+        border-bottom: none;
+    }
+
+    .member-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .member-name {
+        font-weight: 500;
+    }
+
+    .member-email {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+    }
+
+    .member-badge {
+        font-size: 0.75rem;
+        padding: 0.125rem 0.5rem;
+        border-radius: var(--border-radius-sm);
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    @media (max-width: 768px) {
+        .filter-bar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .filter-group select,
+        .filter-group input[type="text"] {
+            min-width: auto;
+            width: 100%;
+        }
+
+        .filter-actions {
+            margin-left: 0;
+        }
+
+        .batch-actions {
+            flex-direction: column;
+            align-items: stretch;
+            text-align: center;
+        }
+    }
+</style>
+
+<script>
+    // 郵件管理頁面 JavaScript (使用安全 DOM 方法)
+    (function() {
+        'use strict';
+
+        // 狀態管理
+        let registrations = [];
+        let selectedTraceIds = new Set();
+
+        // DOM 元素快取
+        const elements = {
+            projectSelect: null,
+            searchInput: null,
+            groupOnlyCheckbox: null,
+            btnSearch: null,
+            btnTestSmtp: null,
+            btnBatchResend: null,
+            btnClearSelection: null,
+            selectAllCheckbox: null,
+            registrationsTbody: null,
+            batchActions: null,
+            selectedCount: null,
+            totalCount: null,
+            groupModal: null,
+            groupModalBody: null,
+            btnCloseModal: null,
+            btnModalClose: null
+        };
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 快取 DOM 元素
+            elements.projectSelect = document.getElementById('project-select');
+            elements.searchInput = document.getElementById('search-input');
+            elements.groupOnlyCheckbox = document.getElementById('group-only-checkbox');
+            elements.btnSearch = document.getElementById('btn-search');
+            elements.btnTestSmtp = document.getElementById('btn-test-smtp');
+            elements.btnBatchResend = document.getElementById('btn-batch-resend');
+            elements.btnClearSelection = document.getElementById('btn-clear-selection');
+            elements.selectAllCheckbox = document.getElementById('select-all-checkbox');
+            elements.registrationsTbody = document.getElementById('registrations-tbody');
+            elements.batchActions = document.getElementById('batch-actions');
+            elements.selectedCount = document.getElementById('selected-count');
+            elements.totalCount = document.getElementById('total-count');
+            elements.groupModal = document.getElementById('group-modal');
+            elements.groupModalBody = document.getElementById('group-modal-body');
+            elements.btnCloseModal = document.getElementById('btn-close-modal');
+            elements.btnModalClose = document.getElementById('btn-modal-close');
+
+            // 綁定事件
+            elements.btnSearch.addEventListener('click', loadRegistrations);
+            elements.btnTestSmtp.addEventListener('click', testSmtpConnection);
+            elements.btnBatchResend.addEventListener('click', batchResendEmails);
+            elements.btnClearSelection.addEventListener('click', clearSelection);
+            elements.selectAllCheckbox.addEventListener('change', toggleSelectAll);
+            elements.btnCloseModal.addEventListener('click', closeModal);
+            elements.btnModalClose.addEventListener('click', closeModal);
+
+            // 專案選擇變更時自動查詢
+            elements.projectSelect.addEventListener('change', function() {
+                if (this.value) {
+                    loadRegistrations();
+                }
+            });
+
+            // 搜尋輸入防抖
+            let searchTimeout;
+            elements.searchInput.addEventListener('keyup', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(function() {
+                    if (elements.projectSelect.value) {
+                        loadRegistrations();
+                    }
+                }, 300);
+            });
+
+            // 團體篩選變更
+            elements.groupOnlyCheckbox.addEventListener('change', function() {
+                if (elements.projectSelect.value) {
+                    loadRegistrations();
+                }
+            });
+
+            // Modal 點擊外部關閉
+            elements.groupModal.addEventListener('click', function(e) {
+                if (e.target === elements.groupModal) {
+                    closeModal();
+                }
+            });
+        });
+
+        // 載入報名者列表
+        function loadRegistrations() {
+            const projectId = elements.projectSelect.value;
+            if (!projectId) {
+                showNotification('請選擇專案', 'warning');
+                return;
+            }
+
+            const search = elements.searchInput.value;
+            const groupOnly = elements.groupOnlyCheckbox.checked;
+
+            // 顯示載入中
+            showLoading();
+
+            const params = new URLSearchParams({
+                projectId: projectId,
+                search: search,
+                groupOnly: groupOnly
+            });
+
+            fetch('/admin/email-management/registrations?' + params.toString())
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        registrations = data.data;
+                        renderRegistrations();
+                        elements.totalCount.textContent = registrations.length;
+                    } else {
+                        showNotification(data.message || '查詢失敗', 'error');
+                        showEmpty('查詢失敗');
+                    }
+                })
+                .catch(function(error) {
+                    console.error('載入報名者失敗:', error);
+                    showNotification('載入失敗', 'error');
+                    showEmpty('載入失敗');
+                });
+        }
+
+        // 渲染報名者列表 (安全 DOM 方法)
+        function renderRegistrations() {
+            // 清空表格
+            while (elements.registrationsTbody.firstChild) {
+                elements.registrationsTbody.removeChild(elements.registrationsTbody.firstChild);
+            }
+
+            if (registrations.length === 0) {
+                showEmpty('沒有符合條件的報名者');
+                return;
+            }
+
+            registrations.forEach(function(reg) {
+                var tr = document.createElement('tr');
+
+                if (reg.isGroup) {
+                    // 團體報名行
+                    tr.appendChild(createCell(''));  // 團體不勾選
+
+                    // 團體名稱 + 展開按鈕
+                    var nameCell = document.createElement('td');
+                    var nameSpan = document.createElement('span');
+                    nameSpan.textContent = reg.primaryName + ' ';
+                    nameCell.appendChild(nameSpan);
+
+                    var expandBtn = document.createElement('button');
+                    expandBtn.className = 'group-expand-btn';
+                    expandBtn.textContent = '(' + reg.memberCount + '人團)';
+                    expandBtn.addEventListener('click', function() {
+                        showGroupDetails(reg);
+                    });
+                    nameCell.appendChild(expandBtn);
+                    tr.appendChild(nameCell);
+
+                    tr.appendChild(createCell('--'));  // Email
+                    tr.appendChild(createCell('--'));  // 電話
+
+                    // 類型徽章
+                    var typeCell = document.createElement('td');
+                    var typeBadge = document.createElement('span');
+                    typeBadge.className = 'type-badge type-group';
+                    typeBadge.textContent = '團體 ' + reg.memberCount + '人';
+                    typeCell.appendChild(typeBadge);
+                    tr.appendChild(typeCell);
+
+                    tr.appendChild(createCell('--'));  // 狀態
+                    tr.appendChild(createCell(formatDate(reg.created_at)));
+
+                    // 操作
+                    var actionCell = document.createElement('td');
+                    var viewBtn = document.createElement('button');
+                    viewBtn.className = 'btn btn-sm btn-info';
+                    viewBtn.title = '查看成員';
+                    var viewIcon = document.createElement('i');
+                    viewIcon.className = 'fas fa-eye';
+                    viewBtn.appendChild(viewIcon);
+                    viewBtn.addEventListener('click', function() {
+                        showGroupDetails(reg);
+                    });
+                    actionCell.appendChild(viewBtn);
+                    tr.appendChild(actionCell);
+
+                } else {
+                    // 個人報名行
+                    // 勾選框
+                    var checkCell = document.createElement('td');
+                    var checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.dataset.traceId = reg.trace_id;
+                    checkbox.addEventListener('change', function() {
+                        handleCheckboxChange(reg.trace_id, this.checked);
+                    });
+                    checkCell.appendChild(checkbox);
+                    tr.appendChild(checkCell);
+
+                    tr.appendChild(createCell(reg.submitter_name || '--'));
+                    tr.appendChild(createCell(reg.submitter_email || '--'));
+                    tr.appendChild(createCell(reg.submitter_phone || '--'));
+
+                    // 類型
+                    var typeCell = document.createElement('td');
+                    var typeBadge = document.createElement('span');
+                    if (reg.group_id && reg.is_primary) {
+                        typeBadge.className = 'type-badge type-group-primary';
+                        typeBadge.textContent = '團體主報名人';
+                    } else if (reg.group_id) {
+                        typeBadge.className = 'type-badge type-group';
+                        typeBadge.textContent = '團體成員';
+                    } else {
+                        typeBadge.className = 'type-badge type-individual';
+                        typeBadge.textContent = '個人';
+                    }
+                    typeCell.appendChild(typeBadge);
+                    tr.appendChild(typeCell);
+
+                    tr.appendChild(createCell(reg.status || 'pending'));
+                    tr.appendChild(createCell(formatDate(reg.created_at)));
+
+                    // 操作
+                    var actionCell = document.createElement('td');
+                    var resendBtn = document.createElement('button');
+                    resendBtn.className = 'btn btn-sm btn-primary';
+                    resendBtn.title = '重寄邀請信';
+                    var resendIcon = document.createElement('i');
+                    resendIcon.className = 'fas fa-paper-plane';
+                    resendBtn.appendChild(resendIcon);
+                    resendBtn.addEventListener('click', function() {
+                        resendEmail(reg.trace_id);
+                    });
+                    actionCell.appendChild(resendBtn);
+                    tr.appendChild(actionCell);
+                }
+
+                elements.registrationsTbody.appendChild(tr);
+            });
+
+            // 重置選擇
+            clearSelection();
+        }
+
+        // 建立表格儲存格
+        function createCell(text) {
+            var td = document.createElement('td');
+            td.textContent = text;
+            return td;
+        }
+
+        // 顯示空狀態
+        function showEmpty(message) {
+            while (elements.registrationsTbody.firstChild) {
+                elements.registrationsTbody.removeChild(elements.registrationsTbody.firstChild);
+            }
+            var tr = document.createElement('tr');
+            var td = document.createElement('td');
+            td.colSpan = 8;
+            td.className = 'empty-cell';
+            var icon = document.createElement('i');
+            icon.className = 'fas fa-info-circle';
+            td.appendChild(icon);
+            td.appendChild(document.createTextNode(' ' + message));
+            tr.appendChild(td);
+            elements.registrationsTbody.appendChild(tr);
+        }
+
+        // 顯示載入中
+        function showLoading() {
+            while (elements.registrationsTbody.firstChild) {
+                elements.registrationsTbody.removeChild(elements.registrationsTbody.firstChild);
+            }
+            var tr = document.createElement('tr');
+            var td = document.createElement('td');
+            td.colSpan = 8;
+            td.className = 'empty-cell';
+            var spinner = document.createElement('div');
+            spinner.className = 'loading-spinner';
+            td.appendChild(spinner);
+            td.appendChild(document.createTextNode(' 載入中...'));
+            tr.appendChild(td);
+            elements.registrationsTbody.appendChild(tr);
+        }
+
+        // 顯示團體詳情 (安全 DOM 方法)
+        function showGroupDetails(group) {
+            // 清空 modal body
+            while (elements.groupModalBody.firstChild) {
+                elements.groupModalBody.removeChild(elements.groupModalBody.firstChild);
+            }
+
+            if (!group.members || group.members.length === 0) {
+                var emptyMsg = document.createElement('p');
+                emptyMsg.textContent = '沒有成員資料';
+                elements.groupModalBody.appendChild(emptyMsg);
+            } else {
+                var ul = document.createElement('ul');
+                ul.className = 'member-list';
+
+                group.members.forEach(function(member) {
+                    var li = document.createElement('li');
+                    li.className = 'member-item';
+
+                    var infoDiv = document.createElement('div');
+                    infoDiv.className = 'member-info';
+
+                    var nameSpan = document.createElement('span');
+                    nameSpan.className = 'member-name';
+                    nameSpan.textContent = member.submitter_name || '--';
+                    if (member.is_primary) {
+                        var badge = document.createElement('span');
+                        badge.className = 'member-badge';
+                        badge.textContent = '主報名人';
+                        badge.style.marginLeft = '0.5rem';
+                        nameSpan.appendChild(badge);
+                    }
+                    infoDiv.appendChild(nameSpan);
+
+                    var emailSpan = document.createElement('span');
+                    emailSpan.className = 'member-email';
+                    emailSpan.textContent = member.submitter_email || '--';
+                    infoDiv.appendChild(emailSpan);
+
+                    li.appendChild(infoDiv);
+
+                    // 重寄按鈕
+                    var resendBtn = document.createElement('button');
+                    resendBtn.className = 'btn btn-sm btn-primary';
+                    resendBtn.title = '重寄邀請信';
+                    var resendIcon = document.createElement('i');
+                    resendIcon.className = 'fas fa-paper-plane';
+                    resendBtn.appendChild(resendIcon);
+                    resendBtn.addEventListener('click', function() {
+                        resendEmail(member.trace_id);
+                    });
+                    li.appendChild(resendBtn);
+
+                    ul.appendChild(li);
+                });
+
+                elements.groupModalBody.appendChild(ul);
+            }
+
+            elements.groupModal.style.display = 'flex';
+        }
+
+        // 關閉 Modal
+        function closeModal() {
+            elements.groupModal.style.display = 'none';
+        }
+
+        // 處理勾選變更
+        function handleCheckboxChange(traceId, checked) {
+            if (checked) {
+                selectedTraceIds.add(traceId);
+            } else {
+                selectedTraceIds.delete(traceId);
+            }
+            updateBatchActions();
+        }
+
+        // 全選/取消全選
+        function toggleSelectAll() {
+            var checked = elements.selectAllCheckbox.checked;
+            var checkboxes = elements.registrationsTbody.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(function(cb) {
+                cb.checked = checked;
+                var traceId = cb.dataset.traceId;
+                if (traceId) {
+                    if (checked) {
+                        selectedTraceIds.add(traceId);
+                    } else {
+                        selectedTraceIds.delete(traceId);
+                    }
+                }
+            });
+            updateBatchActions();
+        }
+
+        // 清除選擇
+        function clearSelection() {
+            selectedTraceIds.clear();
+            elements.selectAllCheckbox.checked = false;
+            var checkboxes = elements.registrationsTbody.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(function(cb) {
+                cb.checked = false;
+            });
+            updateBatchActions();
+        }
+
+        // 更新批量操作區域
+        function updateBatchActions() {
+            var count = selectedTraceIds.size;
+            elements.selectedCount.textContent = count;
+            elements.batchActions.style.display = count > 0 ? 'flex' : 'none';
+        }
+
+        // 重寄單人邀請信
+        function resendEmail(traceId) {
+            if (!confirm('確定要重新發送邀請信嗎？')) {
+                return;
+            }
+
+            fetch('/admin/email-management/resend/' + traceId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    showNotification('邀請信已發送', 'success');
+                } else {
+                    showNotification(data.message || '發送失敗', 'error');
+                }
+            })
+            .catch(function(error) {
+                console.error('發送失敗:', error);
+                showNotification('發送失敗', 'error');
+            });
+        }
+
+        // 批量重寄邀請信
+        function batchResendEmails() {
+            var traceIds = Array.from(selectedTraceIds);
+            if (traceIds.length === 0) {
+                showNotification('請先選擇報名者', 'warning');
+                return;
+            }
+
+            if (!confirm('確定要重新發送 ' + traceIds.length + ' 封邀請信嗎？')) {
+                return;
+            }
+
+            fetch('/admin/email-management/resend-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ traceIds: traceIds })
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    clearSelection();
+                } else {
+                    showNotification(data.message || '發送失敗', 'error');
+                }
+            })
+            .catch(function(error) {
+                console.error('批量發送失敗:', error);
+                showNotification('批量發送失敗', 'error');
+            });
+        }
+
+        // 測試 SMTP 連線
+        function testSmtpConnection() {
+            elements.btnTestSmtp.disabled = true;
+            elements.btnTestSmtp.textContent = '測試中...';
+
+            fetch('/admin/email-management/test-smtp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.connected) {
+                    showNotification('SMTP 連線正常', 'success');
+                } else {
+                    showNotification(data.message || 'SMTP 連線失敗', 'error');
+                }
+            })
+            .catch(function(error) {
+                console.error('測試失敗:', error);
+                showNotification('測試失敗', 'error');
+            })
+            .finally(function() {
+                elements.btnTestSmtp.disabled = false;
+                elements.btnTestSmtp.innerHTML = '<i class="fas fa-plug"></i> 測試連線';
+            });
+        }
+
+        // 格式化日期
+        function formatDate(dateStr) {
+            if (!dateStr) return '--';
+            try {
+                var date = new Date(dateStr);
+                return date.toLocaleString('zh-TW', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (e) {
+                return dateStr;
+            }
+        }
+    })();
+</script>

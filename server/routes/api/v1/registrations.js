@@ -338,6 +338,203 @@ router.post('/events/:eventId/registrations', [
 
 /**
  * @swagger
+ * /api/v1/events/{eventId}/registrations/batch:
+ *   post:
+ *     tags: [Registrations (活動報名)]
+ *     summary: 提交團體報名 (最多 5 人)
+ *     description: |
+ *       提交團體報名資料，系統會自動生成多組 QR Code 和 trace_id。
+ *       單次請求最多包含 1 位主報名人 + 4 位同行者。
+ *       
+ *       **注意**: 若同行者未提供 Email，將自動使用主報名人的 Email。
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 活動 ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - primaryParticipant
+ *             properties:
+ *               primaryParticipant:
+ *                 type: object
+ *                 required:
+ *                   - name
+ *                   - email
+ *                   - phone
+ *                   - data_consent
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                     description: 姓名
+ *                     example: "王大明"
+ *                   email:
+ *                     type: string
+ *                     format: email
+ *                     description: 電子郵件
+ *                     example: "wang@example.com"
+ *                   phone:
+ *                     type: string
+ *                     description: 手機號碼
+ *                     example: "0912345678"
+ *                   data_consent:
+ *                     type: boolean
+ *                     description: 資料使用同意
+ *                     example: true
+ *                   marketing_consent:
+ *                     type: boolean
+ *                     description: 行銷同意
+ *                     example: false
+ *                   company:
+ *                     type: string
+ *                     description: 公司名稱
+ *                     example: "ABC 科技公司"
+ *                   position:
+ *                     type: string
+ *                     description: 職位
+ *                     example: "經理"
+ *                   gender:
+ *                     type: string
+ *                     enum: ["男", "女", "其他", "male", "female", "other"]
+ *                     description: 性別
+ *                     example: "male"
+ *                   title:
+ *                     type: string
+ *                     enum: ["先生", "女士", "博士", "教授"]
+ *                     description: 尊稱
+ *                     example: "先生"
+ *                   notes:
+ *                     type: string
+ *                     description: 備註
+ *                     example: "需要素食餐點"
+ *               participants:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - name
+ *                   properties:
+ *                     name:
+ *                       type: string
+ *                       description: 姓名
+ *                       example: "李小華"
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                       description: 電子郵件（選填，若空白將使用主報名人 Email）
+ *                       example: "li@example.com"
+ *                     phone:
+ *                       type: string
+ *                       description: 手機號碼
+ *                       example: "0987654321"
+ *                     company:
+ *                       type: string
+ *                       description: 公司名稱
+ *                       example: "ABC 科技公司"
+ *                     position:
+ *                       type: string
+ *                       description: 職位
+ *                       example: "工程師"
+ *                     gender:
+ *                       type: string
+ *                       enum: ["男", "女", "其他", "male", "female", "other"]
+ *                       description: 性別
+ *                       example: "female"
+ *                     title:
+ *                       type: string
+ *                       enum: ["先生", "女士", "博士", "教授"]
+ *                       description: 尊稱
+ *                       example: "女士"
+ *                     notes:
+ *                       type: string
+ *                       description: 備註
+ *                 maxItems: 4
+ *                 description: 同行者列表（最多 4 人）
+ *     responses:
+ *       201:
+ *         description: 團體報名成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: 
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     groupId: 
+ *                       type: string
+ *                     count:
+ *                       type: integer
+ *                     registrations:
+ *                       type: array
+ */
+router.post('/events/:eventId/registrations/batch', [
+    param('eventId').isInt({ min: 1 }).withMessage('活動 ID 必須是正整數'),
+    body('primaryParticipant').isObject().withMessage('主報名人資料必須是物件'),
+    body('primaryParticipant.name').trim().isLength({ min: 2, max: 50 }).withMessage('主報名人姓名長度錯誤'),
+    body('primaryParticipant.email').isEmail().withMessage('主報名人 Email 格式錯誤'),
+    body('primaryParticipant.phone').matches(phoneRegex).withMessage('主報名人手機號碼格式錯誤'),
+    body('primaryParticipant.data_consent').custom(val => val === true || val === 'true' || val === 1).withMessage('主報名人必須同意資料使用條款'),
+    
+    body('participants').optional().isArray({ max: 4 }).withMessage('同行者最多 4 人'),
+    body('participants.*.name').trim().isLength({ min: 2, max: 50 }).withMessage('同行者姓名長度錯誤'),
+    body('participants.*.email').optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('同行者 Email 格式錯誤'),
+    body('participants.*.phone').optional({ nullable: true, checkFalsy: true }).matches(phoneRegex).withMessage('同行者手機號碼格式錯誤')
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return responses.validationError(res, {
+                message: '請求參數驗證失敗',
+                errors: errors.array().reduce((acc, error) => {
+                    acc[error.path] = error.msg;
+                    return acc;
+                }, {})
+            });
+        }
+
+        const { primaryParticipant, participants } = req.body;
+
+        // 轉換欄位名稱以符合 Service 層預期 (snake_case -> camelCase)
+        const formatParticipant = (p) => ({
+            name: p.name,
+            email: p.email,
+            phone: p.phone,
+            company: p.company || '',
+            position: p.position || '',
+            gender: p.gender || null,
+            title: p.title || null,
+            notes: p.notes || null,
+            dataConsent: p.data_consent === true || p.data_consent === 'true' || p.data_consent === 1,
+            marketingConsent: p.marketing_consent === true || p.marketing_consent === 'true' || p.marketing_consent === 1
+        });
+
+        const result = await registrationService.submitBatchRegistration({
+            eventId: req.params.eventId,
+            primaryParticipant: formatParticipant(primaryParticipant),
+            participants: (participants || []).map(formatParticipant),
+            ipAddress: req.ip || req.connection.remoteAddress || null,
+            userAgent: req.get('User-Agent') || null
+        });
+
+        return responses.success(res, result, '團體報名成功！', 201);
+
+    } catch (error) {
+        return handleServiceError(res, error, '團體報名過程發生錯誤');
+    }
+});
+
+/**
+ * @swagger
  * /api/v1/registrations/{traceId}:
  *   get:
  *     tags: [Registrations (活動報名)]
@@ -416,6 +613,21 @@ router.post('/events/:eventId/registrations', [
  *                         position:
  *                           type: string
  *                           example: "資深工程師"
+ *                         title:
+ *                           type: string
+ *                           nullable: true
+ *                           description: 尊稱
+ *                           example: "先生"
+ *                         gender:
+ *                           type: string
+ *                           nullable: true
+ *                           description: 性別
+ *                           example: "male"
+ *                         notes:
+ *                           type: string
+ *                           nullable: true
+ *                           description: 備註
+ *                           example: "需要素食餐點"
  *                     qr_code:
  *                       type: object
  *                       properties:
@@ -698,6 +910,66 @@ router.get('/qr-codes/:traceId/data', [
  *       404:
  *         description: 通行碼無效或不存在
  */
+/**
+ * @swagger
+ * /api/v1/registrations/{traceId}/resend-email:
+ *   post:
+ *     tags: [Registrations (活動報名)]
+ *     summary: 重新發送邀請信
+ *     description: |
+ *       當用戶遺失或刪除邀請信時，可透過此端點重新發送。
+ *       系統會使用相同的 QR Code 和通行碼重新發送郵件。
+ *     parameters:
+ *       - in: path
+ *         name: traceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 報名追蹤 ID
+ *         example: "MICE-05207cf7-199967c04"
+ *     responses:
+ *       200:
+ *         description: 郵件發送成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     email:
+ *                       type: string
+ *                       example: "wang@example.com"
+ *                     message:
+ *                       type: string
+ *                       example: "邀請信已重新發送"
+ *       404:
+ *         description: 找不到報名記錄
+ *       500:
+ *         description: 郵件發送失敗
+ */
+router.post('/registrations/:traceId/resend-email', [
+    param('traceId').isLength({ min: 1, max: 50 }).withMessage('追蹤 ID 格式不正確')
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return responses.validationError(res, { errors: errors.array() });
+        }
+
+        const result = await registrationService.resendInvitationEmail(req.params.traceId);
+
+        return responses.success(res, result);
+
+    } catch (error) {
+        return handleServiceError(res, error, '重新發送邀請信失敗');
+    }
+});
+
 router.post('/verify-pass-code', [
     body('pass_code').isLength({ min: 6, max: 6 }).withMessage('通行碼必須是 6 位數')
 ], async (req, res) => {

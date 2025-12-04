@@ -40,9 +40,9 @@
         <label for="project-select">專案篩選：</label>
         <select id="project-select" class="form-control">
             <option value="">所有專案</option>
-            <option value="1">2024年度科技論壇</option>
-            <option value="2">春季產品發表會</option>
-            <option value="3">客戶感謝晚宴</option>
+            {{#each projects}}
+            <option value="{{this.id}}">{{this.project_name}}</option>
+            {{/each}}
         </select>
     </div>
 
@@ -52,7 +52,6 @@
             <option value="">所有狀態</option>
             <option value="checked_in">已報到</option>
             <option value="not_checked_in">未報到</option>
-            <option value="cancelled">已取消</option>
         </select>
     </div>
 </div>
@@ -70,10 +69,10 @@
         <table class="table">
             <thead>
                 <tr>
+                    <th>user_id</th>
                     <th>參與者姓名</th>
                     <th>電子郵件</th>
                     <th>電話號碼</th>
-                    <th>參與程度</th>
                     <th>報到狀態</th>
                     <th>報到時間</th>
                     <th>QR Code</th>

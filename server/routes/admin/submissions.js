@@ -147,6 +147,12 @@ router.get('/:id', async (req, res) => {
         // 使用 Service 取得提交詳情
         const submission = await submissionService.getById(submissionId);
 
+        // 如果有團體 ID，取得團體成員
+        let groupMembers = [];
+        if (submission && submission.group_id) {
+            groupMembers = await submissionService.repository.findGroupMembers(submission.group_id);
+        }
+
         if (!submission) {
             return res.status(404).send(`
                 <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
@@ -258,6 +264,43 @@ router.get('/:id', async (req, res) => {
                                     <div class="col-12">
                                         <h5>備註</h5>
                                         <p>${submission.notes}</p>
+                                    </div>
+                                </div>
+                                ` : ''}
+                                ${submission.group_id ? `
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <h5>
+                                            <i class="fas fa-users"></i>
+                                            團體報名資訊
+                                            ${submission.parent_submission_id
+                                                ? `<span class="badge badge-warning ml-2">團員</span>`
+                                                : `<span class="badge badge-primary ml-2">主報名人</span>`}
+                                        </h5>
+                                        ${submission.parent_submission_id ? `
+                                        <p class="mb-2">
+                                            <strong>隨同報名：</strong>
+                                            ${submission.parent_name} (${submission.parent_email})
+                                        </p>
+                                        ` : ''}
+                                        <div class="group-members-list" style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                                            <p class="mb-2"><strong>同團成員 (${groupMembers.length} 人)：</strong></p>
+                                            <ul class="list-unstyled mb-0">
+                                                ${groupMembers.map(member => `
+                                                    <li style="padding: 0.5rem 0; border-bottom: 1px solid #dee2e6;">
+                                                        ${member.is_primary
+                                                            ? '<i class="fas fa-star text-warning"></i>'
+                                                            : '<i class="fas fa-user text-muted"></i>'}
+                                                        <strong>${member.submitter_name}</strong>
+                                                        ${member.id == submission.id ? '<span class="badge badge-info ml-1">目前查看</span>' : ''}
+                                                        <br>
+                                                        <small class="text-muted">
+                                                            ${member.submitter_email || '-'} | ${member.submitter_phone || '-'}
+                                                        </small>
+                                                    </li>
+                                                `).join('')}
+                                            </ul>
+                                        </div>
                                     </div>
                                 </div>
                                 ` : ''}

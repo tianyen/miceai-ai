@@ -84,10 +84,22 @@ class DashboardController {
             let newUsersThisWeek = { count: 0 };
             if (userRole === 'super_admin') {
                 newUsersThisWeek = await database.get(`
-                    SELECT COUNT(*) as count FROM users 
+                    SELECT COUNT(*) as count FROM users
                     WHERE created_at >= date('now', '-7 days')
                 `);
             }
+
+            // 郵件發送統計 (從 system_logs 查詢)
+            const emailSentTotal = await database.get(`
+                SELECT COUNT(*) as count FROM system_logs
+                WHERE action IN ('resend_invitation_email', 'batch_resend_invitation_email')
+            `);
+
+            const emailSentToday = await database.get(`
+                SELECT COUNT(*) as count FROM system_logs
+                WHERE action IN ('resend_invitation_email', 'batch_resend_invitation_email')
+                AND date(created_at) = date('now')
+            `);
 
             const stats = {
                 totalProjects: totalProjects.count,
@@ -97,7 +109,10 @@ class DashboardController {
                 projectsThisMonth: projectsThisMonth.count,
                 submissionsToday: submissionsToday.count,
                 activeProjectsChange: activeProjects.count - activeProjectsLastMonth.count,
-                newUsersThisWeek: newUsersThisWeek.count
+                newUsersThisWeek: newUsersThisWeek.count,
+                // 郵件統計
+                emailSentTotal: emailSentTotal?.count || 0,
+                emailSentToday: emailSentToday?.count || 0
             };
 
             res.json({

@@ -205,6 +205,37 @@
     border-radius: 0.25rem;
 }
 
+/* ========== Group Badge Styles ========== */
+.group-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.group-badge i {
+    font-size: 0.7rem;
+}
+
+.group-badge .group-label {
+    font-weight: 500;
+}
+
+.group-leader {
+    background-color: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #90caf9;
+}
+
+.group-member {
+    background-color: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffcc80;
+}
+
 /* ========== Responsive Design ========== */
 @media (max-width: 768px) {
     .filter-section {

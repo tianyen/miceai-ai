@@ -13,10 +13,15 @@ $(document).ready(function () {
 
     // 專案選擇器變更事件
     $('#project-select').on('change', function () {
-        var projectId = $(this).val();
-        loadParticipants(projectId, 1);
+        loadParticipants(null, 1);
         loadPagination(1);
         loadCheckinStats();
+    });
+
+    // 報到狀態選擇器變更事件
+    $('#status-filter').on('change', function () {
+        loadParticipants(null, 1);
+        loadPagination(1);
     });
 
     // 搜尋功能 - 使用防抖動
@@ -358,7 +363,6 @@ function showStatsAuthError() {
  * 載入參與者列表
  */
 function loadParticipants(projectId, page) {
-    projectId = projectId || '';
     page = page || 1;
 
     var params = {
@@ -366,10 +370,19 @@ function loadParticipants(projectId, page) {
         format: 'html'
     };
 
-    if (projectId) {
-        params.project_id = projectId;
+    // 專案篩選
+    var selectedProject = projectId || $('#project-select').val();
+    if (selectedProject) {
+        params.project_id = selectedProject;
     }
 
+    // 狀態篩選
+    var status = $('#status-filter').val();
+    if (status) {
+        params.status = status;
+    }
+
+    // 搜尋關鍵字
     var searchTerm = $('#search-participants').val();
     if (searchTerm && searchTerm.trim()) {
         params.search = searchTerm.trim();
@@ -440,10 +453,12 @@ function loadPagination(page) {
     page = page || 1;
     var projectId = $('#project-select').val();
     var searchTerm = $('#search-participants').val();
+    var status = $('#status-filter').val();
 
     var params = { page: page };
     if (projectId) params.project_id = projectId;
     if (searchTerm && searchTerm.trim()) params.search = searchTerm.trim();
+    if (status) params.status = status;
 
     $.ajax({
         url: '/api/admin/checkin/pagination',
@@ -451,6 +466,12 @@ function loadPagination(page) {
         data: params,
         success: function (data) {
             $('#pagination-container').html(data);
+            // 從分頁 HTML 中讀取總數並更新 #total-count
+            var totalSpan = $('#pagination-total');
+            if (totalSpan.length > 0) {
+                var total = totalSpan.data('total');
+                $('#total-count').text('總計：' + total + ' 位參與者');
+            }
         },
         error: function () {
             console.log('載入分頁失敗');

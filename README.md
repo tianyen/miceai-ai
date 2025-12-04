@@ -66,6 +66,8 @@ npm start
 | `npm run verify:workflow` | 驗證完整業務流程 |
 | `npm run verify:api` | 驗證 API 端點 |
 | `npm run verify:data` | 驗證資料流程 |
+| `npm run verify:batch-registration` | 驗證團體報名 API |
+| `npm run verify:group-full-flow` | 驗證團體報名完整流程（報名→報到→遊戲→兌換） |
 | `npm run test:api` | 測試完整 API 流程 |
 | `npm run test:swagger` | 測試 Swagger 範例 |
 
@@ -101,10 +103,28 @@ npm start
 | `SESSION_SECRET` | 隨機密鑰 | Session 加密密鑰 |
 | `NODE_ENV` | `development` | 運行環境 |
 
-生產環境建議修改：
-- `BASE_URL`: 設定為實際域名
+### Email 配置 (Google SMTP)
+
+報名成功後系統會自動發送邀請信，需要配置 SMTP：
+
+| 變數 | 預設值 | 說明 |
+|------|--------|------|
+| `SMTP_ENABLED` | `false` | 是否啟用郵件功能 |
+| `SMTP_HOST` | `smtp.gmail.com` | SMTP 伺服器 |
+| `SMTP_PORT` | `587` | SMTP 端口 |
+| `SMTP_USER` | - | Gmail 帳號 |
+| `SMTP_PASS` | - | Gmail 應用程式密碼 |
+| `SMTP_FROM_NAME` | `MICE-AI 活動系統` | 寄件者名稱 |
+| `SMTP_FROM_EMAIL` | - | 寄件者 Email |
+
+> 💡 **Gmail 設定**: 需要啟用兩步驟驗證後，在 Google 帳戶 → 安全性 → 應用程式密碼 產生專用密碼。
+
+### 生產環境建議
+
+- `BASE_URL`: 設定為實際域名（含 https://）
 - `SESSION_SECRET`: 使用強密鑰
 - `NODE_ENV`: 設為 `production`
+- `SMTP_ENABLED`: 設為 `true` 以啟用邀請信
 
 ## 📁 專案結構
 
@@ -134,7 +154,8 @@ server/
 | 模組 | 功能 |
 |------|------|
 | **活動管理** | 專案建立、活動模板、參加者管理 |
-| **報名系統** | 線上報名、QR Code 報到、trace_id 追蹤 |
+| **報名系統** | 線上報名、**團體報名 (最多 5 人)**、**Email 邀請信**、QR Code 報到、trace_id 追蹤 |
+| **邀請信管理** | 後台郵件管理、批量重寄邀請信、發送記錄追蹤、SMTP 測試 |
 | **遊戲室** | 遊戲管理、會話追蹤、兌換券系統、統計報告 |
 | **問卷系統** | 問卷設計、統計分析、QR Code 連結 |
 | **許願樹** | 許願留言、統計分析、CSV 匯出 |
@@ -147,14 +168,19 @@ server/
 **Swagger UI**: http://localhost:3000/api-docs
 
 主要 API 端點：
-- `/api/v1/*` - 前端 API（14 個端點，完整 Swagger 文檔）
+- `/api/v1/*` - 前端 API（15+ 端點，完整 Swagger 文檔）
   - Check-in: 報到管理（2 個端點）
   - Events: 活動管理（4 個端點）
-  - Registrations: 報名管理（3 個端點）
+  - Registrations: 報名管理（5 個端點，含團體報名）
+    - `POST /events/{eventId}/registrations` - 單人報名
+    - `POST /events/{eventId}/registrations/batch` - **團體報名 (最多 5 人)**
+    - `POST /registrations/{traceId}/resend-email` - **重寄邀請信**
   - Games: 遊戲管理（4 個端點）
   - Business Cards: 名片管理（2 個端點）
   - Wish Tree: 許願樹（2 個端點）
-- `/api/admin/*` - 後台管理 API（16 個端點）
+- `/api/admin/*` - 後台管理 API（18+ 個端點）
+  - Dashboard: 儀表板統計（4 個端點）
+  - Email Management: 郵件管理（4 個端點）
   - Games: 遊戲管理（6 個端點）
   - Vouchers: 兌換券管理（6 個端點）
   - Booth Games: 攤位遊戲綁定（4 個端點）
@@ -168,9 +194,7 @@ server/
 
 > ⚠️ **注意**：API 報名用戶的 `registration_id` (form_submissions.id) 與後台管理員的 `users.id` 是完全不同的概念！
 
-**詳細文檔**:
-- [API v1 端點清單](./claude/docs/API_V1_ENDPOINTS.md)
-- [Swagger 整合指南](./claude/docs/SWAGGER_INTEGRATION_GUIDE.md)
+**詳細文檔**: 查看 Swagger UI (http://localhost:3000/api-docs)
 
 ## 🗄️ 資料庫
 
@@ -183,12 +207,14 @@ server/
 - `event_projects` - 活動專案表
 - `booths` - 攤位表
 - `booth_games` - 攤位遊戲綁定表（P1-2: 從 project_games 重構）
-- `form_submissions` - 報名記錄表
+- `form_submissions` - 報名記錄表（含團體報名欄位：`group_id`, `is_primary`, `parent_submission_id`）
 - `qr_codes` - QR Code 表
 - `game_sessions` - 遊戲會話表
 - `business_cards` - 名片表
 
-**詳細文檔**: [資料庫 Schema 快速參考](./claude/docs/DATABASE_SCHEMA_REFERENCE.md)
+> ✅ **Schema 完整性**: `npm run setup` 會使用完整的 `schema.sql` 建立資料庫，包含所有功能所需欄位（團體報名、尊稱/性別/備註等），無需額外執行 migration。
+
+**資料表欄位**: 查看 `server/database/schema.sql` 獲取完整定義
 
 ### 在腳本中使用資料庫
 
@@ -232,7 +258,7 @@ const dbPath = './data/mice_ai.db';  // 不要這樣做！
 └── 4: vendor
 ```
 
-> 📖 詳細規範請參閱 [spec.md v2.6 - 資料庫欄位命名規範](./claude/docs/spec.md#資料庫欄位命名規範-v26)
+> 📖 詳細規範請參閱 `server/database/schema.sql` 中的註解
 
 ### Trace ID 格式
 
@@ -280,30 +306,15 @@ TRACE{timestamp}{random}
 
 預設管理員帳號：`admin` / `admin123`
 
-## 📚 文檔
+## 📚 文檔資源
 
-### 核心文檔
-- [技術規格文檔](./claude/docs/spec.md) - 完整的系統架構和技術規格
-- [系統改進計劃](./claude/docs/plan.md) - 優化計劃和 TODO 追蹤
-- [用戶旅程文檔](./claude/docs/user-journey.md) - 四種角色的完整用戶旅程
-
-### API 文檔
-- [API v1 端點清單](./claude/docs/API_V1_ENDPOINTS.md) - 前端 API 完整清單
-- [API 路由重構](./claude/docs/API_ROUTING_REFACTOR.md) - API 路由設計規範
-- [Swagger 整合指南](./claude/docs/SWAGGER_INTEGRATION_GUIDE.md) - Swagger 使用指南
-
-### 資料庫文檔
-- [資料庫 Schema 參考](./claude/docs/DATABASE_SCHEMA_REFERENCE.md) - 資料表快速參考
-- [命名規範](./claude/docs/NAMING_CONVENTIONS.md) - 欄位命名規範
-
-### 開發規範
-- [錯誤處理指南](./claude/docs/ERROR_HANDLING_GUIDE.md) - 統一錯誤處理
-- [日誌系統指南](./claude/docs/LOGGING_GUIDE.md) - 集中式日誌
-- [API 回應標準](./claude/docs/API_RESPONSE_STANDARD.md) - 統一回應格式
-
-### 完成報告
-- [P1-2: 攤位遊戲重構](./claude/docs/P1-2_BOOTH_GAMES_REFACTOR.md)
-- [P1-7: API 路由重構](./claude/docs/P1-7_COMPLETION_REPORT.md)
+| 資源 | 位置 | 說明 |
+|------|------|------|
+| **API 文檔** | http://localhost:3000/api-docs | Swagger UI 互動式文檔 |
+| **資料庫 Schema** | `server/database/schema.sql` | 完整資料表定義與註解 |
+| **遷移腳本** | `server/database/migrations/` | 資料庫版本遷移 |
+| **種子資料** | `server/scripts/seeds/` | 測試資料腳本 |
+| **驗證腳本** | `server/scripts/verify/` | 功能驗證測試 |
 
 ## 🚀 生產環境部署
 
@@ -324,6 +335,14 @@ pm2 startup
 
 ---
 
-**版本**: 2.7
-**最後更新**: 2025-12-02
+**版本**: 3.0
+**最後更新**: 2025-12-04
 **維護者**: MICE-AI Team
+
+### 更新日誌 v3.0
+- 新增：邀請信管理功能（後台郵件管理頁面）
+- 新增：批量重寄邀請信 API
+- 新增：儀表板郵件發送統計卡片
+- 新增：郵件操作日誌記錄
+- 優化：權限控制（super_admin / project_manager）
+- 清理：移除失效的文檔連結

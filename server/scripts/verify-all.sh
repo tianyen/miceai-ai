@@ -50,6 +50,9 @@ run_test "完整業務流程測試" "node scripts/test-full-workflow.js"
 # 4. 後台資料顯示檢查
 run_test "後台資料顯示檢查" "node scripts/check-admin-data.js"
 
+# 5. 團體報名流程測試
+run_test "團體報名流程測試" "EVENT_ID=2 node scripts/verify-batch-registration.js"
+
 # 顯示總結
 echo "================================"
 echo "📊 驗證結果總結"

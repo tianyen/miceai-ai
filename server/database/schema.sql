@@ -120,10 +120,15 @@ CREATE TABLE IF NOT EXISTS form_submissions (
     checkin_method VARCHAR(20) DEFAULT 'manual' CHECK (checkin_method IN ('manual', 'qr_scanner', 'mobile_app')),
     checkin_location VARCHAR(100),
     checkin_notes TEXT,
+    -- 團體報名欄位
+    group_id VARCHAR(50),                   -- 團體識別碼 (例如: GRP-{timestamp}-{random})
+    is_primary BOOLEAN DEFAULT 1,           -- 是否為主報名人
+    parent_submission_id INTEGER,           -- 外鍵，指向主報名人的 id
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES event_projects(id),
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (parent_submission_id) REFERENCES form_submissions(id)
 );
 
 -- 系統日誌表
@@ -342,6 +347,22 @@ CREATE TABLE IF NOT EXISTS api_access_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 攤位遊戲關聯表
+CREATE TABLE IF NOT EXISTS booth_games (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    booth_id INTEGER NOT NULL,
+    game_id INTEGER NOT NULL,
+    voucher_id INTEGER,
+    is_active BOOLEAN DEFAULT 1,
+    qr_code_base64 TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (booth_id) REFERENCES booths(id) ON DELETE CASCADE,
+    FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+    FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE SET NULL,
+    UNIQUE(booth_id, game_id)
+);
+
 -- QR Code 名片表
 CREATE TABLE IF NOT EXISTS business_cards (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -400,3 +421,12 @@ CREATE INDEX IF NOT EXISTS idx_business_cards_project_id ON business_cards(proje
 CREATE INDEX IF NOT EXISTS idx_business_cards_card_id ON business_cards(card_id);
 CREATE INDEX IF NOT EXISTS idx_business_cards_email ON business_cards(email);
 CREATE INDEX IF NOT EXISTS idx_business_cards_created_at ON business_cards(created_at);
+
+-- 團體報名索引
+CREATE INDEX IF NOT EXISTS idx_form_submissions_group_id ON form_submissions(group_id);
+CREATE INDEX IF NOT EXISTS idx_form_submissions_parent_id ON form_submissions(parent_submission_id);
+
+-- 攤位遊戲索引
+CREATE INDEX IF NOT EXISTS idx_booth_games_booth_id ON booth_games(booth_id);
+CREATE INDEX IF NOT EXISTS idx_booth_games_game_id ON booth_games(game_id);
+CREATE INDEX IF NOT EXISTS idx_booth_games_voucher_id ON booth_games(voucher_id);

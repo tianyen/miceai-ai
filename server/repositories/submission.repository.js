@@ -29,18 +29,40 @@ class SubmissionRepository extends BaseRepository {
     }
 
     /**
-     * 取得提交記錄（含專案資訊）
+     * 取得提交記錄（含專案資訊與團體資訊）
      * @param {number} submissionId - 提交 ID
      * @returns {Promise<Object|null>}
      */
     async findByIdWithProject(submissionId) {
         const sql = `
-            SELECT fs.*, p.project_name, p.project_code, p.event_date, p.event_location
+            SELECT fs.*,
+                   p.project_name, p.project_code, p.event_date, p.event_location,
+                   parent.submitter_name as parent_name,
+                   parent.submitter_email as parent_email
             FROM form_submissions fs
             LEFT JOIN event_projects p ON fs.project_id = p.id
+            LEFT JOIN form_submissions parent ON fs.parent_submission_id = parent.id
             WHERE fs.id = ?
         `;
         return this.rawGet(sql, [submissionId]);
+    }
+
+    /**
+     * 取得同一團體的所有成員
+     * @param {string} groupId - 團體 ID
+     * @returns {Promise<Array>}
+     */
+    async findGroupMembers(groupId) {
+        if (!groupId) return [];
+        const sql = `
+            SELECT fs.id, fs.submitter_name, fs.submitter_email, fs.submitter_phone,
+                   fs.parent_submission_id, fs.trace_id,
+                   CASE WHEN fs.parent_submission_id IS NULL THEN 1 ELSE 0 END as is_primary
+            FROM form_submissions fs
+            WHERE fs.group_id = ?
+            ORDER BY fs.parent_submission_id ASC NULLS FIRST, fs.id ASC
+        `;
+        return this.rawAll(sql, [groupId]);
     }
 
     /**
@@ -376,6 +398,100 @@ class SubmissionRepository extends BaseRepository {
     }
 
     /**
+     * 批量建立報名記錄（包含 QR Code）- 使用 Transaction
+     * @param {Array} registrations - 報名資料陣列
+     * @param {Array} qrCodes - QR Code 資料陣列
+     * @returns {Object} 結果統計
+     */
+    createBatchRegistrations(registrations, qrCodes) {
+        const db = this.db.getDB(); // 獲取底層 better-sqlite3 實例
+
+        const insertSubmission = db.prepare(`
+            INSERT INTO form_submissions (
+                trace_id, project_id, group_id, is_primary, parent_submission_id,
+                submitter_name, submitter_email, submitter_phone,
+                company_name, position, gender, title, notes, pass_code,
+                data_consent, marketing_consent, activity_notifications, product_updates,
+                ip_address, user_agent, status, created_at
+            ) VALUES (
+                @traceId, @projectId, @groupId, @isPrimary, @parentSubmissionId,
+                @name, @email, @phone,
+                @company, @position, @gender, @title, @notes, @passCode,
+                @dataConsent, @marketingConsent, @marketingConsent, @marketingConsent,
+                @ipAddress, @userAgent, 'pending', CURRENT_TIMESTAMP
+            )
+        `);
+
+        const insertQrCode = db.prepare(`
+            INSERT INTO qr_codes (
+                project_id, submission_id, qr_code, qr_data, qr_base64, created_at
+            ) VALUES (
+                @projectId, @submissionId, @qrCode, @qrData, @qrBase64, CURRENT_TIMESTAMP
+            )
+        `);
+
+        const transaction = db.transaction((regs, qrs) => {
+            const results = [];
+            let primaryId = null;
+
+            for (const reg of regs) {
+                // 如果不是主報名人，且 parentSubmissionId 未設定（依賴邏輯），則使用 primaryId
+                if (!reg.isPrimary && !reg.parentSubmissionId && primaryId) {
+                    reg.parentSubmissionId = primaryId;
+                }
+
+                const result = insertSubmission.run({
+                    traceId: reg.traceId,
+                    projectId: reg.projectId,
+                    groupId: reg.groupId,
+                    isPrimary: reg.isPrimary ? 1 : 0,
+                    parentSubmissionId: reg.parentSubmissionId || null,
+                    name: reg.name,
+                    email: reg.email || null,
+                    phone: reg.phone,
+                    company: reg.company || '',
+                    position: reg.position || '',
+                    gender: reg.gender || null,
+                    title: reg.title || null,
+                    notes: reg.notes || null,
+                    passCode: reg.passCode,
+                    dataConsent: reg.dataConsent ? 1 : 0,
+                    marketingConsent: reg.marketingConsent ? 1 : 0,
+                    ipAddress: reg.ipAddress || null,
+                    userAgent: reg.userAgent || null
+                });
+
+                const submissionId = result.lastInsertRowid;
+                if (reg.isPrimary) {
+                    primaryId = submissionId;
+                }
+
+                results.push({
+                    traceId: reg.traceId,
+                    submissionId: submissionId,
+                    name: reg.name,
+                    isPrimary: reg.isPrimary
+                });
+
+                // 找到對應的 QR Code 資料並寫入
+                const qr = qrs.find(q => q.traceId === reg.traceId);
+                if (qr) {
+                    insertQrCode.run({
+                        projectId: reg.projectId,
+                        submissionId: submissionId,
+                        qrCode: qr.qrCode,
+                        qrData: qr.qrData,
+                        qrBase64: qr.qrBase64
+                    });
+                }
+            }
+            return results;
+        });
+
+        return transaction(registrations, qrCodes);
+    }
+
+    /**
      * 通過 pass_code 和 project_id 查詢報名記錄
      * @param {string} passCode - 6 位數通行碼
      * @param {number} projectId - 專案 ID
@@ -426,6 +542,9 @@ class SubmissionRepository extends BaseRepository {
                 fs.submitter_phone,
                 fs.company_name,
                 fs.position,
+                fs.title,
+                fs.gender,
+                fs.notes,
                 fs.checked_in_at,
                 fs.created_at,
                 p.project_name as event_name,
