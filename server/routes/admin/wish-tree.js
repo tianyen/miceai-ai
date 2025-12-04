@@ -1,10 +1,14 @@
 /**
  * 許願樹管理路由
+ *
+ * @refactor 2025-12-04: 使用 Repository 層
  */
 const express = require('express');
 const router = express.Router();
-const database = require('../../config/database');
 const { Parser } = require('json2csv');
+const projectRepository = require('../../repositories/project.repository');
+const boothRepository = require('../../repositories/booth.repository');
+const wishTreeRepository = require('../../repositories/wish-tree.repository');
 
 /**
  * 許願樹統計頁面
@@ -13,27 +17,18 @@ router.get('/stats', async (req, res) => {
     try {
         const projectId = req.query.project_id || 5; // 預設為資訊月互動許願樹
 
-        // 獲取專案資訊
-        const project = await database.get(
-            'SELECT * FROM event_projects WHERE id = ?',
-            [projectId]
-        );
+        // 使用 Repository 獲取專案資訊
+        const project = await projectRepository.findById(projectId);
 
         if (!project) {
             return res.status(404).send('專案不存在');
         }
 
-        // 獲取攤位資訊
-        const booth = await database.get(
-            'SELECT * FROM booths WHERE project_id = ? LIMIT 1',
-            [projectId]
-        );
+        // 使用 Repository 獲取攤位資訊
+        const booth = await boothRepository.findFirstByProject(projectId);
 
-        // 獲取所有專案列表（供切換用）
-        const projects = await database.query(
-            'SELECT id, project_name, project_code FROM event_projects WHERE status = ? ORDER BY created_at DESC',
-            ['active']
-        );
+        // 使用 Repository 獲取活躍專案列表
+        const projects = await projectRepository.getActiveProjects();
 
         res.render('admin/wish-tree-stats', {
             layout: 'admin',
@@ -63,38 +58,21 @@ router.get('/list', async (req, res) => {
         const limit = 50;
         const offset = (page - 1) * limit;
 
-        // 獲取專案資訊
-        const project = await database.get(
-            'SELECT * FROM event_projects WHERE id = ?',
-            [projectId]
-        );
+        // 使用 Repository 獲取專案資訊
+        const project = await projectRepository.findById(projectId);
 
-        // 獲取總數
-        const totalResult = await database.get(
-            'SELECT COUNT(*) as total FROM wish_tree_interactions WHERE project_id = ?',
-            [projectId]
-        );
+        // 使用 Repository 獲取總數
+        const total = await wishTreeRepository.countByProject(projectId);
 
-        // 獲取許願列表
-        const wishes = await database.query(
-            `SELECT
-                w.*,
-                b.booth_name
-             FROM wish_tree_interactions w
-             LEFT JOIN booths b ON w.booth_id = b.id
-             WHERE w.project_id = ?
-             ORDER BY w.created_at DESC
-             LIMIT ? OFFSET ?`,
-            [projectId, limit, offset]
-        );
+        // 使用 Repository 獲取許願列表
+        const wishes = await wishTreeRepository.findByProjectWithBooth({
+            projectId, limit, offset
+        });
 
-        // 獲取所有專案列表
-        const projects = await database.query(
-            'SELECT id, project_name, project_code FROM event_projects WHERE status = ? ORDER BY created_at DESC',
-            ['active']
-        );
+        // 使用 Repository 獲取活躍專案列表
+        const projects = await projectRepository.getActiveProjects();
 
-        const totalPages = Math.ceil(totalResult.total / limit);
+        const totalPages = Math.ceil(total / limit);
 
         res.render('admin/wish-tree-list', {
             layout: 'admin',
@@ -107,7 +85,7 @@ router.get('/list', async (req, res) => {
             currentProjectId: projectId,
             currentPage: page,
             totalPages,
-            totalWishes: totalResult.total
+            totalWishes: total
         });
     } catch (error) {
         console.error('載入許願樹列表頁面失敗:', error);
@@ -122,31 +100,15 @@ router.get('/export-csv', async (req, res) => {
     try {
         const projectId = req.query.project_id || 5;
 
-        // 獲取專案資訊
-        const project = await database.get(
-            'SELECT project_name, project_code FROM event_projects WHERE id = ?',
-            [projectId]
-        );
+        // 使用 Repository 獲取專案資訊
+        const project = await projectRepository.findById(projectId);
 
         if (!project) {
             return res.status(404).send('專案不存在');
         }
 
-        // 獲取所有許願記錄（包含攤位資訊）
-        const wishes = await database.query(
-            `SELECT
-                w.id,
-                w.wish_text,
-                w.created_at,
-                w.ip_address,
-                b.booth_name,
-                b.booth_code
-             FROM wish_tree_interactions w
-             LEFT JOIN booths b ON w.booth_id = b.id
-             WHERE w.project_id = ?
-             ORDER BY w.created_at DESC`,
-            [projectId]
-        );
+        // 使用 Repository 獲取所有許願記錄（包含攤位資訊）
+        const wishes = await wishTreeRepository.findAllByProjectForExport(projectId);
 
         if (wishes.length === 0) {
             return res.status(404).send('暫無許願記錄');

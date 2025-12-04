@@ -1,13 +1,16 @@
 /**
  * Swagger 自動登入路由
- * 
+ *
  * 提供快速登入功能，方便在 Swagger UI 中測試需要認證的 API
+ *
+ * @refactor 2025-12-04: 使用 Repository 層
  */
 
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
-const database = require('../config/database');
+const userRepository = require('../repositories/user.repository');
+const logRepository = require('../repositories/log.repository');
 
 /**
  * Swagger 快速登入頁面
@@ -286,10 +289,8 @@ router.post('/swagger-login/quick', async (req, res) => {
         const username = 'admin';
         const password = 'admin123';
 
-        const user = await database.get(
-            'SELECT * FROM users WHERE username = ? AND status = ?',
-            [username, 'active']
-        );
+        // 使用 Repository 查詢用戶
+        const user = await userRepository.findActiveByUsername(username);
 
         if (!user) {
             return res.redirect('/swagger-login?error=1');
@@ -311,17 +312,14 @@ router.post('/swagger-login/quick', async (req, res) => {
             role: user.role
         };
 
-        // 記錄登入日誌
-        await database.run(`
-            INSERT INTO admin_logs (user_id, action, details, ip_address, user_agent)
-            VALUES (?, ?, ?, ?, ?)
-        `, [
-            user.id,
-            'swagger_quick_login',
-            JSON.stringify({ username: user.username, method: 'quick_login' }),
-            req.ip || req.connection.remoteAddress,
-            req.get('User-Agent')
-        ]);
+        // 使用 Repository 記錄登入日誌
+        await logRepository.createAdminLog({
+            userId: user.id,
+            action: 'swagger_quick_login',
+            details: { username: user.username, method: 'quick_login' },
+            ipAddress: req.ip || req.connection.remoteAddress,
+            userAgent: req.get('User-Agent')
+        });
 
         res.redirect('/api-docs');
 
@@ -343,10 +341,8 @@ router.post('/swagger-login', async (req, res) => {
             return res.redirect('/swagger-login?error=1');
         }
 
-        const user = await database.get(
-            'SELECT * FROM users WHERE username = ? AND status = ?',
-            [username, 'active']
-        );
+        // 使用 Repository 查詢用戶
+        const user = await userRepository.findActiveByUsername(username);
 
         if (!user) {
             return res.redirect('/swagger-login?error=1');
@@ -368,17 +364,14 @@ router.post('/swagger-login', async (req, res) => {
             role: user.role
         };
 
-        // 記錄登入日誌
-        await database.run(`
-            INSERT INTO admin_logs (user_id, action, details, ip_address, user_agent)
-            VALUES (?, ?, ?, ?, ?)
-        `, [
-            user.id,
-            'swagger_login',
-            JSON.stringify({ username: user.username, method: 'custom_login' }),
-            req.ip || req.connection.remoteAddress,
-            req.get('User-Agent')
-        ]);
+        // 使用 Repository 記錄登入日誌
+        await logRepository.createAdminLog({
+            userId: user.id,
+            action: 'swagger_login',
+            details: { username: user.username, method: 'custom_login' },
+            ipAddress: req.ip || req.connection.remoteAddress,
+            userAgent: req.get('User-Agent')
+        });
 
         res.redirect('/api-docs');
 

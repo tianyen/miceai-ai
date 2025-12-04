@@ -1,18 +1,20 @@
 /**
  * 報到管理路由
+ *
+ * @description 使用 3-Tier 架構：Route -> Repository
+ * @refactor 2025-12-04: 移除直接 database.query，改用 Repository
  */
 const express = require('express');
 const router = express.Router();
-const database = require('../../config/database');
 const responses = require('../../utils/responses');
+const submissionRepository = require('../../repositories/submission.repository');
+const projectRepository = require('../../repositories/project.repository');
 
 // 報到管理頁面
 router.get('/', async (req, res) => {
     try {
-        // 從資料庫載入專案列表
-        const projects = await database.query(
-            `SELECT id, project_name, project_code FROM event_projects ORDER BY id DESC`
-        );
+        // 使用 Repository 取得專案列表
+        const projects = await projectRepository.getAllForDropdown();
 
         res.render('admin/checkin-management', {
             layout: 'admin',
@@ -56,24 +58,9 @@ router.get('/camera-scanner', (req, res) => {
 router.get('/search', async (req, res) => {
     try {
         const { search } = req.query;
-        
-        let searchQuery = `
-            SELECT fs.*, p.project_name 
-            FROM form_submissions fs
-            LEFT JOIN event_projects p ON fs.project_id = p.id
-            WHERE 1=1
-        `;
-        let queryParams = [];
-        
-        if (search && search.trim()) {
-            searchQuery += ` AND (fs.submitter_name LIKE ? OR fs.submitter_email LIKE ? OR fs.submitter_phone LIKE ?)`;
-            const searchTerm = `%${search.trim()}%`;
-            queryParams.push(searchTerm, searchTerm, searchTerm);
-        }
-        
-        searchQuery += ` ORDER BY fs.created_at DESC LIMIT 50`;
-        
-        const participants = await database.query(searchQuery, queryParams);
+
+        // 使用 Repository 進行搜尋（支援 name, email, phone）
+        const participants = await submissionRepository.search({ search, limit: 50 });
         
         // 生成 HTML 表格行
         let html = '';
@@ -129,10 +116,9 @@ router.get('/pagination', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        
-        const countQuery = 'SELECT COUNT(*) as count FROM form_submissions';
-        const totalResult = await database.get(countQuery);
-        const total = totalResult?.count || 0;
+
+        // 使用 Repository 取得總數
+        const total = await submissionRepository.count();
         const pages = Math.ceil(total / limit);
         
         let paginationHtml = '<div class="pagination-info">';

@@ -9,7 +9,6 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateSession } = require('../../middleware/auth');
-const database = require('../../config/database');
 const responses = require('../../utils/responses');
 
 // Services - 3-Tier Architecture Business Logic Layer
@@ -329,8 +328,8 @@ router.get('/questionnaire/:id/qr-download', authenticateSession, async (req, re
         const { type } = req.query;
         const QRCode = require('qrcode');
 
-        // 獲取問卷資訊
-        const questionnaire = await database.get('SELECT * FROM questionnaires WHERE id = ?', [questionnaireId]);
+        // 使用 Service 獲取問卷資訊
+        const questionnaire = await questionnaireService.getById(questionnaireId);
 
         if (!questionnaire) {
             return responses.error(res, '問卷不存在', 404);

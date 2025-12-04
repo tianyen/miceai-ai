@@ -395,6 +395,20 @@ class ProjectRepository extends BaseRepository {
         return this.rawAll(sql);
     }
 
+    /**
+     * 取得活躍專案列表（用於切換下拉選單）
+     * @returns {Promise<Array>}
+     */
+    async getActiveProjects() {
+        const sql = `
+            SELECT id, project_name, project_code
+            FROM event_projects
+            WHERE status = 'active'
+            ORDER BY created_at DESC
+        `;
+        return this.rawAll(sql);
+    }
+
     // ============================================================================
     // 模板相關
     // ============================================================================

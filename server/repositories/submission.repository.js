@@ -80,9 +80,9 @@ class SubmissionRepository extends BaseRepository {
         const params = [];
 
         if (search && search.trim()) {
-            sql += ` AND (fs.submitter_name LIKE ? OR fs.submitter_email LIKE ?)`;
+            sql += ` AND (fs.submitter_name LIKE ? OR fs.submitter_email LIKE ? OR fs.submitter_phone LIKE ?)`;
             const searchTerm = `%${search.trim()}%`;
-            params.push(searchTerm, searchTerm);
+            params.push(searchTerm, searchTerm, searchTerm);
         }
 
         if (projectId) {
@@ -523,6 +523,35 @@ class SubmissionRepository extends BaseRepository {
             WHERE fs.pass_code = ? AND p.project_code = ?
         `;
         return this.rawGet(sql, [passCode, projectCode]);
+    }
+
+    /**
+     * 建立簡化版報名記錄（遺留 API 使用）
+     * @param {Object} data - 報名資料
+     * @returns {Promise<Object>}
+     */
+    async createLegacyRegistration(data) {
+        const sql = `
+            INSERT INTO form_submissions (
+                trace_id, project_id, submitter_name, submitter_email, submitter_phone,
+                participation_level, activity_notifications, product_updates,
+                submission_data, ip_address, user_agent, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        return this.rawRun(sql, [
+            data.traceId,
+            data.projectId,
+            data.name.substring(0, 100),
+            data.email.substring(0, 100),
+            data.phone.substring(0, 20),
+            data.participationLevel,
+            data.activityNotifications ? 1 : 0,
+            data.productUpdates ? 1 : 0,
+            data.submissionData,
+            data.ipAddress,
+            data.userAgent,
+            'pending'
+        ]);
     }
 
     /**

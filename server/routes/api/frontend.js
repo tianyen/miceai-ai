@@ -1,7 +1,18 @@
+/**
+ * 前端報名 API（遺留版本）
+ *
+ * @deprecated 此 API 已被棄用，請使用 V1 API (/api/v1/registration)
+ * 此端點保留僅為向後相容，未來版本將移除
+ *
+ * @see /api/v1/registration - 新版報名 API
+ * @refactor 2025-12-04: 使用 Repository 層
+ */
 const express = require('express');
 const router = express.Router();
-const database = require('../../config/database');
 const responses = require('../../utils/responses');
+const projectRepository = require('../../repositories/project.repository');
+const submissionRepository = require('../../repositories/submission.repository');
+const checkinRepository = require('../../repositories/checkin.repository');
 
 // 專案特定報名提交 API
 router.post('/register', async (req, res) => {
@@ -25,12 +36,8 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        // 驗證專案是否存在且開放報名
-        const project = await database.get(`
-            SELECT id, project_name, status 
-            FROM event_projects 
-            WHERE id = ? AND status = 'active'
-        `, [project_id]);
+        // 使用 Repository 驗證專案是否存在且開放報名
+        const project = await projectRepository.findActiveById(project_id);
 
         if (!project) {
             return responses.error(res, '專案不存在或未開放報名', 404);
@@ -52,21 +59,15 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        // 檢查追蹤 ID 是否已存在
-        const existingSubmission = await database.get(
-            'SELECT id FROM form_submissions WHERE trace_id = ?',
-            [trace_id]
-        );
+        // 使用 Repository 檢查追蹤 ID 是否已存在
+        const traceIdExists = await submissionRepository.traceIdExists(trace_id);
 
-        if (existingSubmission) {
+        if (traceIdExists) {
             return responses.error(res, '此追蹤 ID 已被使用，請重新整理頁面後重新提交', 409);
         }
 
-        // 檢查是否已報名過該專案
-        const existingRegistration = await database.get(`
-            SELECT id FROM form_submissions 
-            WHERE project_id = ? AND submitter_email = ?
-        `, [project_id, email]);
+        // 使用 Repository 檢查是否已報名過該專案
+        const existingRegistration = await submissionRepository.findByProjectAndEmail(project_id, email);
 
         if (existingRegistration) {
             return responses.error(res, '您已報名過此專案', 409);
@@ -86,48 +87,37 @@ router.post('/register', async (req, res) => {
             submission_type: 'project_registration'
         };
 
-        const result = await database.run(`
-            INSERT INTO form_submissions (
-                trace_id, project_id, submitter_name, submitter_email, submitter_phone,
-                participation_level, activity_notifications, product_updates,
-                submission_data, ip_address, user_agent, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-            trace_id,
-            project_id,
-            name.substring(0, 100),
-            email.substring(0, 100),
-            phone.substring(0, 20),
-            parseInt(participation_level) || 50,
-            !!activity_notifications,
-            !!product_updates,
-            JSON.stringify(submissionData),
-            req.ip || req.connection.remoteAddress,
-            req.get('User-Agent'),
-            'pending'
-        ]);
+        // 使用 Repository 建立報名記錄
+        const result = await submissionRepository.createLegacyRegistration({
+            traceId: trace_id,
+            projectId: project_id,
+            name,
+            email,
+            phone,
+            participationLevel: parseInt(participation_level) || 50,
+            activityNotifications: !!activity_notifications,
+            productUpdates: !!product_updates,
+            submissionData: JSON.stringify(submissionData),
+            ipAddress: req.ip || req.connection.remoteAddress,
+            userAgent: req.get('User-Agent')
+        });
 
-        // 記錄參加者互動
-        await database.run(`
-            INSERT INTO participant_interactions (
-                trace_id, project_id, submission_id, interaction_type,
-                interaction_target, interaction_data, ip_address, user_agent
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-            trace_id,
-            project_id,
-            result.lastID,
-            'project_registration',
-            'registration_form',
-            JSON.stringify({
+        // 使用 Repository 記錄參加者互動
+        await checkinRepository.createInteraction({
+            traceId: trace_id,
+            projectId: project_id,
+            submissionId: result.lastID,
+            interactionType: 'project_registration',
+            interactionTarget: 'registration_form',
+            interactionData: {
                 attendee_name: name,
                 project_name: project.project_name,
                 participation_level,
                 notifications_enabled: activity_notifications || product_updates
-            }),
-            req.ip || req.connection.remoteAddress,
-            req.get('User-Agent')
-        ]);
+            },
+            ipAddress: req.ip || req.connection.remoteAddress,
+            userAgent: req.get('User-Agent')
+        });
 
         console.log('專案報名提交成功:', {
             id: result.lastID,

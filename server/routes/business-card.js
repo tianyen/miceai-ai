@@ -1,11 +1,13 @@
 /**
  * 名片展示頁面路由
  * 用於 QR Code 掃描後顯示名片資訊
+ *
+ * @refactor 2025-12-04: 使用 Repository 層
  */
 
 const express = require('express');
 const router = express.Router();
-const database = require('../config/database');
+const businessCardRepository = require('../repositories/business-card.repository');
 
 /**
  * 顯示名片頁面
@@ -15,17 +17,8 @@ router.get('/:cardId', async (req, res) => {
     try {
         const { cardId } = req.params;
         
-        // 查詢名片資料
-        const card = await database.get(`
-            SELECT
-                bc.*,
-                ip.project_name,
-                ip.event_date,
-                ip.event_location
-            FROM business_cards bc
-            LEFT JOIN event_projects ip ON bc.project_id = ip.id
-            WHERE bc.card_id = ? AND bc.is_active = 1
-        `, [cardId]);
+        // 使用 Repository 查詢名片資料
+        const card = await businessCardRepository.findByCardIdWithProject(cardId);
         
         if (!card) {
             return res.status(404).render('error', {
@@ -35,13 +28,8 @@ router.get('/:cardId', async (req, res) => {
             });
         }
         
-        // 更新掃描統計
-        await database.run(`
-            UPDATE business_cards 
-            SET scan_count = scan_count + 1, 
-                last_scanned_at = CURRENT_TIMESTAMP 
-            WHERE card_id = ?
-        `, [cardId]);
+        // 使用 Repository 更新掃描統計
+        await businessCardRepository.incrementScanCount(cardId);
         
         // 格式化名片資料
         const cardData = {

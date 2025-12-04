@@ -1,10 +1,12 @@
 /**
  * 系統日誌管理路由
+ *
+ * @refactor 2025-12-04: 使用 Repository 層
  */
 const express = require('express');
 const router = express.Router();
-const database = require('../../config/database');
 const responses = require('../../utils/responses');
+const logRepository = require('../../repositories/log.repository');
 
 // 系統日誌頁面
 router.get('/', (req, res) => {
@@ -25,10 +27,9 @@ router.get('/pagination', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        
-        const countQuery = 'SELECT COUNT(*) as count FROM system_logs';
-        const totalResult = await database.get(countQuery);
-        const total = totalResult?.count || 0;
+
+        // 使用 Repository 取得總數
+        const total = await logRepository.count();
         const pages = Math.ceil(total / limit);
         
         let paginationHtml = '<div class="pagination-info">';

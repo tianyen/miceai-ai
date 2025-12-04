@@ -29,6 +29,16 @@ class UserRepository extends BaseRepository {
     }
 
     /**
+     * 依使用者名稱查詢活躍用戶（用於登入）
+     * @param {string} username - 使用者名稱
+     * @returns {Promise<Object|null>}
+     */
+    async findActiveByUsername(username) {
+        const sql = `SELECT * FROM users WHERE username = ? AND status = 'active'`;
+        return this.rawGet(sql, [username]);
+    }
+
+    /**
      * 依電子郵件查詢
      * @param {string} email - 電子郵件
      * @returns {Promise<Object|null>}

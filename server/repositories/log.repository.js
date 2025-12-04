@@ -140,6 +140,73 @@ class LogRepository extends BaseRepository {
         `;
         return this.rawAll(sql, [startDate, endDate]);
     }
+
+    /**
+     * 記錄 Admin 日誌
+     * @param {Object} params - 日誌參數
+     * @returns {Promise<Object>}
+     */
+    async createAdminLog({ userId, action, details, ipAddress, userAgent }) {
+        const sql = `
+            INSERT INTO admin_logs (user_id, action, details, ip_address, user_agent)
+            VALUES (?, ?, ?, ?, ?)
+        `;
+        return this.rawRun(sql, [
+            userId,
+            action,
+            details ? JSON.stringify(details) : null,
+            ipAddress,
+            userAgent
+        ]);
+    }
+
+    /**
+     * 搜尋日誌（支援關鍵字、級別、日期過濾）
+     * @param {Object} params - 搜尋參數
+     * @returns {Promise<Array>}
+     */
+    async search({ search, level, dateFilter, limit = 50 } = {}) {
+        let sql = `
+            SELECT l.*, u.full_name as user_name
+            FROM system_logs l
+            LEFT JOIN users u ON l.user_id = u.id
+            WHERE 1=1
+        `;
+        const params = [];
+
+        if (search && search.trim()) {
+            sql += ` AND (l.action LIKE ? OR l.resource_type LIKE ? OR u.full_name LIKE ?)`;
+            const searchTerm = `%${search.trim()}%`;
+            params.push(searchTerm, searchTerm, searchTerm);
+        }
+
+        if (level && level.trim()) {
+            if (level === 'error') {
+                sql += ` AND (l.action LIKE '%error%' OR l.action LIKE '%failed%')`;
+            } else if (level === 'warning') {
+                sql += ` AND l.action LIKE '%warning%'`;
+            } else if (level === 'info') {
+                sql += ` AND l.action NOT LIKE '%error%' AND l.action NOT LIKE '%failed%' AND l.action NOT LIKE '%warning%'`;
+            }
+        }
+
+        if (dateFilter && dateFilter.trim()) {
+            const today = new Date().toISOString().split('T')[0];
+            if (dateFilter === 'today') {
+                sql += ` AND DATE(l.created_at) = ?`;
+                params.push(today);
+            } else if (dateFilter === 'week') {
+                sql += ` AND l.created_at >= datetime('now', '-7 days')`;
+            } else if (dateFilter === 'month') {
+                sql += ` AND l.created_at >= datetime('now', '-30 days')`;
+            }
+        }
+
+        sql += ` ORDER BY l.created_at DESC LIMIT ?`;
+        params.push(limit);
+
+        return this.rawAll(sql, params);
+    }
 }
 
 // 單例模式

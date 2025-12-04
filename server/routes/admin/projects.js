@@ -2,11 +2,13 @@
  * 專案管理路由
  *
  * @refactor 2025-12-01: 使用 projectService
+ * @refactor 2025-12-04: 攤位 API 使用 boothRepository
  */
 const express = require('express');
 const router = express.Router();
 const responses = require('../../utils/responses');
 const { projectService } = require('../../services');
+const boothRepository = require('../../repositories/booth.repository');
 
 // 專案管理頁面
 router.get('/', (req, res) => {
@@ -610,15 +612,9 @@ router.delete('/:projectId/games/:bindingId', async (req, res) => {
 router.get('/:projectId/booths', async (req, res) => {
     try {
         const projectId = req.params.projectId;
-        const db = require('../../config/database');
 
-        const booths = db.querySync(`
-            SELECT b.*,
-                   (SELECT COUNT(*) FROM booth_games bg WHERE bg.booth_id = b.id) as game_count
-            FROM booths b
-            WHERE b.project_id = ?
-            ORDER BY b.id
-        `, [projectId]);
+        // 使用 Repository 取得攤位列表
+        const booths = await boothRepository.findByProjectWithGameCount(projectId);
 
         if (!booths || booths.length === 0) {
             return responses.html(res, `
@@ -676,20 +672,22 @@ router.post('/:projectId/booths', async (req, res) => {
             return responses.badRequest(res, '攤位名稱和代碼為必填');
         }
 
-        const db = require('../../config/database');
-
-        // 檢查代碼是否已存在
-        const existing = db.getSync('SELECT id FROM booths WHERE booth_code = ?', [booth_code]);
+        // 使用 Repository 檢查代碼是否已存在
+        const existing = await boothRepository.findByCode(booth_code);
         if (existing) {
             return responses.badRequest(res, '攤位代碼已存在');
         }
 
-        const result = db.runSync(`
-            INSERT INTO booths (project_id, booth_name, booth_code, location, description, is_active)
-            VALUES (?, ?, ?, ?, ?, 1)
-        `, [projectId, booth_name, booth_code, location || null, description || null]);
+        // 使用 Repository 建立攤位
+        const result = await boothRepository.createBooth({
+            project_id: projectId,
+            booth_name,
+            booth_code,
+            location: location || null,
+            description: description || null
+        });
 
-        return responses.success(res, { id: result.lastID }, '攤位新增成功');
+        return responses.success(res, { id: result.lastInsertRowid }, '攤位新增成功');
     } catch (error) {
         console.error('新增攤位失敗:', error);
         return responses.serverError(res, '新增攤位失敗');
@@ -700,19 +698,15 @@ router.post('/:projectId/booths', async (req, res) => {
 router.delete('/:projectId/booths/:boothId', async (req, res) => {
     try {
         const { projectId, boothId } = req.params;
-        const db = require('../../config/database');
 
-        // 檢查攤位是否屬於該專案
-        const booth = db.getSync('SELECT id FROM booths WHERE id = ? AND project_id = ?', [boothId, projectId]);
+        // 使用 Repository 驗證攤位屬於專案
+        const booth = await boothRepository.findByIdAndProject(boothId, projectId);
         if (!booth) {
             return responses.notFound(res, '找不到此攤位');
         }
 
-        // 刪除相關的遊戲綁定
-        db.runSync('DELETE FROM booth_games WHERE booth_id = ?', [boothId]);
-
-        // 刪除攤位
-        db.runSync('DELETE FROM booths WHERE id = ?', [boothId]);
+        // 使用 Repository 刪除攤位及相關綁定
+        await boothRepository.deleteWithRelated(boothId);
 
         return responses.success(res, null, '攤位已刪除');
     } catch (error) {

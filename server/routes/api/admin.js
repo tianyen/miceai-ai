@@ -294,22 +294,16 @@ router.delete('/questionnaire/:id', authenticateSession, questionnaireController
 router.post('/questionnaire/:id/duplicate', authenticateSession, questionnaireController.duplicateQuestionnaire);
 router.patch('/questionnaire/:id/status', authenticateSession, questionnaireController.toggleQuestionnaireStatus);
 
-// Logs APIs
+// Logs APIs - 使用 Repository 層
+const logRepository = require('../../repositories/log.repository');
+
 router.get('/logs', authenticateSession, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        const offset = (page - 1) * limit;
 
-        const database = require('../../config/database');
-
-        const logs = await database.query(`
-            SELECT l.*, u.full_name as user_name
-            FROM system_logs l
-            LEFT JOIN users u ON l.user_id = u.id
-            ORDER BY l.created_at DESC
-            LIMIT ? OFFSET ?
-        `, [limit, offset]);
+        // 使用 Repository 取得日誌
+        const logs = await logRepository.getLogsWithUser({ page, limit });
 
         // 檢查是否為 HTML 請求
         if (req.headers['x-requested-with'] === 'XMLHttpRequest' || req.query.format === 'html') {
@@ -370,10 +364,8 @@ router.get('/logs/pagination', authenticateSession, async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
 
-        const database = require('../../config/database');
-        const countQuery = 'SELECT COUNT(*) as count FROM system_logs';
-        const totalResult = await database.get(countQuery);
-        const total = totalResult?.count || 0;
+        // 使用 Repository 取得總數
+        const total = await logRepository.count();
         const pages = Math.ceil(total / limit);
 
         res.json({
@@ -398,40 +390,9 @@ router.get('/logs/pagination', authenticateSession, async (req, res) => {
 router.get('/logs/search', authenticateSession, async (req, res) => {
     try {
         const { search, level, 'date-filter': dateFilter } = req.query;
-        const database = require('../../config/database');
 
-        let query = `
-            SELECT l.*, u.full_name as user_name
-            FROM system_logs l
-            LEFT JOIN users u ON l.user_id = u.id
-            WHERE 1=1
-        `;
-        const params = [];
-
-        if (search && search.trim()) {
-            query += ` AND (l.action LIKE ? OR l.resource_type LIKE ? OR u.full_name LIKE ?)`;
-            const searchTerm = `%${search.trim()}%`;
-            params.push(searchTerm, searchTerm, searchTerm);
-        }
-
-        if (level && level.trim()) {
-            if (level === 'error') {
-                query += ` AND (l.action LIKE '%error%' OR l.action LIKE '%failed%')`;
-            } else if (level === 'warning') {
-                query += ` AND l.action LIKE '%warning%'`;
-            } else if (level === 'info') {
-                query += ` AND l.action NOT LIKE '%error%' AND l.action NOT LIKE '%failed%' AND l.action NOT LIKE '%warning%'`;
-            }
-        }
-
-        if (dateFilter && dateFilter.trim()) {
-            query += ` AND DATE(l.created_at) = ?`;
-            params.push(dateFilter);
-        }
-
-        query += ` ORDER BY l.created_at DESC LIMIT 100`;
-
-        const logs = await database.query(query, params);
+        // 使用 Repository 進行搜尋
+        const logs = await logRepository.search({ search, level, dateFilter, limit: 100 });
 
         let html = '';
         if (logs.length === 0) {

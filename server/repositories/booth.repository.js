@@ -240,6 +240,55 @@ class BoothRepository extends BaseRepository {
     async deleteBooth(boothId) {
         return this.rawRun('DELETE FROM booths WHERE id = ?', [boothId]);
     }
+
+    /**
+     * 取得專案第一個攤位
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Object|null>}
+     */
+    async findFirstByProject(projectId) {
+        const sql = `SELECT * FROM booths WHERE project_id = ? LIMIT 1`;
+        return this.rawGet(sql, [projectId]);
+    }
+
+    /**
+     * 取得專案攤位列表（含遊戲數量）
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Array>}
+     */
+    async findByProjectWithGameCount(projectId) {
+        const sql = `
+            SELECT b.*,
+                   (SELECT COUNT(*) FROM booth_games bg WHERE bg.booth_id = b.id) as game_count
+            FROM booths b
+            WHERE b.project_id = ?
+            ORDER BY b.id
+        `;
+        return this.rawAll(sql, [projectId]);
+    }
+
+    /**
+     * 驗證攤位屬於專案
+     * @param {number} boothId - 攤位 ID
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Object|null>}
+     */
+    async findByIdAndProject(boothId, projectId) {
+        const sql = `SELECT id FROM booths WHERE id = ? AND project_id = ?`;
+        return this.rawGet(sql, [boothId, projectId]);
+    }
+
+    /**
+     * 刪除攤位及相關遊戲綁定
+     * @param {number} boothId - 攤位 ID
+     * @returns {Promise<void>}
+     */
+    async deleteWithRelated(boothId) {
+        // 刪除相關的遊戲綁定
+        await this.rawRun('DELETE FROM booth_games WHERE booth_id = ?', [boothId]);
+        // 刪除攤位
+        return this.rawRun('DELETE FROM booths WHERE id = ?', [boothId]);
+    }
 }
 
 // 單例模式
