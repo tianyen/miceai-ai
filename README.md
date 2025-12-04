@@ -214,6 +214,30 @@ server/
 
 > ✅ **Schema 完整性**: `npm run setup` 會使用完整的 `schema.sql` 建立資料庫，包含所有功能所需欄位（團體報名、尊稱/性別/備註等），無需額外執行 migration。
 
+### 報名 API 欄位對照表
+
+| API 欄位 | DB 欄位 | DB Schema | 單人報名 | 團體主報名人 | 團體同行者 |
+|----------|---------|-----------|:--------:|:-----------:|:---------:|
+| `name` | `submitter_name` | `NOT NULL` | ✅ 必填 | ✅ 必填 | ✅ 必填 |
+| `email` | `submitter_email` | `NOT NULL` | ✅ 必填 | ✅ 必填 | ⭕ 選填* |
+| `phone` | `submitter_phone` | `NULL OK` | ✅ 必填 | ✅ 必填 | ⭕ 選填 |
+| `company` | `company_name` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
+| `position` | `position` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
+| `gender` | `gender` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
+| `title` | `title` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
+| `notes` | `notes` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
+| `data_consent` | `data_consent` | `NOT NULL` | ✅ 必填 | ✅ 必填 | - |
+| `marketing_consent` | `marketing_consent` | `DEFAULT 0` | ⭕ 選填 | ⭕ 選填 | - |
+
+> *同行者若未填 email，系統自動使用主報名人的 email
+
+**團體報名專用欄位**:
+| DB 欄位 | 說明 |
+|---------|------|
+| `group_id` | 團體識別碼 (GRP-{timestamp}-{random}) |
+| `is_primary` | 是否為主報名人 (1=主, 0=同行者) |
+| `parent_submission_id` | 同行者指向主報名人的 form_submissions.id |
+
 **資料表欄位**: 查看 `server/database/schema.sql` 獲取完整定義
 
 ### 在腳本中使用資料庫

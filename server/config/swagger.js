@@ -30,10 +30,119 @@ const swaggerDefinition = {
       '|----|----------|------|------|------|\n' +
       '| 1 | `TECH2024` | 2024 資訊月互動許願樹 | 已完成 | 2024-12-01 ~ 12-03 |\n' +
       '| 2 | `MOON2025` | 誠品X天衍 平安夜聯名公益｜沈浸式露天電影院 | 進行中 | 2025-12-24 |\n\n' +
-      '### 4. 前端串接流程\n\n' +
+      '---\n\n' +
+      '## 📝 報名 API 完整教學\n\n' +
+      '### 報名欄位說明\n\n' +
+      '| 欄位 | 類型 | 必填 | 說明 | 範例 |\n' +
+      '|------|------|:----:|------|------|\n' +
+      '| `name` | string | ✅ | 姓名 (2-50字) | `"王大明"` |\n' +
+      '| `email` | string | ✅ | 電子郵件 | `"wang@example.com"` |\n' +
+      '| `phone` | string | ✅ | 手機號碼 (8-20字) | `"0912345678"` |\n' +
+      '| `data_consent` | boolean | ✅ | 資料使用同意 (必須為 true) | `true` |\n' +
+      '| `company` | string | ⭕ | 公司名稱 (最多100字) | `"ABC科技公司"` |\n' +
+      '| `position` | string | ⭕ | 職位 (最多50字) | `"工程師"` |\n' +
+      '| `gender` | string | ⭕ | 性別 | `"男"` / `"女"` / `"其他"` |\n' +
+      '| `title` | string | ⭕ | 尊稱 | `"先生"` / `"女士"` / `"博士"` / `"教授"` |\n' +
+      '| `notes` | string | ⭕ | 留言備註 (最多500字) | `"需要素食餐點"` |\n' +
+      '| `marketing_consent` | boolean | ⭕ | 行銷推廣同意 | `false` |\n\n' +
+      '---\n\n' +
+      '### 方式一：單人報名\n\n' +
+      '**端點：** `POST /api/v1/events/{eventId}/registrations`\n\n' +
+      '```javascript\n' +
+      '// 步驟 1：查詢活動 ID\n' +
+      'const eventRes = await fetch(\'/api/v1/events/code/TECH2024\');\n' +
+      'const { data: event } = await eventRes.json();\n' +
+      'const eventId = event.id;  // 獲取活動 ID\n\n' +
+      '// 步驟 2：提交報名\n' +
+      'const response = await fetch(`/api/v1/events/${eventId}/registrations`, {\n' +
+      '  method: \'POST\',\n' +
+      '  headers: { \'Content-Type\': \'application/json\' },\n' +
+      '  body: JSON.stringify({\n' +
+      '    // ✅ 必填欄位\n' +
+      '    name: \'王大明\',\n' +
+      '    email: \'wang@example.com\',\n' +
+      '    phone: \'0912345678\',\n' +
+      '    data_consent: true,\n' +
+      '    // ⭕ 選填欄位\n' +
+      '    company: \'科技公司\',\n' +
+      '    position: \'工程師\',\n' +
+      '    gender: \'男\',\n' +
+      '    title: \'先生\',\n' +
+      '    notes: \'需要素食餐點\',\n' +
+      '    marketing_consent: false\n' +
+      '  })\n' +
+      '});\n\n' +
+      '// 步驟 3：處理回應\n' +
+      'const result = await response.json();\n' +
+      'if (result.success) {\n' +
+      '  const { trace_id, user_id, pass_code, qr_code } = result.data;\n' +
+      '  console.log(\'報名成功！\', { trace_id, user_id, pass_code });\n' +
+      '  // 顯示 QR Code：document.getElementById(\'qr\').src = qr_code.base64;\n' +
+      '}\n' +
+      '```\n\n' +
+      '---\n\n' +
+      '### 方式二：團體報名 (最多 5 人)\n\n' +
+      '**端點：** `POST /api/v1/events/{eventId}/registrations/batch`\n\n' +
+      '```javascript\n' +
+      'const response = await fetch(`/api/v1/events/${eventId}/registrations/batch`, {\n' +
+      '  method: \'POST\',\n' +
+      '  headers: { \'Content-Type\': \'application/json\' },\n' +
+      '  body: JSON.stringify({\n' +
+      '    // 主報名人\n' +
+      '    primaryParticipant: {\n' +
+      '      // ✅ 必填\n' +
+      '      name: \'王大明\',\n' +
+      '      email: \'wang@example.com\',\n' +
+      '      phone: \'0912345678\',\n' +
+      '      data_consent: true,\n' +
+      '      // ⭕ 選填\n' +
+      '      company: \'ABC 科技公司\',\n' +
+      '      position: \'經理\',\n' +
+      '      gender: \'男\',\n' +
+      '      title: \'先生\',\n' +
+      '      notes: \'團體報名\',\n' +
+      '      marketing_consent: false\n' +
+      '    },\n' +
+      '    // 同行者 (最多 4 人)\n' +
+      '    participants: [\n' +
+      '      {\n' +
+      '        name: \'李小華\',           // ✅ 必填\n' +
+      '        // ⭕ 以下皆選填\n' +
+      '        email: \'li@example.com\', // 空白則使用主報名人 Email\n' +
+      '        phone: \'0987654321\',\n' +
+      '        company: \'ABC 科技公司\',\n' +
+      '        position: \'工程師\',\n' +
+      '        gender: \'女\',\n' +
+      '        title: \'女士\'\n' +
+      '      },\n' +
+      '      { name: \'張三\' }  // 最簡形式：只需 name\n' +
+      '    ]\n' +
+      '  })\n' +
+      '});\n\n' +
+      'const result = await response.json();\n' +
+      'if (result.success) {\n' +
+      '  console.log(`團體報名成功！共 ${result.data.count} 人`);\n' +
+      '  console.log(\'Group ID:\', result.data.groupId);\n' +
+      '  result.data.registrations.forEach(r => {\n' +
+      '    console.log(`${r.name}: trace_id=${r.trace_id}, user_id=${r.user_id}`);\n' +
+      '  });\n' +
+      '}\n' +
+      '```\n\n' +
+      '---\n\n' +
+      '### 報名後續操作\n\n' +
+      '| 操作 | 端點 | 說明 |\n' +
+      '|------|------|------|\n' +
+      '| 查詢報名狀態 | `GET /api/v1/registrations/{traceId}` | 取得報名詳情、QR Code、報到狀態 |\n' +
+      '| 取得 QR Code 圖片 | `GET /api/v1/qr-codes/{traceId}` | 直接返回 PNG 圖片 |\n' +
+      '| 取得 QR Code Base64 | `GET /api/v1/qr-codes/{traceId}/data` | 返回 Base64 編碼 |\n' +
+      '| 重寄邀請信 | `POST /api/v1/registrations/{traceId}/resend-email` | 重新發送確認郵件 |\n' +
+      '| 驗證通行碼 | `POST /api/v1/verify-pass-code` | 用 6 位數通行碼恢復 trace_id |\n\n' +
+      '---\n\n' +
+      '### 4. 完整串接流程\n\n' +
       '```\n' +
-      '1. GET /api/v1/events/{eventId} → 取得活動資訊\n' +
-      '2. POST /api/v1/events/{eventId}/registrations → 報名並取得 trace_id、user_id\n' +
+      '1. GET /api/v1/events/code/{projectCode} → 取得活動資訊和 eventId\n' +
+      '2. POST /api/v1/events/{eventId}/registrations → 報名取得 trace_id、user_id\n' +
+      '   或 POST /api/v1/events/{eventId}/registrations/batch → 團體報名\n' +
       '3. POST /api/v1/games/{gameId}/start → 開始遊戲 (傳入 user_id)\n' +
       '4. POST /api/v1/games/{gameId}/end → 結束遊戲取得兌換券 QR Code\n' +
       '```\n\n' +
