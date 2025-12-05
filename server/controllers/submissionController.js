@@ -1,135 +1,45 @@
-const database = require('../config/database');
+/**
+ * Submission Controller - 表單提交控制器
+ *
+ * @description 處理 HTTP 請求，調用 SubmissionService 處理業務邏輯
+ * @refactor 2025-12-05: 使用 SubmissionService，移除直接 DB 訪問
+ */
+const { submissionService } = require('../services');
 const { logUserActivity } = require('../middleware/auth');
+const vh = require('../utils/viewHelpers');
 
 class SubmissionController {
+    // ============================================================================
+    // 列表與查詢
+    // ============================================================================
+
+    /**
+     * 取得提交記錄列表
+     */
     async getSubmissions(req, res) {
         try {
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 20;
-            const offset = (page - 1) * limit;
             const projectId = req.query.project_id;
-            const userId = req.user.id;
-            const userRole = req.user.role;
 
-            let submissionsQuery = `
-                SELECT s.*, p.project_name
-                FROM form_submissions s
-                LEFT JOIN event_projects p ON s.project_id = p.id
-            `;
-            let countQuery = `
-                SELECT COUNT(*) as count
-                FROM form_submissions s
-                LEFT JOIN event_projects p ON s.project_id = p.id
-            `;
+            const result = await submissionService.getSubmissionsList({
+                userId: req.user.id,
+                userRole: req.user.role,
+                page,
+                limit,
+                projectId
+            });
 
-            let whereClause = '';
-            let queryParams = [];
-
-            // 權限過濾
-            if (userRole !== 'super_admin') {
-                whereClause += `
-                    WHERE (p.created_by = ? OR p.id IN (
-                        SELECT project_id FROM user_project_permissions WHERE user_id = ?
-                    ))
-                `;
-                queryParams.push(userId, userId);
+            // 檢查是否要求 HTML 格式
+            if (this._isHtmlRequest(req)) {
+                const html = this._renderSubmissionsTable(result.submissions);
+                return res.send(html);
             }
 
-            // 項目過濾
-            if (projectId) {
-                if (whereClause) {
-                    whereClause += ' AND p.id = ?';
-                } else {
-                    whereClause = ' WHERE p.id = ?';
-                }
-                queryParams.push(projectId);
-            }
-
-            submissionsQuery += whereClause + ' ORDER BY s.created_at DESC LIMIT ? OFFSET ?';
-            countQuery += whereClause;
-
-            const submissions = await database.query(submissionsQuery, [...queryParams, limit, offset]);
-            const totalResult = await database.get(countQuery, queryParams);
-            const total = totalResult.count;
-
-            // Check if HTML response is requested
-            if (req.headers['x-requested-with'] === 'XMLHttpRequest' || req.query.format === 'html') {
-                let html = '';
-
-                if (submissions.length === 0) {
-                    html = `
-                        <tr>
-                            <td colspan="7" class="empty-state">
-                                <div class="empty-icon">📝</div>
-                                <div class="empty-text">
-                                    <h4>尚無表單數據</h4>
-                                    <p>還沒有任何表單提交記錄</p>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                } else {
-                    // Define getStatusBadge function locally
-                    const getStatusBadge = (status) => {
-                        const statusMap = {
-                            'pending': '<span class="badge badge-warning">待處理</span>',
-                            'approved': '<span class="badge badge-success">已批准</span>',
-                            'rejected': '<span class="badge badge-danger">已拒絕</span>',
-                            'confirmed': '<span class="badge badge-success">已確認</span>',
-                            'cancelled': '<span class="badge badge-secondary">已取消</span>'
-                        };
-                        return statusMap[status] || '<span class="badge badge-secondary">未知</span>';
-                    };
-
-                    submissions.forEach(submission => {
-                        const statusBadge = getStatusBadge(submission.status);
-                        const submittedAt = new Date(submission.created_at).toLocaleString('zh-TW');
-
-                        html += `
-                            <tr>
-                                <td>
-                                    <div class="submission-info">
-                                        <strong>${submission.submitter_name}</strong>
-                                        <div class="submission-email">${submission.submitter_email}</div>
-                                    </div>
-                                </td>
-                                <td>${submission.submitter_phone || '-'}</td>
-                                <td>${submission.project_name || '-'}</td>
-                                <td>${statusBadge}</td>
-                                <td>${submittedAt}</td>
-                                <td>
-                                    <div class="submission-actions">
-                                        <button class="btn btn-sm btn-primary" onclick="viewSubmission(${submission.id})" title="查看詳情">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-success" onclick="editSubmission(${submission.id})" title="編輯">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" onclick="deleteSubmission(${submission.id})" title="刪除">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                }
-
-                res.send(html);
-            } else {
-                res.json({
-                    success: true,
-                    data: {
-                        submissions,
-                        pagination: {
-                            page,
-                            limit,
-                            total,
-                            pages: Math.ceil(total / limit)
-                        }
-                    }
-                });
-            }
+            res.json({
+                success: true,
+                data: result
+            });
 
         } catch (error) {
             console.error('獲取提交列表失敗:', error);
@@ -140,66 +50,23 @@ class SubmissionController {
         }
     }
 
-    // 提交記錄分頁
+    /**
+     * 取得提交記錄分頁
+     */
     async getSubmissionsPagination(req, res) {
         try {
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 20;
-            const userId = req.user.id;
-            const userRole = req.user.role;
 
-            let countQuery = 'SELECT COUNT(*) as count FROM form_submissions fs';
-            let queryParams = [];
+            const result = await submissionService.getSubmissionsList({
+                userId: req.user.id,
+                userRole: req.user.role,
+                page,
+                limit
+            });
 
-            // 權限過濾
-            if (userRole !== 'super_admin') {
-                countQuery += ` LEFT JOIN event_projects p ON fs.project_id = p.id
-                              WHERE (p.created_by = ? OR p.id IN (
-                                  SELECT project_id FROM user_project_permissions WHERE user_id = ?
-                              ))`;
-                queryParams = [userId, userId];
-            }
-
-            const totalResult = await database.get(countQuery, queryParams);
-            const total = totalResult.count;
-            const pages = Math.ceil(total / limit);
-
-            let paginationHtml = '<div class="pagination-info">';
-            paginationHtml += `<span>共 ${total} 筆提交記錄，第 ${page} 頁 / 共 ${pages} 頁</span>`;
-            paginationHtml += '</div>';
-
-            if (pages > 1) {
-                paginationHtml += '<div class="pagination-controls">';
-
-                if (page > 1) {
-                    paginationHtml += `<button class="btn btn-sm btn-outline-primary" onclick="loadSubmissionsPage(${page - 1})">上一頁</button>`;
-                }
-
-                const startPage = Math.max(1, page - 2);
-                const endPage = Math.min(pages, page + 2);
-
-                for (let i = startPage; i <= endPage; i++) {
-                    const activeClass = i === page ? 'btn-primary' : 'btn-outline-primary';
-                    paginationHtml += `<button class="btn btn-sm ${activeClass}" onclick="loadSubmissionsPage(${i})">${i}</button>`;
-                }
-
-                if (page < pages) {
-                    paginationHtml += `<button class="btn btn-sm btn-outline-primary" onclick="loadSubmissionsPage(${page + 1})">下一頁</button>`;
-                }
-
-                paginationHtml += '</div>';
-            }
-
-            paginationHtml += `
-            <script>
-                function loadSubmissionsPage(page) {
-                    if (typeof loadSubmissions === 'function') loadSubmissions(page);
-                    if (typeof loadSubmissionsPagination === 'function') loadSubmissionsPagination(page);
-                }
-            </script>
-            `;
-
-            res.send(paginationHtml);
+            const html = this._renderPagination(result.pagination, page);
+            res.send(html);
 
         } catch (error) {
             console.error('獲取提交記錄分頁失敗:', error);
@@ -207,30 +74,18 @@ class SubmissionController {
         }
     }
 
+    /**
+     * 取得最近提交記錄
+     */
     async getRecentSubmissions(req, res) {
         try {
             const limit = parseInt(req.query.limit) || 10;
-            const userId = req.user.id;
-            const userRole = req.user.role;
 
-            let query = `
-                SELECT s.*, p.project_name
-                FROM form_submissions s
-                LEFT JOIN event_projects p ON s.project_id = p.id
-            `;
-            let queryParams = [];
-
-            if (userRole !== 'super_admin') {
-                query += `
-                    WHERE (p.created_by = ? OR p.id IN (
-                        SELECT project_id FROM user_project_permissions WHERE user_id = ?
-                    ))
-                `;
-                queryParams = [userId, userId];
-            }
-
-            query += ' ORDER BY s.created_at DESC LIMIT ?';
-            const submissions = await database.query(query, [...queryParams, limit]);
+            const submissions = await submissionService.getRecentSubmissions({
+                userId: req.user.id,
+                userRole: req.user.role,
+                limit
+            });
 
             res.json({
                 success: true,
@@ -246,57 +101,34 @@ class SubmissionController {
         }
     }
 
+    // ============================================================================
+    // 詳情
+    // ============================================================================
+
+    /**
+     * 取得提交記錄詳情
+     */
     async getSubmission(req, res) {
         try {
             const submissionId = req.params.id;
-            const userId = req.user.id;
-            const userRole = req.user.role;
 
-            let query = `
-                SELECT s.*, p.project_name, p.created_by as project_creator
-                FROM form_submissions s
-                LEFT JOIN event_projects p ON s.project_id = p.id
-                WHERE s.id = ?
-            `;
-            let queryParams = [submissionId];
+            const result = await submissionService.getSubmissionDetail(
+                submissionId,
+                req.user.id,
+                req.user.role
+            );
 
-            const submission = await database.get(query, queryParams);
-
-            if (!submission) {
-                return res.status(404).json({
+            if (!result.success) {
+                const statusCode = result.error === 'NOT_FOUND' ? 404 : 403;
+                return res.status(statusCode).json({
                     success: false,
-                    message: '提交記錄不存在'
+                    message: result.message
                 });
-            }
-
-            // 檢查權限
-            if (userRole !== 'super_admin') {
-                const hasPermission = submission.project_creator === userId ||
-                    await database.get(`
-                        SELECT 1 FROM user_project_permissions 
-                        WHERE user_id = ? AND project_id = ?
-                    `, [userId, submission.project_id]);
-
-                if (!hasPermission) {
-                    return res.status(403).json({
-                        success: false,
-                        message: '權限不足'
-                    });
-                }
-            }
-
-            // 解析 submission_data
-            if (submission.submission_data) {
-                try {
-                    submission.submission_data = JSON.parse(submission.submission_data);
-                } catch (e) {
-                    // 如果解析失敗，保留原始字符串
-                }
             }
 
             res.json({
                 success: true,
-                data: submission
+                data: result.data
             });
 
         } catch (error) {
@@ -308,54 +140,30 @@ class SubmissionController {
         }
     }
 
+    // ============================================================================
+    // 更新操作
+    // ============================================================================
+
+    /**
+     * 更新提交記錄狀態
+     */
     async updateSubmissionStatus(req, res) {
         try {
             const submissionId = req.params.id;
             const { status } = req.body;
-            const userId = req.user.id;
-            const userRole = req.user.role;
 
-            // 獲取提交信息以檢查權限
-            const submission = await database.get(`
-                SELECT s.*, p.created_by as project_creator
-                FROM form_submissions s
-                LEFT JOIN event_projects p ON s.project_id = p.id
-                WHERE s.id = ?
-            `, [submissionId]);
+            const result = await submissionService.updateStatus(
+                submissionId,
+                status,
+                req.user.id,
+                req.user.role
+            );
 
-            if (!submission) {
-                return res.status(404).json({
+            if (!result.success) {
+                const statusCode = result.error === 'NOT_FOUND' ? 404 : 403;
+                return res.status(statusCode).json({
                     success: false,
-                    message: '提交記錄不存在'
-                });
-            }
-
-            // 檢查權限 - 只有項目創建者或有寫入權限的用戶可以更新狀態
-            if (userRole !== 'super_admin') {
-                const hasPermission = submission.project_creator === userId ||
-                    await database.get(`
-                        SELECT 1 FROM user_project_permissions 
-                        WHERE user_id = ? AND project_id = ? AND permission_level IN ('write', 'admin')
-                    `, [userId, submission.project_id]);
-
-                if (!hasPermission) {
-                    return res.status(403).json({
-                        success: false,
-                        message: '權限不足'
-                    });
-                }
-            }
-
-            const result = await database.run(`
-                UPDATE form_submissions 
-                SET status = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            `, [status, submissionId]);
-
-            if (result.changes === 0) {
-                return res.status(404).json({
-                    success: false,
-                    message: '提交記錄不存在'
+                    message: result.message
                 });
             }
 
@@ -364,13 +172,13 @@ class SubmissionController {
                 'submission_status_updated',
                 'submission',
                 submissionId,
-                { status, submission_name: submission.submitter_name },
+                { status, submission_name: result.submission.submitter_name },
                 req.ip
             );
 
             res.json({
                 success: true,
-                message: '狀態更新成功'
+                message: result.message
             });
 
         } catch (error) {
@@ -382,73 +190,31 @@ class SubmissionController {
         }
     }
 
+    /**
+     * 更新提交記錄
+     */
     async updateSubmission(req, res) {
         try {
             const submissionId = req.params.id;
             const updates = req.body;
-            const userId = req.user.id;
-            const userRole = req.user.role;
 
-            // 獲取提交信息以檢查權限
-            const submission = await database.get(`
-                SELECT s.*, p.created_by as project_creator
-                FROM form_submissions s
-                LEFT JOIN event_projects p ON s.project_id = p.id
-                WHERE s.id = ?
-            `, [submissionId]);
+            const result = await submissionService.updateSubmission(
+                submissionId,
+                updates,
+                req.user.id,
+                req.user.role
+            );
 
-            if (!submission) {
-                return res.status(404).json({
+            if (!result.success) {
+                const statusCode = {
+                    'NOT_FOUND': 404,
+                    'FORBIDDEN': 403,
+                    'NO_FIELDS': 400
+                }[result.error] || 400;
+
+                return res.status(statusCode).json({
                     success: false,
-                    message: '提交記錄不存在'
-                });
-            }
-
-            // 檢查權限 - 只有項目創建者或有寫入權限的用戶可以更新
-            if (userRole !== 'super_admin') {
-                const hasPermission = submission.project_creator === userId ||
-                    await database.get(`
-                        SELECT 1 FROM user_project_permissions 
-                        WHERE user_id = ? AND project_id = ? AND permission_level IN ('write', 'admin')
-                    `, [userId, submission.project_id]);
-
-                if (!hasPermission) {
-                    return res.status(403).json({
-                        success: false,
-                        message: '權限不足'
-                    });
-                }
-            }
-
-            // 構建更新查詢
-            const allowedFields = ['status', 'notes', 'admin_notes'];
-            const updateFields = [];
-            const updateValues = [];
-
-            Object.keys(updates).forEach(field => {
-                if (allowedFields.includes(field) && updates[field] !== undefined) {
-                    updateFields.push(`${field} = ?`);
-                    updateValues.push(updates[field]);
-                }
-            });
-
-            if (updateFields.length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: '沒有有效的更新字段'
-                });
-            }
-
-            updateFields.push('updated_at = CURRENT_TIMESTAMP');
-            updateValues.push(submissionId);
-
-            const query = `UPDATE form_submissions SET ${updateFields.join(', ')} WHERE id = ?`;
-            const result = await database.run(query, updateValues);
-
-            if (result.changes === 0) {
-                return res.status(404).json({
-                    success: false,
-                    message: '提交記錄不存在'
+                    message: result.message
                 });
             }
 
@@ -457,13 +223,13 @@ class SubmissionController {
                 'submission_updated',
                 'submission',
                 submissionId,
-                { updated_fields: Object.keys(updates), submission_name: submission.submitter_name },
+                { updated_fields: result.updatedFields, submission_name: result.submission.submitter_name },
                 req.ip
             );
 
             res.json({
                 success: true,
-                message: '提交記錄更新成功'
+                message: result.message
             });
 
         } catch (error) {
@@ -475,65 +241,43 @@ class SubmissionController {
         }
     }
 
+    // ============================================================================
+    // 刪除操作
+    // ============================================================================
+
+    /**
+     * 刪除提交記錄
+     */
     async deleteSubmission(req, res) {
         try {
             const submissionId = req.params.id;
-            const userId = req.user.id;
-            const userRole = req.user.role;
 
-            // 獲取提交信息以檢查權限
-            const submission = await database.get(`
-                SELECT s.*, p.created_by as project_creator
-                FROM form_submissions s
-                LEFT JOIN event_projects p ON s.project_id = p.id
-                WHERE s.id = ?
-            `, [submissionId]);
+            const result = await submissionService.deleteSubmission(
+                submissionId,
+                req.user.role
+            );
 
-            if (!submission) {
-                return res.status(404).json({
+            if (!result.success) {
+                const statusCode = result.error === 'NOT_FOUND' ? 404 : 403;
+                return res.status(statusCode).json({
                     success: false,
-                    message: '提交記錄不存在'
+                    message: result.message
                 });
             }
 
-            // 檢查權限 - 只有超級管理員或項目管理員可以刪除
-            if (!['super_admin', 'project_manager'].includes(userRole)) {
-                return res.status(403).json({
-                    success: false,
-                    message: '權限不足'
-                });
-            }
+            await logUserActivity(
+                req.user.id,
+                'submission_deleted',
+                'submission',
+                submissionId,
+                { submission_name: result.submission.submitter_name },
+                req.ip
+            );
 
-            // 開始事務
-            await database.beginTransaction();
-
-            try {
-                // 刪除相關 QR 碼記錄
-                await database.run('DELETE FROM qr_codes WHERE submission_id = ?', [submissionId]);
-
-                // 刪除提交記錄
-                await database.run('DELETE FROM form_submissions WHERE id = ?', [submissionId]);
-
-                await database.commit();
-
-                await logUserActivity(
-                    req.user.id,
-                    'submission_deleted',
-                    'submission',
-                    submissionId,
-                    { submission_name: submission.submitter_name },
-                    req.ip
-                );
-
-                res.json({
-                    success: true,
-                    message: '提交記錄刪除成功'
-                });
-
-            } catch (error) {
-                await database.rollback();
-                throw error;
-            }
+            res.json({
+                success: true,
+                message: result.message
+            });
 
         } catch (error) {
             console.error('刪除提交記錄失敗:', error);
@@ -544,50 +288,22 @@ class SubmissionController {
         }
     }
 
+    // ============================================================================
+    // 統計與匯出
+    // ============================================================================
+
+    /**
+     * 取得提交記錄統計
+     */
     async getSubmissionStats(req, res) {
         try {
             const projectId = req.query.project_id;
-            const userId = req.user.id;
-            const userRole = req.user.role;
 
-            let whereClause = '';
-            let queryParams = [];
-
-            // 權限過濾
-            if (userRole !== 'super_admin') {
-                whereClause = `
-                    WHERE s.project_id IN (
-                        SELECT id FROM event_projects 
-                        WHERE created_by = ? 
-                        UNION 
-                        SELECT project_id FROM user_project_permissions WHERE user_id = ?
-                    )
-                `;
-                queryParams = [userId, userId];
-            }
-
-            // 項目過濾
-            if (projectId) {
-                if (whereClause) {
-                    whereClause += ' AND s.project_id = ?';
-                } else {
-                    whereClause = ' WHERE s.project_id = ?';
-                }
-                queryParams.push(projectId);
-            }
-
-            const stats = await database.get(`
-                SELECT 
-                    COUNT(*) as total,
-                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-                    SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-                    SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
-                    COUNT(CASE WHEN date(created_at) = date('now') THEN 1 END) as today,
-                    COUNT(CASE WHEN date(created_at) >= date('now', '-7 days') THEN 1 END) as this_week,
-                    COUNT(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') THEN 1 END) as this_month
-                FROM form_submissions s
-                ${whereClause}
-            `, queryParams);
+            const stats = await submissionService.getStats({
+                userId: req.user.id,
+                userRole: req.user.role,
+                projectId
+            });
 
             res.json({
                 success: true,
@@ -603,65 +319,23 @@ class SubmissionController {
         }
     }
 
+    /**
+     * 匯出提交記錄
+     */
     async exportSubmissions(req, res) {
         try {
-            const projectId = req.query.project_id;
-            const status = req.query.status;
-            const startDate = req.query.start_date;
-            const endDate = req.query.end_date;
-            const userId = req.user.id;
-            const userRole = req.user.role;
-
-            let query = `
-                SELECT s.*, p.project_name
-                FROM form_submissions s
-                LEFT JOIN event_projects p ON s.project_id = p.id
-            `;
-            let whereConditions = [];
-            let queryParams = [];
-
-            // 權限過濾
-            if (userRole !== 'super_admin') {
-                whereConditions.push(`
-                    (p.created_by = ? OR p.id IN (
-                        SELECT project_id FROM user_project_permissions WHERE user_id = ?
-                    ))
-                `);
-                queryParams.push(userId, userId);
-            }
-
-            // 其他過濾條件
-            if (projectId) {
-                whereConditions.push('s.project_id = ?');
-                queryParams.push(projectId);
-            }
-
-            if (status) {
-                whereConditions.push('s.status = ?');
-                queryParams.push(status);
-            }
-
-            if (startDate) {
-                whereConditions.push('date(s.created_at) >= ?');
-                queryParams.push(startDate);
-            }
-
-            if (endDate) {
-                whereConditions.push('date(s.created_at) <= ?');
-                queryParams.push(endDate);
-            }
-
-            if (whereConditions.length > 0) {
-                query += ' WHERE ' + whereConditions.join(' AND ');
-            }
-
-            query += ' ORDER BY s.created_at DESC';
-
-            const submissions = await database.query(query, queryParams);
+            const result = await submissionService.exportSubmissions({
+                userId: req.user.id,
+                userRole: req.user.role,
+                projectId: req.query.project_id,
+                status: req.query.status,
+                startDate: req.query.start_date,
+                endDate: req.query.end_date
+            });
 
             // 轉換為 CSV 格式
             const csvHeader = 'ID,姓名,郵箱,電話,公司名稱,職位,項目名稱,狀態,提交時間';
-            const csvRows = submissions.map(s => {
+            const csvRows = result.submissions.map(s => {
                 return [
                     s.id,
                     s.submitter_name,
@@ -670,9 +344,9 @@ class SubmissionController {
                     s.company_name || '',
                     s.position || '',
                     s.project_name,
-                    s.status === 'pending' ? '待審核' : s.status === 'approved' ? '已批准' : '已拒絕',
+                    submissionService.formatStatusText(s.status),
                     new Date(s.created_at).toLocaleString('zh-TW')
-                ].map(field => `"${field}"`).join(',');
+                ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
             });
 
             const csv = [csvHeader, ...csvRows].join('\n');
@@ -686,7 +360,7 @@ class SubmissionController {
                 'submissions_exported',
                 'submission',
                 null,
-                { count: submissions.length },
+                { count: result.count },
                 req.ip
             );
 
@@ -697,6 +371,106 @@ class SubmissionController {
                 message: '導出提交數據失敗'
             });
         }
+    }
+
+    // ============================================================================
+    // 輔助方法 (Private)
+    // ============================================================================
+
+    /**
+     * 判斷是否為 HTML 請求
+     * @private
+     */
+    _isHtmlRequest(req) {
+        return req.headers['x-requested-with'] === 'XMLHttpRequest' || req.query.format === 'html';
+    }
+
+    /**
+     * 渲染提交記錄表格
+     * @private
+     */
+    _renderSubmissionsTable(submissions) {
+        if (submissions.length === 0) {
+            return vh.emptyTableRow('尚無表單數據', 6, '📝', '還沒有任何表單提交記錄');
+        }
+
+        return submissions.map(submission => {
+            const statusBadge = vh.statusBadge(submission.status);
+            const submittedAt = new Date(submission.created_at).toLocaleString('zh-TW');
+
+            return `
+                <tr>
+                    <td>
+                        <div class="submission-info">
+                            <strong>${vh.escapeHtml(submission.submitter_name)}</strong>
+                            <div class="submission-email">${vh.escapeHtml(submission.submitter_email)}</div>
+                        </div>
+                    </td>
+                    <td>${vh.escapeHtml(submission.submitter_phone || '-')}</td>
+                    <td>${vh.escapeHtml(submission.project_name || '-')}</td>
+                    <td>${statusBadge}</td>
+                    <td>${submittedAt}</td>
+                    <td>
+                        <div class="submission-actions">
+                            <button class="btn btn-sm btn-primary" onclick="viewSubmission(${submission.id})" title="查看詳情">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-success" onclick="editSubmission(${submission.id})" title="編輯">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteSubmission(${submission.id})" title="刪除">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    /**
+     * 渲染分頁控制
+     * @private
+     */
+    _renderPagination(pagination, currentPage) {
+        const { total, pages } = pagination;
+
+        let html = '<div class="pagination-info">';
+        html += `<span>共 ${total} 筆提交記錄，第 ${currentPage} 頁 / 共 ${pages} 頁</span>`;
+        html += '</div>';
+
+        if (pages > 1) {
+            html += '<div class="pagination-controls">';
+
+            if (currentPage > 1) {
+                html += `<button class="btn btn-sm btn-outline-primary" onclick="loadSubmissionsPage(${currentPage - 1})">上一頁</button>`;
+            }
+
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(pages, currentPage + 2);
+
+            for (let i = startPage; i <= endPage; i++) {
+                const activeClass = i === currentPage ? 'btn-primary' : 'btn-outline-primary';
+                html += `<button class="btn btn-sm ${activeClass}" onclick="loadSubmissionsPage(${i})">${i}</button>`;
+            }
+
+            if (currentPage < pages) {
+                html += `<button class="btn btn-sm btn-outline-primary" onclick="loadSubmissionsPage(${currentPage + 1})">下一頁</button>`;
+            }
+
+            html += '</div>';
+        }
+
+        html += `
+        <script>
+            function loadSubmissionsPage(page) {
+                if (typeof loadSubmissions === 'function') loadSubmissions(page);
+                if (typeof loadSubmissionsPagination === 'function') loadSubmissionsPagination(page);
+            }
+        </script>
+        `;
+
+        return html;
     }
 }
 
