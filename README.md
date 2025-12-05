@@ -228,8 +228,18 @@ server/
 | `notes` | `notes` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
 | `data_consent` | `data_consent` | `NOT NULL` | ✅ 必填 | ✅ 必填 | - |
 | `marketing_consent` | `marketing_consent` | `DEFAULT 0` | ⭕ 選填 | ⭕ 選填 | - |
+| `adult_age` | `adult_age` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
+| `children_count` | `children_count` | `DEFAULT 0` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
+| `children_ages` | `children_ages` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
 
 > *同行者若未填 email，系統自動使用主報名人的 email
+
+**年齡欄位說明**:
+| API 欄位 | 類型 | 範圍 | 說明 |
+|----------|------|------|------|
+| `adult_age` | Integer | 18-120 | 成年人年齡 |
+| `children_count` | Integer | 0-10 | 小朋友數量 |
+| `children_ages` | Array[Integer] | 每個 0-17 | 小朋友年齡陣列，例如 `[5, 8, 12]` |
 
 **團體報名專用欄位**:
 | DB 欄位 | 說明 |
@@ -362,6 +372,11 @@ pm2 startup
 **維護者**: MICE-AI Team
 
 ### 更新日誌
+
+#### 2025-12-05
+- 新增：個人報名 API 支援年齡相關欄位 (`adult_age`, `children_count`, `children_ages`)
+- 更新：Swagger 文檔同步更新
+- 驗證：所有測試 5/5 通過
 
 #### 2025-12-04
 - 新增：邀請信管理功能（後台郵件管理頁面）

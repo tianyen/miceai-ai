@@ -98,6 +98,9 @@ CREATE TABLE IF NOT EXISTS form_submissions (
     gender VARCHAR(10),                    -- 性別：男/女/其他
     title VARCHAR(20),                     -- 尊稱：先生/女士/博士/教授
     notes TEXT,                            -- 留言備註
+    adult_age INTEGER,                      -- 成年人年齡
+    children_count INTEGER DEFAULT 0,       -- 小朋友數量
+    children_ages TEXT,                     -- 小朋友年齡 (JSON 陣列，如 "[5, 8, 12]")
     pass_code VARCHAR(6),
     department VARCHAR(100),
     employee_id VARCHAR(50),

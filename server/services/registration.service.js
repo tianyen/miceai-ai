@@ -29,6 +29,7 @@ class RegistrationService extends BaseService {
             eventId, name, email, phone,
             company, position,
             gender, title, notes,
+            adultAge, childrenCount, childrenAges,
             dataConsent, marketingConsent,
             ipAddress, userAgent
         } = data;
@@ -87,6 +88,9 @@ class RegistrationService extends BaseService {
             gender,
             title,
             notes,
+            adultAge,
+            childrenCount,
+            childrenAges,
             passCode,
             dataConsent,
             marketingConsent,

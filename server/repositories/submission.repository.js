@@ -370,10 +370,11 @@ class SubmissionRepository extends BaseRepository {
         const sql = `
             INSERT INTO form_submissions (
                 trace_id, project_id, submitter_name, submitter_email, submitter_phone,
-                company_name, position, gender, title, notes, pass_code,
-                data_consent, marketing_consent, activity_notifications, product_updates,
+                company_name, position, gender, title, notes,
+                adult_age, children_count, children_ages,
+                pass_code, data_consent, marketing_consent, activity_notifications, product_updates,
                 ip_address, user_agent, status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         `;
         return this.rawRun(sql, [
             data.traceId,
@@ -386,6 +387,9 @@ class SubmissionRepository extends BaseRepository {
             data.gender || null,
             data.title || null,
             data.notes || null,
+            data.adultAge || null,
+            data.childrenCount || 0,
+            data.childrenAges ? JSON.stringify(data.childrenAges) : null,
             data.passCode,
             data.dataConsent ? 1 : 0,
             data.marketingConsent ? 1 : 0,
