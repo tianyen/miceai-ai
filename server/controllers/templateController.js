@@ -1,139 +1,39 @@
-const database = require('../config/database');
+/**
+ * Template Controller - 模板控制器
+ *
+ * @description 處理 HTTP 請求，調用 TemplateService 處理業務邏輯
+ * @refactor 2025-12-05: 使用 TemplateService，移除直接 DB 訪問
+ */
+const { templateService } = require('../services');
 const { logUserActivity } = require('../middleware/auth');
+const vh = require('../utils/viewHelpers');
 
 class TemplateController {
+    // ============================================================================
+    // 列表與查詢
+    // ============================================================================
+
+    /**
+     * 取得模板列表
+     */
     async getTemplates(req, res) {
         try {
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 20;
-            const offset = (page - 1) * limit;
             const category = req.query.category;
 
-            let query = `
-                SELECT t.*, u.full_name as creator_name
-                FROM invitation_templates t
-                LEFT JOIN users u ON t.created_by = u.id
-            `;
-            let countQuery = 'SELECT COUNT(*) as count FROM invitation_templates t';
-            let queryParams = [];
+            const result = await templateService.getTemplatesList({ page, limit, category });
 
-            if (category && category.trim()) {
-                const whereClause = ' WHERE t.template_type = ?';
-                query += whereClause;
-                countQuery += whereClause;
-                queryParams.push(category.trim());
+            // 檢查是否要求 HTML 格式
+            if (this._isHtmlRequest(req)) {
+                const html = this._renderTemplatesTable(result.templates);
+                return res.send(html);
             }
 
-            query += ' ORDER BY t.is_default DESC, t.created_at DESC LIMIT ? OFFSET ?';
-            const templates = await database.query(query, [...queryParams, limit, offset]);
-
-            const totalResult = await database.get(countQuery, queryParams);
-            const total = totalResult.count;
-
-            // 檢查是否需要返回 HTML
-            if (req.headers['x-requested-with'] === 'XMLHttpRequest' || req.query.format === 'html') {
-                let html = '';
-
-                if (templates.length === 0) {
-                    html = `
-                        <tr>
-                            <td colspan="7" class="empty-state">
-                                <div class="empty-icon">📄</div>
-                                <div class="empty-text">
-                                    <h4>尚無模板資料</h4>
-                                    <p>點擊上方「新增模板」按鈕開始建立您的第一個模板</p>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                } else {
-                    // Define getTemplateBadge function locally
-                    const getTemplateBadge = (type) => {
-                        const typeMap = {
-                            'event': '<span class="template-category event">活動模板</span>',
-                            'invitation': '<span class="template-category invitation">MICE-AI </span>',
-                            'notification': '<span class="template-category notification">通知</span>',
-                            'email': '<span class="template-category email">電子郵件</span>',
-                            'form': '<span class="template-category form">表單</span>'
-                        };
-                        return typeMap[type] || '<span class="template-category">其他</span>';
-                    };
-
-                    templates.forEach(template => {
-                        const statusBadge = getTemplateBadge(template.template_type);
-                        const usageCount = template.usage_count || 0;
-                        const updatedAt = new Date(template.updated_at).toLocaleDateString('zh-TW');
-                        const isDefault = template.is_default ? '是' : '否';
-
-                        html += `
-                            <tr>
-                                <td>
-                                    <div class="template-preview ${template.preview_url ? '' : 'no-preview'}"
-                                         ${template.preview_url ? `style="background-image: url('${template.preview_url}')"` : ''}>
-                                        ${template.preview_url ? '' : '無預覽'}
-                                    </div>
-                                </td>
-                                <td>
-                                    <strong>${template.template_name}</strong>
-                                    <div class="template-description">${template.description || ''}</div>
-                                </td>
-                                <td>${statusBadge}</td>
-                                <td>
-                                    <div class="usage-count">
-                                        <i class="fas fa-chart-line"></i>
-                                        <span>${usageCount}</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="template-status ${template.is_default ? 'active' : 'inactive'}">
-                                        <i class="fas fa-${template.is_default ? 'star' : 'star-o'}"></i>
-                                        ${isDefault}
-                                    </div>
-                                </td>
-                                <td>${updatedAt}</td>
-                                <td>
-                                    <div class="template-actions">
-                                        <button class="btn btn-sm btn-primary" onclick="previewTemplate(${template.id})" title="預覽模板">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-success" onclick="editTemplate(${template.id})" title="編輯模板">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-warning" onclick="duplicateTemplate(${template.id})" title="複製模板">
-                                            <i class="fas fa-copy"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-info" onclick="toggleTemplateStatus(${template.id})" title="切換預設狀態">
-                                            <i class="fas fa-star"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-secondary" onclick="exportTemplate(${template.id})" title="匯出模板">
-                                            <i class="fas fa-download"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" onclick="deleteTemplate(${template.id})" title="刪除模板">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                }
-
-                res.send(html);
-            } else {
-                // 返回 JSON
-                res.json({
-                    success: true,
-                    data: {
-                        templates,
-                        pagination: {
-                            page,
-                            limit,
-                            total,
-                            pages: Math.ceil(total / limit)
-                        }
-                    }
-                });
-            }
+            res.json({
+                success: true,
+                data: result
+            });
 
         } catch (error) {
             console.error('獲取模板列表失敗:', error);
@@ -144,36 +44,95 @@ class TemplateController {
         }
     }
 
+    /**
+     * 取得模板分頁
+     */
+    async getTemplatesPagination(req, res) {
+        try {
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 20;
+
+            const result = await templateService.getTemplatesList({ page, limit });
+
+            const html = this._renderPagination(result.pagination, page);
+            res.send(html);
+
+        } catch (error) {
+            console.error('獲取模板分頁失敗:', error);
+            res.send('<div class="pagination-info"><span class="text-danger">載入分頁失敗</span></div>');
+        }
+    }
+
+    /**
+     * 搜尋模板
+     */
+    async searchTemplates(req, res) {
+        try {
+            const { search, category } = req.query;
+
+            const templates = await templateService.searchTemplates({ search, category });
+
+            // 檢查是否要求 HTML 格式
+            if (this._isHtmlRequest(req)) {
+                const html = this._renderTemplatesTable(templates, true);
+                return res.send(html);
+            }
+
+            res.json({
+                success: true,
+                data: { templates: templates || [] }
+            });
+
+        } catch (error) {
+            console.error('搜索模板失敗:', error);
+            res.status(500).json({
+                success: false,
+                message: '搜索模板失敗'
+            });
+        }
+    }
+
+    /**
+     * 按類型取得模板
+     */
+    async getTemplatesByType(req, res) {
+        try {
+            const templateType = req.query.type;
+
+            const templates = await templateService.getTemplatesByType(templateType);
+
+            res.json({
+                success: true,
+                data: templates
+            });
+
+        } catch (error) {
+            console.error('獲取模板列表失敗:', error);
+            res.status(500).json({
+                success: false,
+                message: '獲取模板列表失敗'
+            });
+        }
+    }
+
+    // ============================================================================
+    // 詳情
+    // ============================================================================
+
+    /**
+     * 取得模板詳情
+     */
     async getTemplate(req, res) {
         try {
             const templateId = req.params.id;
 
-            const template = await database.get(`
-                SELECT t.*, u.full_name as creator_name
-                FROM invitation_templates t
-                LEFT JOIN users u ON t.created_by = u.id
-                WHERE t.id = ?
-            `, [templateId]);
+            const template = await templateService.getTemplateDetail(templateId);
 
             if (!template) {
                 return res.status(404).json({
                     success: false,
                     message: '模板不存在'
                 });
-            }
-
-            // 解析 template_content 如果是 JSON 字符串
-            if (template.template_content) {
-                try {
-                    template.template_content = JSON.parse(template.template_content);
-                } catch (e) {
-                    // 如果解析失敗，保留原始字符串
-                }
-            }
-
-            // 如果是活動模板，格式化內容結構
-            if (template.template_type === 'event' && template.template_content) {
-                template.formatted_content = this.formatEventTemplate(template.template_content);
             }
 
             res.json({
@@ -190,50 +149,56 @@ class TemplateController {
         }
     }
 
+    /**
+     * 取得模板使用情況
+     */
+    async getTemplateUsage(req, res) {
+        try {
+            const templateId = req.params.id;
+
+            const usage = await templateService.getTemplateUsage(templateId);
+
+            res.json({
+                success: true,
+                data: usage
+            });
+
+        } catch (error) {
+            console.error('獲取模板使用情況失敗:', error);
+            res.status(500).json({
+                success: false,
+                message: '獲取模板使用情況失敗'
+            });
+        }
+    }
+
+    // ============================================================================
+    // CRUD 操作
+    // ============================================================================
+
+    /**
+     * 建立模板
+     */
     async createTemplate(req, res) {
         try {
-            const {
-                template_name,
-                template_type,
-                template_content,
-                css_styles,
-                js_scripts,
-                is_default
-            } = req.body;
-
-            // 如果設置為預設模板，先將其他預設模板設為非預設
-            if (is_default) {
-                await database.run('UPDATE invitation_templates SET is_default = 0');
-            }
-
-            const result = await database.run(`
-                INSERT INTO invitation_templates (
-                    template_name, template_type, template_content, css_styles, 
-                    js_scripts, is_default, created_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            `, [
-                template_name,
-                template_type,
-                JSON.stringify(template_content),
-                css_styles || null,
-                js_scripts || null,
-                is_default ? 1 : 0,
-                req.user.id
-            ]);
+            const result = await templateService.create({
+                ...req.body,
+                created_by: req.user.id
+            });
 
             await logUserActivity(
                 req.user.id,
                 'template_created',
                 'template',
-                result.lastID,
-                { template_name, template_type },
+                result.id,
+                { template_name: result.template_name, template_type: req.body.template_type },
                 req.ip
             );
 
             res.status(201).json({
                 success: true,
                 message: '模板創建成功',
-                data: { id: result.lastID }
+                data: { id: result.id }
             });
 
         } catch (error) {
@@ -245,78 +210,34 @@ class TemplateController {
         }
     }
 
+    /**
+     * 更新模板
+     */
     async updateTemplate(req, res) {
         try {
             const templateId = req.params.id;
-            const updates = req.body;
 
-            // 檢查模板是否存在
-            const existingTemplate = await database.get(
-                'SELECT * FROM invitation_templates WHERE id = ?',
-                [templateId]
-            );
+            const result = await templateService.updateTemplate(templateId, req.body, req.user);
 
-            if (!existingTemplate) {
-                return res.status(404).json({
+            if (!result.success) {
+                const statusCode = {
+                    'NOT_FOUND': 404,
+                    'FORBIDDEN': 403,
+                    'NO_FIELDS': 400
+                }[result.error] || 400;
+
+                return res.status(statusCode).json({
                     success: false,
-                    message: '模板不存在'
+                    message: result.message
                 });
             }
-
-            // 檢查權限：只有創建者或超級管理員可以修改
-            if (req.user.role !== 'super_admin' && existingTemplate.created_by !== req.user.id) {
-                return res.status(403).json({
-                    success: false,
-                    message: '權限不足'
-                });
-            }
-
-            // 構建更新查詢
-            const allowedFields = [
-                'template_name', 'template_type', 'template_content',
-                'css_styles', 'js_scripts', 'is_default'
-            ];
-
-            const updateFields = [];
-            const updateValues = [];
-
-            Object.keys(updates).forEach(field => {
-                if (allowedFields.includes(field) && updates[field] !== undefined) {
-                    updateFields.push(`${field} = ?`);
-                    if (field === 'template_content') {
-                        updateValues.push(JSON.stringify(updates[field]));
-                    } else if (field === 'is_default') {
-                        updateValues.push(updates[field] ? 1 : 0);
-                    } else {
-                        updateValues.push(updates[field]);
-                    }
-                }
-            });
-
-            if (updateFields.length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: '沒有有效的更新字段'
-                });
-            }
-
-            // 如果設置為預設模板，先將其他預設模板設為非預設
-            if (updates.is_default) {
-                await database.run('UPDATE invitation_templates SET is_default = 0 WHERE id != ?', [templateId]);
-            }
-
-            updateFields.push('updated_at = CURRENT_TIMESTAMP');
-            updateValues.push(templateId);
-
-            const query = `UPDATE invitation_templates SET ${updateFields.join(', ')} WHERE id = ?`;
-            await database.run(query, updateValues);
 
             await logUserActivity(
                 req.user.id,
                 'template_updated',
                 'template',
                 templateId,
-                { template_name: existingTemplate.template_name },
+                { template_name: result.template?.template_name },
                 req.ip
             );
 
@@ -334,61 +255,33 @@ class TemplateController {
         }
     }
 
+    /**
+     * 刪除模板
+     */
     async deleteTemplate(req, res) {
         try {
             const templateId = req.params.id;
 
-            // 檢查模板是否存在
-            const template = await database.get(
-                'SELECT * FROM invitation_templates WHERE id = ?',
-                [templateId]
-            );
+            const result = await templateService.deleteTemplate(templateId, req.user);
 
-            if (!template) {
-                return res.status(404).json({
+            if (!result.success) {
+                const statusCode = {
+                    'NOT_FOUND': 404,
+                    'FORBIDDEN': 403
+                }[result.error] || 409;
+
+                return res.status(statusCode).json({
                     success: false,
-                    message: '模板不存在'
+                    message: result.message
                 });
             }
-
-            // 檢查權限：只有創建者或超級管理員可以刪除
-            if (req.user.role !== 'super_admin' && template.created_by !== req.user.id) {
-                return res.status(403).json({
-                    success: false,
-                    message: '權限不足'
-                });
-            }
-
-            // 防止刪除預設模板
-            if (template.is_default) {
-                return res.status(409).json({
-                    success: false,
-                    message: '無法刪除預設模板'
-                });
-            }
-
-            // 檢查是否有項目使用此模板
-            const projectsUsingTemplate = await database.get(`
-                SELECT COUNT(*) as count
-                FROM event_projects
-                WHERE template_config LIKE ?
-            `, [`%"template_id":${templateId}%`]);
-
-            if (projectsUsingTemplate.count > 0) {
-                return res.status(409).json({
-                    success: false,
-                    message: '有項目正在使用此模板，無法刪除'
-                });
-            }
-
-            await database.run('DELETE FROM invitation_templates WHERE id = ?', [templateId]);
 
             await logUserActivity(
                 req.user.id,
                 'template_deleted',
                 'template',
                 templateId,
-                { template_name: template.template_name },
+                { template_name: result.template.template_name },
                 req.ip
             );
 
@@ -406,56 +299,36 @@ class TemplateController {
         }
     }
 
+    /**
+     * 複製模板
+     */
     async duplicateTemplate(req, res) {
         try {
             const templateId = req.params.id;
             const { new_name } = req.body;
 
-            // 獲取原模板
-            const originalTemplate = await database.get(
-                'SELECT * FROM invitation_templates WHERE id = ?',
-                [templateId]
-            );
+            const result = await templateService.duplicateTemplate(templateId, new_name, req.user.id);
 
-            if (!originalTemplate) {
+            if (!result.success) {
                 return res.status(404).json({
                     success: false,
-                    message: '模板不存在'
+                    message: result.message
                 });
             }
-
-            // 創建副本
-            const result = await database.run(`
-                INSERT INTO invitation_templates (
-                    template_name, template_type, template_content, css_styles, 
-                    js_scripts, is_default, created_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            `, [
-                new_name || `${originalTemplate.template_name} (副本)`,
-                originalTemplate.template_type,
-                originalTemplate.template_content,
-                originalTemplate.css_styles,
-                originalTemplate.js_scripts,
-                0, // 副本不設為預設
-                req.user.id
-            ]);
 
             await logUserActivity(
                 req.user.id,
                 'template_duplicated',
                 'template',
-                result.lastID,
-                {
-                    original_template: originalTemplate.template_name,
-                    new_template: new_name || `${originalTemplate.template_name} (副本)`
-                },
+                result.id,
+                { original_id: templateId, new_template: result.template_name },
                 req.ip
             );
 
             res.status(201).json({
                 success: true,
                 message: '模板複製成功',
-                data: { id: result.lastID }
+                data: { id: result.id }
             });
 
         } catch (error) {
@@ -467,56 +340,35 @@ class TemplateController {
         }
     }
 
+    /**
+     * 設置預設模板
+     */
     async setDefaultTemplate(req, res) {
         try {
             const templateId = req.params.id;
 
-            // 檢查模板是否存在
-            const template = await database.get(
-                'SELECT * FROM invitation_templates WHERE id = ?',
-                [templateId]
-            );
+            const result = await templateService.setDefaultTemplate(templateId);
 
-            if (!template) {
+            if (!result.success) {
                 return res.status(404).json({
                     success: false,
-                    message: '模板不存在'
+                    message: result.message
                 });
             }
 
-            // 開始事務
-            await database.beginTransaction();
+            await logUserActivity(
+                req.user.id,
+                'default_template_changed',
+                'template',
+                templateId,
+                { template_name: result.template.template_name },
+                req.ip
+            );
 
-            try {
-                // 將所有模板設為非預設
-                await database.run('UPDATE invitation_templates SET is_default = 0');
-
-                // 設置指定模板為預設
-                await database.run(
-                    'UPDATE invitation_templates SET is_default = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-                    [templateId]
-                );
-
-                await database.commit();
-
-                await logUserActivity(
-                    req.user.id,
-                    'default_template_changed',
-                    'template',
-                    templateId,
-                    { template_name: template.template_name },
-                    req.ip
-                );
-
-                res.json({
-                    success: true,
-                    message: '預設模板設置成功'
-                });
-
-            } catch (error) {
-                await database.rollback();
-                throw error;
-            }
+            res.json({
+                success: true,
+                message: '預設模板設置成功'
+            });
 
         } catch (error) {
             console.error('設置預設模板失敗:', error);
@@ -527,262 +379,26 @@ class TemplateController {
         }
     }
 
-    async getTemplatesByType(req, res) {
-        try {
-            const templateType = req.query.type;
+    // ============================================================================
+    // 輔助方法 (Private)
+    // ============================================================================
 
-            let query = `
-                SELECT t.*, u.full_name as creator_name
-                FROM invitation_templates t
-                LEFT JOIN users u ON t.created_by = u.id
-            `;
-            let queryParams = [];
-
-            if (templateType) {
-                query += ' WHERE t.template_type = ?';
-                queryParams.push(templateType);
-            }
-
-            query += ' ORDER BY t.is_default DESC, t.created_at DESC';
-
-            const templates = await database.query(query, queryParams);
-
-            res.json({
-                success: true,
-                data: templates
-            });
-
-        } catch (error) {
-            console.error('獲取模板列表失敗:', error);
-            res.status(500).json({
-                success: false,
-                message: '獲取模板列表失敗'
-            });
-        }
+    /**
+     * 判斷是否為 HTML 請求
+     * @private
+     */
+    _isHtmlRequest(req) {
+        return req.headers['x-requested-with'] === 'XMLHttpRequest' || req.query.format === 'html';
     }
 
-    async getTemplateUsage(req, res) {
-        try {
-            const templateId = req.params.id;
-
-            // 獲取使用此模板的項目
-            const projects = await database.query(`
-                SELECT id, project_name, project_code, status, created_at
-                FROM event_projects
-                WHERE template_config LIKE ?
-                ORDER BY created_at DESC
-            `, [`%"template_id":${templateId}%`]);
-
-            res.json({
-                success: true,
-                data: {
-                    usage_count: projects.length,
-                    projects: projects
-                }
-            });
-
-        } catch (error) {
-            console.error('獲取模板使用情況失敗:', error);
-            res.status(500).json({
-                success: false,
-                message: '獲取模板使用情況失敗'
-            });
-        }
-    }
-
-    // 模板分页
-    async getTemplatesPagination(req, res) {
-        try {
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 20;
-
-            const totalResult = await database.get('SELECT COUNT(*) as count FROM invitation_templates');
-            const total = totalResult.count;
-            const pages = Math.ceil(total / limit);
-
-            let paginationHtml = '<div class="pagination-info">';
-            paginationHtml += `<span>共 ${total} 個模板，第 ${page} 頁 / 共 ${pages} 頁</span>`;
-            paginationHtml += '</div>';
-
-            if (pages > 1) {
-                paginationHtml += '<div class="pagination-controls">';
-
-                if (page > 1) {
-                    paginationHtml += `<button class="btn btn-sm btn-outline-primary" onclick="loadTemplatesPage(${page - 1})">上一頁</button>`;
-                }
-
-                const startPage = Math.max(1, page - 2);
-                const endPage = Math.min(pages, page + 2);
-
-                for (let i = startPage; i <= endPage; i++) {
-                    const activeClass = i === page ? 'btn-primary' : 'btn-outline-primary';
-                    paginationHtml += `<button class="btn btn-sm ${activeClass}" onclick="loadTemplatesPage(${i})">${i}</button>`;
-                }
-
-                if (page < pages) {
-                    paginationHtml += `<button class="btn btn-sm btn-outline-primary" onclick="loadTemplatesPage(${page + 1})">下一頁</button>`;
-                }
-
-                paginationHtml += '</div>';
-            }
-
-            paginationHtml += `
-            <script>
-                function loadTemplatesPage(page) {
-                    loadTemplates(page);
-                    loadTemplatesPagination(page);
-                }
-            </script>
-            `;
-
-            res.send(paginationHtml);
-
-        } catch (error) {
-            console.error('獲取模板分頁失敗:', error);
-            res.send('<div class="pagination-info"><span class="text-danger">載入分頁失敗</span></div>');
-        }
-    }
-
-    // 搜索模板
-    async searchTemplates(req, res) {
-        try {
-            const { search, category } = req.query;
-
-            let searchQuery = `
-                SELECT t.*, u.full_name as creator_name
-                FROM invitation_templates t
-                LEFT JOIN users u ON t.created_by = u.id
-                WHERE 1=1
-            `;
-            let queryParams = [];
-
-            // 搜索條件
-            if (search && search.trim()) {
-                searchQuery += ` AND (t.template_name LIKE ? OR t.description LIKE ?)`;
-                const searchTerm = `%${search.trim()}%`;
-                queryParams.push(searchTerm, searchTerm);
-            }
-
-            // 分類篩選
-            if (category && category.trim() && category !== 'all') {
-                searchQuery += ` AND t.template_type = ?`;
-                queryParams.push(category.trim());
-            }
-
-            searchQuery += ` ORDER BY t.is_default DESC, t.created_at DESC LIMIT 50`;
-
-            const templates = await database.query(searchQuery, queryParams);
-
-            // 檢查是否需要返回 HTML
-            if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
-                let html = '';
-
-                if (templates.length === 0) {
-                    html = `
-                        <tr>
-                            <td colspan="7" class="empty-state">
-                                <div class="empty-icon">🔍</div>
-                                <div class="empty-text">
-                                    <h4>無符合條件的模板</h4>
-                                    <p>請嘗試調整搜索條件或新增模板</p>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                } else {
-                    // Define getTemplateBadge function locally
-                    const getTemplateBadge = (type) => {
-                        const typeMap = {
-                            'event': '<span class="template-category event">活動模板</span>',
-                            'invitation': '<span class="template-category invitation">MICE-AI </span>',
-                            'notification': '<span class="template-category notification">通知</span>',
-                            'email': '<span class="template-category email">電子郵件</span>',
-                            'form': '<span class="template-category form">表單</span>'
-                        };
-                        return typeMap[type] || '<span class="template-category">其他</span>';
-                    };
-
-                    templates.forEach(template => {
-                        const statusBadge = getTemplateBadge(template.template_type);
-                        const usageCount = template.usage_count || 0;
-                        const updatedAt = new Date(template.updated_at).toLocaleDateString('zh-TW');
-                        const isDefault = template.is_default ? '是' : '否';
-
-                        html += `
-                            <tr>
-                                <td>
-                                    <div class="template-preview ${template.preview_url ? '' : 'no-preview'}"
-                                         ${template.preview_url ? `style="background-image: url('${template.preview_url}')"` : ''}>
-                                        ${template.preview_url ? '' : '無預覽'}
-                                    </div>
-                                </td>
-                                <td>
-                                    <strong>${template.template_name}</strong>
-                                    <div class="template-description">${template.description || ''}</div>
-                                </td>
-                                <td>${statusBadge}</td>
-                                <td>
-                                    <div class="usage-count">
-                                        <i class="fas fa-chart-line"></i>
-                                        <span>${usageCount}</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="template-status ${template.is_default ? 'active' : 'inactive'}">
-                                        <i class="fas fa-${template.is_default ? 'star' : 'star-o'}"></i>
-                                        ${isDefault}
-                                    </div>
-                                </td>
-                                <td>${updatedAt}</td>
-                                <td>
-                                    <div class="template-actions">
-                                        <button class="btn btn-sm btn-primary" onclick="previewTemplate(${template.id})" title="預覽模板">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-success" onclick="editTemplate(${template.id})" title="編輯模板">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-warning" onclick="duplicateTemplate(${template.id})" title="複製模板">
-                                            <i class="fas fa-copy"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-info" onclick="toggleTemplateStatus(${template.id})" title="切換預設狀態">
-                                            <i class="fas fa-star"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-secondary" onclick="exportTemplate(${template.id})" title="匯出模板">
-                                            <i class="fas fa-download"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" onclick="deleteTemplate(${template.id})" title="刪除模板">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                }
-
-                res.send(html);
-            } else {
-                res.json({
-                    success: true,
-                    data: { templates: templates || [] }
-                });
-            }
-
-        } catch (error) {
-            console.error('搜索模板失敗:', error);
-            res.status(500).json({
-                success: false,
-                message: '搜索模板失敗'
-            });
-        }
-    }
-
-    // 模板類型徽章映射
-    getTemplateBadge(type) {
+    /**
+     * 取得模板類型徽章 HTML
+     * @private
+     */
+    _getTemplateBadge(type) {
         const typeMap = {
             'event': '<span class="template-category event">活動模板</span>',
-            'invitation': '<span class="template-category invitation">MICE-AI </span>',
+            'invitation': '<span class="template-category invitation">MICE-AI</span>',
             'notification': '<span class="template-category notification">通知</span>',
             'email': '<span class="template-category email">電子郵件</span>',
             'form': '<span class="template-category form">表單</span>'
@@ -790,62 +406,120 @@ class TemplateController {
         return typeMap[type] || '<span class="template-category">其他</span>';
     }
 
-    // 格式化活動模板內容
-    formatEventTemplate(content) {
-        if (!content || typeof content !== 'object') {
-            return null;
+    /**
+     * 渲染模板列表表格
+     * @private
+     */
+    _renderTemplatesTable(templates, isSearch = false) {
+        if (templates.length === 0) {
+            const emptyMessage = isSearch ? '無符合條件的模板' : '尚無模板資料';
+            const emptyHint = isSearch ? '請嘗試調整搜索條件或新增模板' : '點擊上方「新增模板」按鈕開始建立您的第一個模板';
+            const emptyIcon = isSearch ? '🔍' : '📄';
+            return vh.emptyTableRow(emptyMessage, 7, emptyIcon, emptyHint);
         }
 
-        return {
-            schedule: content.schedule || null,
-            introduction: content.introduction || '',
-            process: content.process || [],
-            special_guests: content.special_guests || [],
-            additional_info: content.additional_info || {}
-        };
+        return templates.map(template => {
+            const typeBadge = this._getTemplateBadge(template.template_type);
+            const usageCount = template.usage_count || 0;
+            const updatedAt = new Date(template.updated_at).toLocaleDateString('zh-TW');
+            const isDefault = template.is_default ? '是' : '否';
+
+            return `
+                <tr>
+                    <td>
+                        <div class="template-preview ${template.preview_url ? '' : 'no-preview'}"
+                             ${template.preview_url ? `style="background-image: url('${vh.escapeHtml(template.preview_url)}')"` : ''}>
+                            ${template.preview_url ? '' : '無預覽'}
+                        </div>
+                    </td>
+                    <td>
+                        <strong>${vh.escapeHtml(template.template_name)}</strong>
+                        <div class="template-description">${vh.escapeHtml(template.description || '')}</div>
+                    </td>
+                    <td>${typeBadge}</td>
+                    <td>
+                        <div class="usage-count">
+                            <i class="fas fa-chart-line"></i>
+                            <span>${usageCount}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="template-status ${template.is_default ? 'active' : 'inactive'}">
+                            <i class="fas fa-${template.is_default ? 'star' : 'star-o'}"></i>
+                            ${isDefault}
+                        </div>
+                    </td>
+                    <td>${updatedAt}</td>
+                    <td>
+                        <div class="template-actions">
+                            <button class="btn btn-sm btn-primary" onclick="previewTemplate(${template.id})" title="預覽模板">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-success" onclick="editTemplate(${template.id})" title="編輯模板">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-warning" onclick="duplicateTemplate(${template.id})" title="複製模板">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <button class="btn btn-sm btn-info" onclick="toggleTemplateStatus(${template.id})" title="切換預設狀態">
+                                <i class="fas fa-star"></i>
+                            </button>
+                            <button class="btn btn-sm btn-secondary" onclick="exportTemplate(${template.id})" title="匯出模板">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteTemplate(${template.id})" title="刪除模板">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     }
 
-    // 獲取活動模板與專案的關聯
-    async getEventTemplateWithProject(templateId, projectId = null) {
-        try {
-            const template = await database.get(`
-                SELECT t.*, u.full_name as creator_name
-                FROM invitation_templates t
-                LEFT JOIN users u ON t.created_by = u.id
-                WHERE t.id = ? AND t.template_type = 'event'
-            `, [templateId]);
+    /**
+     * 渲染分頁控制
+     * @private
+     */
+    _renderPagination(pagination, currentPage) {
+        const { total, pages } = pagination;
 
-            if (!template) {
-                return null;
+        let html = '<div class="pagination-info">';
+        html += `<span>共 ${total} 個模板，第 ${currentPage} 頁 / 共 ${pages} 頁</span>`;
+        html += '</div>';
+
+        if (pages > 1) {
+            html += '<div class="pagination-controls">';
+
+            if (currentPage > 1) {
+                html += `<button class="btn btn-sm btn-outline-primary" onclick="loadTemplatesPage(${currentPage - 1})">上一頁</button>`;
             }
 
-            // 解析模板內容
-            if (template.template_content) {
-                try {
-                    template.template_content = JSON.parse(template.template_content);
-                    template.formatted_content = this.formatEventTemplate(template.template_content);
-                } catch (e) {
-                    console.error('解析活動模板內容失敗:', e);
-                }
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(pages, currentPage + 2);
+
+            for (let i = startPage; i <= endPage; i++) {
+                const activeClass = i === currentPage ? 'btn-primary' : 'btn-outline-primary';
+                html += `<button class="btn btn-sm ${activeClass}" onclick="loadTemplatesPage(${i})">${i}</button>`;
             }
 
-            // 如果提供了專案 ID，獲取專案資訊
-            if (projectId) {
-                const project = await database.get(`
-                    SELECT * FROM event_projects WHERE id = ?
-                `, [projectId]);
-
-                if (project) {
-                    template.associated_project = project;
-                }
+            if (currentPage < pages) {
+                html += `<button class="btn btn-sm btn-outline-primary" onclick="loadTemplatesPage(${currentPage + 1})">下一頁</button>`;
             }
 
-            return template;
-
-        } catch (error) {
-            console.error('獲取活動模板失敗:', error);
-            throw error;
+            html += '</div>';
         }
+
+        html += `
+        <script>
+            function loadTemplatesPage(page) {
+                loadTemplates(page);
+                loadTemplatesPagination(page);
+            }
+        </script>
+        `;
+
+        return html;
     }
 }
 
