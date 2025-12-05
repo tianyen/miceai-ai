@@ -74,20 +74,20 @@ function handleServiceError(res, error, defaultMessage) {
  *         headers: { 'Content-Type': 'application/json' },
  *         body: JSON.stringify({
  *           // ✅ 必填欄位
- *           name: '王大明',
- *           email: 'wang@example.com',
- *           phone: '0912345678',
+ *           name: '福利團體1',
+ *           email: 'okzmdu@gmail.com',
+ *           phone: '0900000000',
  *           data_consent: true,
  *
  *           // ⭕ 選填欄位
- *           company: '科技公司',           // 公司名稱
- *           position: '工程師',            // 職位
+ *           company: '天衍互動',           // 公司名稱
+ *           position: '負責人',            // 職位
  *           gender: '男',                  // 性別: 男/女/其他
  *           title: '先生',                 // 尊稱: 先生/女士/博士/教授
- *           notes: '需要素食餐點',         // 留言備註
- *           adult_age: 35,                 // 成年人年齡 (18-120)
- *           children_count: 2,             // 小朋友數量 (0-10)
- *           children_ages: [5, 8],         // 小朋友年齡陣列
+ *           notes: '福利團體報名',         // 留言備註
+ *           adult_age: null,               // 成年人年齡 (18-120)
+ *           children_count: 3,             // 小朋友數量 (0-10)
+ *           children_ages: [5, 8, 10],     // 小朋友年齡陣列
  *           marketing_consent: false       // 行銷同意
  *         })
  *       });
@@ -154,27 +154,27 @@ function handleServiceError(res, error, defaultMessage) {
  *                 minLength: 2
  *                 maxLength: 50
  *                 description: 姓名
- *                 example: "王大明"
+ *                 example: "福利團體1"
  *               email:
  *                 type: string
  *                 format: email
  *                 description: 電子郵件
- *                 example: "wang@example.com"
+ *                 example: "okzmdu@gmail.com"
  *               phone:
  *                 type: string
  *                 pattern: '^[0-9\-\+\s\(\)]{8,20}$'
  *                 description: 手機號碼
- *                 example: "0934567890"
+ *                 example: "0900000000"
  *               company:
  *                 type: string
  *                 maxLength: 100
  *                 description: 公司名稱
- *                 example: "軟體開發公司"
+ *                 example: "天衍互動"
  *               position:
  *                 type: string
  *                 maxLength: 50
  *                 description: 職位
- *                 example: "資深工程師"
+ *                 example: "負責人"
  *               gender:
  *                 type: string
  *                 enum: ["男", "女", "其他"]
@@ -189,7 +189,7 @@ function handleServiceError(res, error, defaultMessage) {
  *                 type: string
  *                 maxLength: 500
  *                 description: 留言備註
- *                 example: "請安排素食餐點"
+ *                 example: "福利團體報名"
  *               data_consent:
  *                 type: boolean
  *                 description: 資料使用同意（必須為 true）
@@ -202,14 +202,14 @@ function handleServiceError(res, error, defaultMessage) {
  *                 type: integer
  *                 minimum: 18
  *                 maximum: 120
- *                 description: 成年人年齡
- *                 example: 35
+ *                 description: 成年人年齡（福利團體可為 null）
+ *                 example: null
  *               children_count:
  *                 type: integer
  *                 minimum: 0
  *                 maximum: 10
  *                 description: 小朋友數量
- *                 example: 2
+ *                 example: 3
  *               children_ages:
  *                 type: array
  *                 items:
@@ -217,7 +217,7 @@ function handleServiceError(res, error, defaultMessage) {
  *                   minimum: 0
  *                   maximum: 17
  *                 description: 小朋友年齡陣列
- *                 example: [5, 8]
+ *                 example: [5, 8, 10]
  *     responses:
  *       201:
  *         description: 報名成功
@@ -238,48 +238,48 @@ function handleServiceError(res, error, defaultMessage) {
  *                     registration_id:
  *                       type: integer
  *                       description: 報名記錄 ID
- *                       example: 3
+ *                       example: 4
  *                     user_id:
  *                       type: integer
  *                       description: |
  *                         用戶識別 ID，用於遊戲 API 的 user_id 參數
  *                         值與 registration_id 相同，方便前端串接遊戲功能
- *                       example: 3
+ *                       example: 4
  *                     trace_id:
  *                       type: string
  *                       description: 追蹤 ID，用於查詢報名狀態和 QR Code
- *                       example: "MICE-05207cf7-199967c04"
+ *                       example: "MICE-f8247b08-9df1d0fbb"
  *                     event:
  *                       type: object
  *                       properties:
  *                         name:
  *                           type: string
- *                           example: "2024年度科技論壇"
+ *                           example: "誠品X天衍 平安夜聯名公益｜沈浸式露天電影院"
  *                         date:
  *                           type: string
- *                           example: "2025-09-15"
+ *                           example: "2025-12-24"
  *                         location:
  *                           type: string
- *                           example: "台北國際會議中心"
+ *                           example: "誠品信義店 B1"
  *                     participant:
  *                       type: object
  *                       properties:
  *                         name:
  *                           type: string
- *                           example: "王大明"
+ *                           example: "福利團體1"
  *                         email:
  *                           type: string
- *                           example: "wang@example.com"
+ *                           example: "okzmdu@gmail.com"
  *                     qr_code:
  *                       type: object
  *                       properties:
  *                         data:
  *                           type: string
- *                           example: "MICE-05207cf7-199967c04"
+ *                           example: "MICE-f8247b08-9df1d0fbb"
  *                         url:
  *                           type: string
  *                           description: QR Code 查詢 URL
- *                           example: "/api/v1/qr-codes/MICE-05207cf7-199967c04"
+ *                           example: "/api/v1/qr-codes/MICE-f8247b08-9df1d0fbb"
  *       400:
  *         description: 請求參數錯誤或活動已滿額
  *       404:

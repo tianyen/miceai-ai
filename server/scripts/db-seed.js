@@ -9,11 +9,17 @@
  * - 支援完整的測試場景
  *
  * 測試報名用戶對應表（form_submissions.id = registration_id）：
- * | 用戶   | registration_id | trace_id                    |
- * |--------|-----------------|----------------------------|
- * | 張志明 | 1               | MICE-d074dd3e-e3e27b6b0   |
- * | 李美玲 | 2               | MICE-d74b09c8-6cfa4a823   |
- * | 王大明 | 3               | MICE-05207cf7-199967c04   |
+ * | 用戶       | reg_id | project  | 說明                        |
+ * |------------|--------|----------|----------------------------|
+ * | 張志明     | 1      | TECH2024 | 科技創新公司技術總監         |
+ * | 李美玲     | 2      | TECH2024 | 數位行銷公司行銷經理         |
+ * | 王大明     | 3      | TECH2024 | AI新創公司執行長             |
+ * | 福利團體1  | 4      | MOON2025 | 帶3小孩(5,8,10歲)           |
+ * | 陳哥       | 5      | MOON2025 | 個人報名, 男25歲            |
+ * | 王爸爸     | 6      | MOON2025 | 團體主報名者, 男45歲        |
+ * | 王媽媽     | 7      | MOON2025 | 團體成員, 女50歲            |
+ * | 王姑姑     | 8      | MOON2025 | 團體成員, 女50歲            |
+ * | 福利團體2  | 9      | MOON2025 | 帶8小孩(10-15歲)            |
  *
  * 注意：這些 registration_id 與後台管理員 users.id (1-4) 是不同的概念！
  */
@@ -137,11 +143,17 @@ const seedData = {
     // - form_submissions.user_id: 後台管理員 users.id，通常為 NULL（API 報名用戶無後台帳號）
     //
     // 報名用戶對應表：
-    // | registration_id | 姓名   | trace_id                  | form_submissions.user_id |
-    // |-----------------|--------|---------------------------|--------------------------|
-    // | 1               | 張志明 | MICE-d074dd3e-e3e27b6b0   | NULL                     |
-    // | 2               | 李美玲 | MICE-d74b09c8-6cfa4a823   | NULL                     |
-    // | 3               | 王大明 | MICE-05207cf7-199967c04   | NULL                     |
+    // | reg_id | 姓名       | project  | 說明                           |
+    // |--------|------------|----------|--------------------------------|
+    // | 1      | 張志明     | TECH2024 | 科技創新公司技術總監            |
+    // | 2      | 李美玲     | TECH2024 | 數位行銷公司行銷經理            |
+    // | 3      | 王大明     | TECH2024 | AI新創公司執行長                |
+    // | 4      | 福利團體1  | MOON2025 | 帶3小孩(5,8,10歲)              |
+    // | 5      | 陳哥       | MOON2025 | 個人報名, 男25歲               |
+    // | 6      | 王爸爸     | MOON2025 | 團體主報名者, 男45歲           |
+    // | 7      | 王媽媽     | MOON2025 | 團體成員, 女50歲               |
+    // | 8      | 王姑姑     | MOON2025 | 團體成員, 女50歲               |
+    // | 9      | 福利團體2  | MOON2025 | 帶8小孩(10-15歲)              |
     //
     submissions: [
         {
@@ -188,6 +200,127 @@ const seedData = {
             product_updates: 1,
             status: 'pending',
             created_at: idGen.generateTimestamp(-3, 9)  // 3天前 09:00
+        },
+        // MOON2025 專案測試參加者
+        // 福利團體1 - 帶3小孩的團體報名
+        {
+            trace_id: idGen.generateTraceId(4),  // 固定的 trace_id
+            project_id: 2,  // MOON2025
+            user_id: null,
+            submitter_name: '福利團體1',
+            submitter_email: 'okzmdu@gmail.com',
+            submitter_phone: '0900000000',
+            company_name: '天衍互動',
+            position: '負責人',
+            gender: '男',
+            adult_age: null,
+            children_count: 3,
+            children_ages: JSON.stringify([5, 8, 10]),
+            participation_level: 100,
+            activity_notifications: 1,
+            product_updates: 1,
+            status: 'confirmed',
+            created_at: idGen.generateTimestamp(-1, 10)  // 1天前 10:00
+        },
+        // 陳哥 - 個人報名
+        {
+            trace_id: idGen.generateTraceId(5),
+            project_id: 2,  // MOON2025
+            user_id: null,
+            submitter_name: '陳哥',
+            submitter_email: 'okz5289@gmail.com',
+            submitter_phone: '0900000001',
+            company_name: null,
+            position: null,
+            gender: '男',
+            adult_age: 25,
+            children_count: 0,
+            children_ages: null,
+            participation_level: 100,
+            activity_notifications: 1,
+            product_updates: 1,
+            status: 'confirmed',
+            created_at: idGen.generateTimestamp(-1, 11)  // 1天前 11:00
+        },
+        // 王爸爸 - 團體報名 (主報名者)
+        {
+            trace_id: idGen.generateTraceId(6),
+            project_id: 2,  // MOON2025
+            user_id: null,
+            submitter_name: '王爸爸',
+            submitter_email: 'okzmdu@gmail.com',
+            submitter_phone: '0900000002',
+            company_name: null,
+            position: null,
+            gender: '男',
+            adult_age: 45,
+            children_count: 0,
+            children_ages: null,
+            participation_level: 100,
+            activity_notifications: 1,
+            product_updates: 1,
+            status: 'confirmed',
+            created_at: idGen.generateTimestamp(-1, 12)  // 1天前 12:00
+        },
+        // 王媽媽 - 團體成員 (與王爸爸同組)
+        {
+            trace_id: idGen.generateTraceId(7),
+            project_id: 2,  // MOON2025
+            user_id: null,
+            submitter_name: '王媽媽',
+            submitter_email: 'emyerst@gmail.com',
+            submitter_phone: '0900000003',
+            company_name: null,
+            position: null,
+            gender: '女',
+            adult_age: 50,
+            children_count: 0,
+            children_ages: null,
+            participation_level: 100,
+            activity_notifications: 1,
+            product_updates: 1,
+            status: 'confirmed',
+            created_at: idGen.generateTimestamp(-1, 12)  // 1天前 12:00
+        },
+        // 王姑姑 - 團體成員 (與王爸爸同組)
+        {
+            trace_id: idGen.generateTraceId(8),
+            project_id: 2,  // MOON2025
+            user_id: null,
+            submitter_name: '王姑姑',
+            submitter_email: 'emyerst@gmail.com',
+            submitter_phone: '0900000004',
+            company_name: null,
+            position: null,
+            gender: '女',
+            adult_age: 50,
+            children_count: 0,
+            children_ages: null,
+            participation_level: 100,
+            activity_notifications: 1,
+            product_updates: 1,
+            status: 'confirmed',
+            created_at: idGen.generateTimestamp(-1, 12)  // 1天前 12:00
+        },
+        // 福利團體2 - 帶8小孩的團體報名
+        {
+            trace_id: idGen.generateTraceId(9),
+            project_id: 2,  // MOON2025
+            user_id: null,
+            submitter_name: '福利團體2',
+            submitter_email: 'okz5289@gmail.com',
+            submitter_phone: '0900000005',
+            company_name: null,
+            position: null,
+            gender: null,
+            adult_age: null,
+            children_count: 8,
+            children_ages: JSON.stringify([10, 12, 11, 15, 13, 10, 14, 12]),
+            participation_level: 100,
+            activity_notifications: 1,
+            product_updates: 1,
+            status: 'confirmed',
+            created_at: idGen.generateTimestamp(-1, 13)  // 1天前 13:00
         }
     ],
 
@@ -465,9 +598,10 @@ async function addSeedData() {
         const submissionStmt = db.prepare(`
             INSERT INTO form_submissions (
                 trace_id, project_id, user_id, submitter_name, submitter_email, submitter_phone,
-                company_name, position, participation_level, activity_notifications, product_updates,
+                company_name, position, gender, adult_age, children_count, children_ages,
+                participation_level, activity_notifications, product_updates,
                 status, ip_address, data_consent, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '127.0.0.1', 1, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '127.0.0.1', 1, ?)
         `);
 
         const submissionIds = [];
@@ -482,6 +616,10 @@ async function addSeedData() {
                     submission.submitter_phone,
                     submission.company_name,
                     submission.position,
+                    submission.gender || null,
+                    submission.adult_age || null,
+                    submission.children_count || 0,
+                    submission.children_ages || null,
                     submission.participation_level,
                     submission.activity_notifications,
                     submission.product_updates,
