@@ -96,7 +96,8 @@ class ProjectRepository extends BaseRepository {
                             (COUNT(DISTINCT CASE WHEN s.checked_in_at IS NOT NULL THEN s.id END) * 100.0) / COUNT(DISTINCT s.id)
                         ELSE 0
                     END
-                ) as checkin_rate
+                ) as checkin_rate,
+                COALESCE(SUM(s.children_count), 0) as total_children
             FROM form_submissions s
             LEFT JOIN questionnaire_responses qr ON s.trace_id = qr.trace_id
             WHERE s.project_id = ?
@@ -106,7 +107,8 @@ class ProjectRepository extends BaseRepository {
             total_participants: 0,
             checked_in_count: 0,
             questionnaire_responses: 0,
-            checkin_rate: 0
+            checkin_rate: 0,
+            total_children: 0
         };
     }
 

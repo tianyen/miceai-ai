@@ -2,6 +2,10 @@
 # 一鍵驗證所有系統功能
 # 執行方式: npm run verify
 
+# 確保在 server 目錄下執行
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.." || exit 1
+
 echo "🧪 開始系統完整性驗證..."
 echo "================================"
 echo ""
@@ -16,6 +20,56 @@ NC='\033[0m' # No Color
 TOTAL=0
 PASSED=0
 FAILED=0
+
+# Server 管理變數
+SERVER_PID=""
+SERVER_STARTED_BY_US=false
+
+# 檢查並啟動 server
+check_and_start_server() {
+    echo "🔍 檢查 API 伺服器狀態..."
+
+    # 檢查 port 3000 是否有服務
+    if curl -s --max-time 2 http://localhost:3000/api/v1/health > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ API 伺服器已在運行${NC}"
+        return 0
+    fi
+
+    echo -e "${YELLOW}⚠️  API 伺服器未運行，正在啟動...${NC}"
+
+    # 背景啟動 server
+    node server.js > /dev/null 2>&1 &
+    SERVER_PID=$!
+    SERVER_STARTED_BY_US=true
+
+    # 等待 server 啟動
+    for i in {1..10}; do
+        sleep 1
+        if curl -s --max-time 2 http://localhost:3000/api/v1/health > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ API 伺服器啟動成功 (PID: $SERVER_PID)${NC}"
+            echo ""
+            return 0
+        fi
+        echo "   等待啟動... ($i/10)"
+    done
+
+    echo -e "${RED}❌ API 伺服器啟動失敗${NC}"
+    return 1
+}
+
+# 停止 server（如果是我們啟動的）
+stop_server_if_needed() {
+    if [ "$SERVER_STARTED_BY_US" = true ] && [ -n "$SERVER_PID" ]; then
+        echo ""
+        echo "🛑 停止測試用 API 伺服器 (PID: $SERVER_PID)..."
+        kill $SERVER_PID 2>/dev/null
+        wait $SERVER_PID 2>/dev/null
+        echo -e "${GREEN}✅ 伺服器已停止${NC}"
+    fi
+}
+
+# 註冊清理函數
+trap stop_server_if_needed EXIT
 
 # 測試函數
 run_test() {
@@ -38,6 +92,12 @@ run_test() {
     echo ""
 }
 
+# 啟動 server（如果需要）
+if ! check_and_start_server; then
+    echo -e "${RED}❌ 無法啟動 API 伺服器，測試中止${NC}"
+    exit 1
+fi
+
 # 1. API v1 端點測試
 run_test "API v1 端點測試" "node scripts/test-api-v1-endpoints.js"
 
@@ -52,6 +112,9 @@ run_test "後台資料顯示檢查" "node scripts/check-admin-data.js"
 
 # 5. 團體報名流程測試
 run_test "團體報名流程測試" "EVENT_ID=2 node scripts/verify-batch-registration.js"
+
+# 6. 小孩統計功能測試
+run_test "小孩統計功能測試" "EVENT_ID=2 node scripts/verify-children-stats.js"
 
 # 顯示總結
 echo "================================"

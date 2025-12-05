@@ -87,6 +87,10 @@ function loadProjectStats() {
                             <div class="stat-label">已簽到人數</div>
                         </div>
                         <div class="stat-item">
+                            <div class="stat-value">${stats.total_children || 0}</div>
+                            <div class="stat-label">小孩總數</div>
+                        </div>
+                        <div class="stat-item">
                             <div class="stat-value">${stats.questionnaire_responses || 0}</div>
                             <div class="stat-label">問卷回應數</div>
                         </div>
