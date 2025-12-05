@@ -60,7 +60,7 @@ router.get('/registrations', async (req, res) => {
 
         // 使用 repository 直接查詢
         const submissionRepo = require('../../repositories/submission.repository');
-        const qrCodeRepo = require('../../repositories/qrCode.repository');
+        const qrCodeRepo = require('../../repositories/qr-code.repository');
 
         let sql = `
             SELECT

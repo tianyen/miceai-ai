@@ -10,7 +10,7 @@
 
 const checkinService = require('./checkin.service');
 const projectService = require('./project.service');
-const qrCodeService = require('./qrCode.service');
+const qrCodeService = require('./qr-code.service');
 const profileService = require('./profile.service');
 const logService = require('./log.service');
 const submissionService = require('./submission.service');
@@ -20,10 +20,10 @@ const gameService = require('./game.service');
 const voucherService = require('./voucher.service');
 const registrationService = require('./registration.service');
 const eventService = require('./event.service');
-const businessCardService = require('./businessCard.service');
+const businessCardService = require('./business-card.service');
 const templateService = require('./template.service');
 const userService = require('./user.service');
-const wishTreeService = require('./wishTree.service');
+const wishTreeService = require('./wish-tree.service');
 const emailService = require('./email.service');
 
 module.exports = {

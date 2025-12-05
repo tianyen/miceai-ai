@@ -10,7 +10,7 @@
  * @refactor 2025-12-01: 使用 Repository 層
  */
 const BaseService = require('./base.service');
-const qrCodeRepository = require('../repositories/qrCode.repository');
+const qrCodeRepository = require('../repositories/qr-code.repository');
 
 class QrCodeService extends BaseService {
     constructor() {

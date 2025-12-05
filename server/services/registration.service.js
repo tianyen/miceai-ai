@@ -5,7 +5,7 @@
  */
 const BaseService = require('./base.service');
 const submissionRepository = require('../repositories/submission.repository');
-const qrCodeRepository = require('../repositories/qrCode.repository');
+const qrCodeRepository = require('../repositories/qr-code.repository');
 const projectRepository = require('../repositories/project.repository');
 const emailService = require('./email.service');
 const { generateTraceId } = require('../utils/traceId');

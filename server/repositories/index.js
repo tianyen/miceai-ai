@@ -16,12 +16,15 @@ const projectRepository = require('./project.repository');
 const submissionRepository = require('./submission.repository');
 const userRepository = require('./user.repository');
 const checkinRepository = require('./checkin.repository');
-const qrCodeRepository = require('./qrCode.repository');
+const qrCodeRepository = require('./qr-code.repository');
 const logRepository = require('./log.repository');
 const questionnaireRepository = require('./questionnaire.repository');
 const boothRepository = require('./booth.repository');
 const gameRepository = require('./game.repository');
 const voucherRepository = require('./voucher.repository');
+const businessCardRepository = require('./business-card.repository');
+const wishTreeRepository = require('./wish-tree.repository');
+const trackingRepository = require('./tracking.repository');
 
 module.exports = {
     BaseRepository,
@@ -34,5 +37,8 @@ module.exports = {
     questionnaireRepository,
     boothRepository,
     gameRepository,
-    voucherRepository
+    voucherRepository,
+    businessCardRepository,
+    wishTreeRepository,
+    trackingRepository
 };
