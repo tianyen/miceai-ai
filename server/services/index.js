@@ -10,6 +10,7 @@
 
 const authService = require('./auth.service');
 const checkinService = require('./checkin.service');
+const dashboardService = require('./dashboard.service');
 const projectService = require('./project.service');
 const qrCodeService = require('./qr-code.service');
 const profileService = require('./profile.service');
@@ -30,6 +31,7 @@ const emailService = require('./email.service');
 module.exports = {
     authService,
     checkinService,
+    dashboardService,
     projectService,
     qrCodeService,
     profileService,
