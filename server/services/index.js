@@ -8,6 +8,7 @@
  * const checkinService = require('./services/checkin.service');
  */
 
+const authService = require('./auth.service');
 const checkinService = require('./checkin.service');
 const projectService = require('./project.service');
 const qrCodeService = require('./qr-code.service');
@@ -27,6 +28,7 @@ const wishTreeService = require('./wish-tree.service');
 const emailService = require('./email.service');
 
 module.exports = {
+    authService,
     checkinService,
     projectService,
     qrCodeService,
