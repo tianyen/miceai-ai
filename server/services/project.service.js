@@ -628,12 +628,13 @@ class ProjectService extends BaseService {
     }
 
     /**
-     * 取得專案參加者列表
+     * 取得專案參加者列表（支援分頁）
      * @param {number} projectId - 專案 ID
-     * @returns {Promise<Array>} 參加者列表
+     * @param {Object} options - 分頁選項 { page, limit }
+     * @returns {Promise<Object>} { participants, pagination }
      */
-    async getParticipants(projectId) {
-        return this.repository.getParticipants(projectId);
+    async getParticipants(projectId, options = {}) {
+        return this.repository.getParticipants(projectId, options);
     }
 
     /**

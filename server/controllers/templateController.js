@@ -7,6 +7,7 @@
 const { templateService } = require('../services');
 const { logUserActivity } = require('../middleware/auth');
 const vh = require('../utils/viewHelpers');
+const autoBind = require('../utils/autoBind');
 
 class TemplateController {
     // ============================================================================
@@ -523,4 +524,4 @@ class TemplateController {
     }
 }
 
-module.exports = new TemplateController();
+module.exports = autoBind(new TemplateController());

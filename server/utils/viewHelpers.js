@@ -301,12 +301,30 @@ function projectParticipantRow(participant) {
         ? idBadge(participant.user_id, 'info', 'User #')
         : idBadge(participant.id, 'secondary', '#');
 
+    // 處理小孩資訊
+    let childrenDisplay = '-';
+    if (participant.children_count && participant.children_count > 0) {
+        let agesText = '';
+        try {
+            const ages = typeof participant.children_ages === 'string'
+                ? JSON.parse(participant.children_ages)
+                : (participant.children_ages || []);
+            if (ages.length > 0) {
+                agesText = ` (${ages.join(', ')}歲)`;
+            }
+        } catch (e) {
+            // ignore parse error
+        }
+        childrenDisplay = `<span class="badge badge-info">${participant.children_count}人</span>${agesText}`;
+    }
+
     return `
         <tr>
             <td>${idDisplay}</td>
             <td>${safeText(participant.submitter_name)}</td>
             <td>${safeText(participant.submitter_email)}</td>
             <td>${safeText(participant.submitter_phone)}</td>
+            <td>${childrenDisplay}</td>
             <td>${participant.participation_level || 50}%</td>
             <td>${checkinStatus}</td>
             <td>
@@ -877,6 +895,7 @@ module.exports = {
     idBadge,
     formatDate,
     safeText,
+    escapeHtml: safeText,  // 別名，兼容舊代碼
 
     // 按鈕
     actionButton,

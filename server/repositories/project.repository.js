@@ -118,7 +118,27 @@ class ProjectRepository extends BaseRepository {
      * @param {number} limit - 筆數限制
      * @returns {Promise<Array>}
      */
-    async getParticipants(projectId, limit = 100) {
+    async getParticipants(projectId, { page = 1, limit = 20, search = '' } = {}) {
+        const offset = (page - 1) * limit;
+
+        // 構建搜尋條件
+        let whereClause = 'WHERE fs.project_id = ?';
+        const countParams = [projectId];
+        const queryParams = [projectId];
+
+        if (search && search.trim()) {
+            whereClause += ' AND (fs.submitter_name LIKE ? OR fs.submitter_email LIKE ?)';
+            const searchTerm = `%${search.trim()}%`;
+            countParams.push(searchTerm, searchTerm);
+            queryParams.push(searchTerm, searchTerm);
+        }
+
+        // 取得總數
+        const countSql = `SELECT COUNT(*) as total FROM form_submissions fs ${whereClause}`;
+        const countResult = await this.rawGet(countSql, countParams);
+        const total = countResult?.total || 0;
+
+        // 取得分頁資料
         const sql = `
             SELECT
                 fs.id,
@@ -130,13 +150,28 @@ class ProjectRepository extends BaseRepository {
                 fs.participation_level,
                 fs.checked_in_at,
                 fs.status,
-                fs.created_at
+                fs.created_at,
+                fs.children_count,
+                fs.children_ages
             FROM form_submissions fs
-            WHERE fs.project_id = ?
+            ${whereClause}
             ORDER BY fs.created_at DESC
-            LIMIT ?
+            LIMIT ? OFFSET ?
         `;
-        return this.rawAll(sql, [projectId, limit]);
+        queryParams.push(limit, offset);
+        const participants = await this.rawAll(sql, queryParams);
+
+        return {
+            participants,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+                hasNext: page * limit < total,
+                hasPrev: page > 1
+            }
+        };
     }
 
     /**

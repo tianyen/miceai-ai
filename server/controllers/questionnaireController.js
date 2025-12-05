@@ -7,6 +7,7 @@
 const { questionnaireService } = require('../services');
 const { logUserActivity } = require('../middleware/auth');
 const vh = require('../utils/viewHelpers');
+const autoBind = require('../utils/autoBind');
 
 class QuestionnaireController {
     // ============================================================================
@@ -912,4 +913,4 @@ class QuestionnaireController {
     }
 }
 
-module.exports = new QuestionnaireController();
+module.exports = autoBind(new QuestionnaireController());

@@ -16,9 +16,9 @@
         <div class="nav-section">主要功能</div>
 
         <div class="nav-item">
-            <a href="/admin/dashboard" class="nav-link{{#if (eq currentPage 'dashboard')}} active{{/if}}">
+            <a href="/admin/dashboard" class="nav-link{{#if (eq currentPage 'dashboard')}} active{{/if}}" title="儀表板">
                 <i class="fas fa-tachometer-alt"></i>
-                儀表板
+                <span>儀表板</span>
             </a>
         </div>
 
@@ -26,52 +26,52 @@
         <div class="nav-section">活動管理</div>
 
         <div class="nav-item">
-            <a href="/admin/projects" class="nav-link{{#if (eq currentPage 'projects')}} active{{/if}}">
+            <a href="/admin/projects" class="nav-link{{#if (eq currentPage 'projects')}} active{{/if}}" title="活動專案">
                 <i class="fas fa-calendar-alt"></i>
-                活動專案
+                <span>活動專案</span>
             </a>
         </div>
 
         <div class="nav-item nav-sub-item">
-            <a href="/admin/booths" class="nav-link{{#if (eq currentPage 'booths')}} active{{/if}}">
+            <a href="/admin/booths" class="nav-link{{#if (eq currentPage 'booths')}} active{{/if}}" title="攤位管理">
                 <i class="fas fa-store"></i>
-                攤位管理
+                <span>攤位管理</span>
             </a>
         </div>
 
         <div class="nav-item nav-sub-item">
             <a href="/admin/checkin-management"
-                class="nav-link{{#if (eq currentPage 'checkin-management')}} active{{/if}}">
+                class="nav-link{{#if (eq currentPage 'checkin-management')}} active{{/if}}" title="報到管理">
                 <i class="fas fa-check-circle"></i>
-                報到管理
+                <span>報到管理</span>
             </a>
         </div>
 
         <div class="nav-item">
-            <a href="/admin/templates" class="nav-link{{#if (eq currentPage 'templates')}} active{{/if}}">
+            <a href="/admin/templates" class="nav-link{{#if (eq currentPage 'templates')}} active{{/if}}" title="活動模板">
                 <i class="fas fa-calendar-check"></i>
-                活動模板
+                <span>活動模板</span>
             </a>
         </div>
 
         <div class="nav-item">
-            <a href="/admin/submissions" class="nav-link{{#if (eq currentPage 'submissions')}} active{{/if}}">
+            <a href="/admin/submissions" class="nav-link{{#if (eq currentPage 'submissions')}} active{{/if}}" title="表單數據">
                 <i class="fas fa-clipboard-list"></i>
-                表單數據
+                <span>表單數據</span>
             </a>
         </div>
 
         <div class="nav-item">
-            <a href="/admin/trace-tracking" class="nav-link{{#if (eq currentPage 'trace-tracking')}} active{{/if}}">
+            <a href="/admin/trace-tracking" class="nav-link{{#if (eq currentPage 'trace-tracking')}} active{{/if}}" title="參加者追蹤">
                 <i class="fas fa-route"></i>
-                參加者追蹤
+                <span>參加者追蹤</span>
             </a>
         </div>
 
         <div class="nav-item">
-            <a href="/admin/email-management" class="nav-link{{#if (eq currentPage 'email-management')}} active{{/if}}">
+            <a href="/admin/email-management" class="nav-link{{#if (eq currentPage 'email-management')}} active{{/if}}" title="邀請信管理">
                 <i class="fas fa-envelope"></i>
-                邀請信管理
+                <span>邀請信管理</span>
             </a>
         </div>
 
@@ -80,24 +80,24 @@
 
         <div class="nav-item">
             <a href="/admin/questionnaire/stats"
-                class="nav-link{{#if (eq currentPage 'questionnaire-stats')}} active{{/if}}">
+                class="nav-link{{#if (eq currentPage 'questionnaire-stats')}} active{{/if}}" title="問卷統計">
                 <i class="fas fa-chart-bar"></i>
-                問卷統計
+                <span>問卷統計</span>
             </a>
         </div>
 
         <div class="nav-item nav-sub-item">
             <a href="/admin/questionnaire/design"
-                class="nav-link{{#if (eq currentPage 'questionnaire-design')}} active{{/if}}">
+                class="nav-link{{#if (eq currentPage 'questionnaire-design')}} active{{/if}}" title="問卷設計">
                 <i class="fas fa-edit"></i>
-                問卷設計
+                <span>問卷設計</span>
             </a>
         </div>
 
         <div class="nav-item nav-sub-item">
-            <a href="/admin/questionnaire/qr" class="nav-link{{#if (eq currentPage 'questionnaire-qr')}} active{{/if}}">
+            <a href="/admin/questionnaire/qr" class="nav-link{{#if (eq currentPage 'questionnaire-qr')}} active{{/if}}" title="問卷 QR Code">
                 <i class="fas fa-qrcode"></i>
-                問卷 QR Code
+                <span>問卷 QR Code</span>
             </a>
         </div>
 
@@ -105,37 +105,37 @@
         <div class="nav-section">遊戲室</div>
 
         <div class="nav-item">
-            <a href="/admin/games" class="nav-link{{#if (eq currentPage 'games')}} active{{/if}}">
+            <a href="/admin/games" class="nav-link{{#if (eq currentPage 'games')}} active{{/if}}" title="遊戲">
                 <i class="fas fa-gamepad"></i>
-                遊戲
+                <span>遊戲</span>
             </a>
         </div>
 
         <div class="nav-item nav-sub-item">
-            <a href="/admin/game-analytics" class="nav-link{{#if (eq currentPage 'game-analytics')}} active{{/if}}">
+            <a href="/admin/game-analytics" class="nav-link{{#if (eq currentPage 'game-analytics')}} active{{/if}}" title="遊戲分析">
                 <i class="fas fa-chart-line"></i>
-                遊戲分析
+                <span>遊戲分析</span>
             </a>
         </div>
 
         <div class="nav-item">
-            <a href="/admin/vouchers" class="nav-link{{#if (eq currentPage 'vouchers')}} active{{/if}}">
+            <a href="/admin/vouchers" class="nav-link{{#if (eq currentPage 'vouchers')}} active{{/if}}" title="兌換券">
                 <i class="fas fa-ticket-alt"></i>
-                兌換券
+                <span>兌換券</span>
             </a>
         </div>
 
         <div class="nav-item nav-sub-item">
-            <a href="/admin/vouchers/stats" class="nav-link{{#if (eq currentPage 'voucher-stats')}} active{{/if}}">
+            <a href="/admin/vouchers/stats" class="nav-link{{#if (eq currentPage 'voucher-stats')}} active{{/if}}" title="兌換券統計">
                 <i class="fas fa-chart-bar"></i>
-                兌換券統計
+                <span>兌換券統計</span>
             </a>
         </div>
 
         <div class="nav-item nav-sub-item">
-            <a href="/admin/vouchers/scanner" class="nav-link{{#if (eq currentPage 'voucher-scanner')}} active{{/if}}">
+            <a href="/admin/vouchers/scanner" class="nav-link{{#if (eq currentPage 'voucher-scanner')}} active{{/if}}" title="兌換券掃描">
                 <i class="fas fa-qrcode"></i>
-                兌換券掃描
+                <span>兌換券掃描</span>
             </a>
         </div>
 
@@ -146,16 +146,16 @@
         <div class="nav-section admin-only">系統管理</div>
 
         <div class="nav-item admin-only">
-            <a href="/admin/users" class="nav-link{{#if (eq currentPage 'users')}} active{{/if}}">
+            <a href="/admin/users" class="nav-link{{#if (eq currentPage 'users')}} active{{/if}}" title="用戶管理">
                 <i class="fas fa-users"></i>
-                用戶管理
+                <span>用戶管理</span>
             </a>
         </div>
 
         <div class="nav-item admin-only">
-            <a href="/admin/logs" class="nav-link{{#if (eq currentPage 'logs')}} active{{/if}}">
+            <a href="/admin/logs" class="nav-link{{#if (eq currentPage 'logs')}} active{{/if}}" title="系統日誌">
                 <i class="fas fa-history"></i>
-                系統日誌
+                <span>系統日誌</span>
             </a>
         </div>
         {{!-- {{/eq}}
@@ -168,9 +168,9 @@
         <div class="nav-section">專案管理</div>
 
         <div class="nav-item">
-            <a href="/admin/users" class="nav-link{{#if (eq currentPage 'users')}} active{{/if}}">
+            <a href="/admin/users" class="nav-link{{#if (eq currentPage 'users')}} active{{/if}}" title="團隊管理">
                 <i class="fas fa-user-friends"></i>
-                團隊管理
+                <span>團隊管理</span>
             </a>
         </div>
         {{!-- {{/ifCond}}
@@ -179,23 +179,23 @@
         <div class="nav-section">其他</div>
 
         <div class="nav-item">
-            <a href="/admin/profile" class="nav-link{{#if (eq currentPage 'profile')}} active{{/if}}">
+            <a href="/admin/profile" class="nav-link{{#if (eq currentPage 'profile')}} active{{/if}}" title="個人資料">
                 <i class="fas fa-user-circle"></i>
-                個人資料
+                <span>個人資料</span>
             </a>
         </div>
 
         <div class="nav-item">
-            <a href="/" target="_blank" class="nav-link">
+            <a href="/" target="_blank" class="nav-link" title="前台預覽">
                 <i class="fas fa-external-link-alt"></i>
-                前台預覽
+                <span>前台預覽</span>
             </a>
         </div>
 
         <div class="nav-item">
-            <a href="/admin/logout" class="nav-link">
+            <a href="/admin/logout" class="nav-link" title="登出">
                 <i class="fas fa-sign-out-alt"></i>
-                登出
+                <span>登出</span>
             </a>
         </div>
     </div>

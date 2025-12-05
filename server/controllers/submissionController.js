@@ -7,6 +7,7 @@
 const { submissionService } = require('../services');
 const { logUserActivity } = require('../middleware/auth');
 const vh = require('../utils/viewHelpers');
+const autoBind = require('../utils/autoBind');
 
 class SubmissionController {
     // ============================================================================
@@ -474,4 +475,4 @@ class SubmissionController {
     }
 }
 
-module.exports = new SubmissionController();
+module.exports = autoBind(new SubmissionController());

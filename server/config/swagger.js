@@ -44,7 +44,10 @@ const swaggerDefinition = {
       '| `gender` | string | ⭕ | 性別 | `"男"` / `"女"` / `"其他"` |\n' +
       '| `title` | string | ⭕ | 尊稱 | `"先生"` / `"女士"` / `"博士"` / `"教授"` |\n' +
       '| `notes` | string | ⭕ | 留言備註 (最多500字) | `"需要素食餐點"` |\n' +
-      '| `marketing_consent` | boolean | ⭕ | 行銷推廣同意 | `false` |\n\n' +
+      '| `marketing_consent` | boolean | ⭕ | 行銷推廣同意 | `false` |\n' +
+      '| `adult_age` | integer | ⭕ | 成人年齡 (18-120) | `35` |\n' +
+      '| `children_count` | integer | ⭕ | 小孩人數 (0-10) | `2` |\n' +
+      '| `children_ages` | array | ⭕ | 小孩年齡陣列 (每個 0-17) | `[5, 8]` |\n\n' +
       '---\n\n' +
       '### 方式一：單人報名\n\n' +
       '**端點：** `POST /api/v1/events/{eventId}/registrations`\n\n' +
@@ -69,7 +72,10 @@ const swaggerDefinition = {
       '    gender: \'男\',\n' +
       '    title: \'先生\',\n' +
       '    notes: \'需要素食餐點\',\n' +
-      '    marketing_consent: false\n' +
+      '    marketing_consent: false,\n' +
+      '    adult_age: 35,\n' +
+      '    children_count: 2,\n' +
+      '    children_ages: [5, 8]\n' +
       '  })\n' +
       '});\n\n' +
       '// 步驟 3：處理回應\n' +
@@ -101,7 +107,10 @@ const swaggerDefinition = {
       '      gender: \'男\',\n' +
       '      title: \'先生\',\n' +
       '      notes: \'團體報名\',\n' +
-      '      marketing_consent: false\n' +
+      '      marketing_consent: false,\n' +
+      '      adult_age: 40,\n' +
+      '      children_count: 1,\n' +
+      '      children_ages: [10]\n' +
       '    },\n' +
       '    // 同行者 (最多 4 人)\n' +
       '    participants: [\n' +
@@ -323,6 +332,9 @@ const swaggerDefinition = {
           submitter_phone: { type: 'string', example: '0912345678' },
           company_name: { type: 'string', example: '科技創新公司' },
           position: { type: 'string', example: '技術總監' },
+          adult_age: { type: 'integer', example: 35, description: '成人年齡 (18-120)' },
+          children_count: { type: 'integer', example: 2, description: '小孩人數 (0-10)' },
+          children_ages: { type: 'array', items: { type: 'integer' }, example: [5, 8], description: '小孩年齡陣列' },
           status: { type: 'string', enum: ['pending', 'confirmed', 'cancelled'], example: 'confirmed' },
           qr_code_base64: { type: 'string', example: 'data:image/png;base64,iVBORw0KG...' },
           created_at: { type: 'string', format: 'date-time', example: '2025-11-13T10:00:00.000Z' }

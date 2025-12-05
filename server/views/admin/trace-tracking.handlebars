@@ -24,9 +24,9 @@
             <label for="event-select">活動：</label>
             <select id="event-select" class="form-control">
                 <option value="">所有活動</option>
-                <option value="1">2024年度科技論壇</option>
-                <option value="2">春季產品發表會</option>
-                <option value="3">客戶感謝晚宴</option>
+                {{#each projects}}
+                <option value="{{this.id}}">{{this.project_name}}</option>
+                {{/each}}
             </select>
         </div>
 

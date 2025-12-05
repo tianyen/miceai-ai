@@ -234,6 +234,18 @@ router.get('/:id', async (req, res) => {
                                         <p><strong>參與程度：</strong>${submission.participation_level || 50}%</p>
                                         <p><strong>公司：</strong>${submission.company_name || '-'}</p>
                                         <p><strong>職位：</strong>${submission.position || '-'}</p>
+                                        ${submission.adult_age ? `<p><strong>成人年齡：</strong>${submission.adult_age} 歲</p>` : ''}
+                                        ${submission.children_count ? `
+                                        <p><strong>小孩人數：</strong>${submission.children_count} 人</p>
+                                        <p><strong>小孩年齡：</strong>${(() => {
+                                            try {
+                                                const ages = typeof submission.children_ages === 'string'
+                                                    ? JSON.parse(submission.children_ages)
+                                                    : (submission.children_ages || []);
+                                                return ages.length > 0 ? ages.join(', ') + ' 歲' : '-';
+                                            } catch(e) { return '-'; }
+                                        })()}</p>
+                                        ` : ''}
                                     </div>
                                     <div class="col-md-6">
                                         <h5>專案資訊</h5>
@@ -319,12 +331,7 @@ router.get('/:id', async (req, res) => {
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" onclick="closeModal()">關閉</button>
-                            <button type="button" class="btn btn-primary" onclick="editSubmission(${submission.id})">編輯</button>
-                            ${submission.status === 'pending' ? `
-                                <button type="button" class="btn btn-success" onclick="confirmSubmission(${submission.id})">確認</button>
-                                <button type="button" class="btn btn-warning" onclick="cancelSubmission(${submission.id})">取消</button>
-                            ` : ''}
+                            <button type="button" class="btn btn-primary" onclick="editSubmission(${submission.id}); closeModal();">編輯</button>
                         </div>
                     </div>
                 </div>

@@ -7,6 +7,7 @@
 const { projectService } = require('../services');
 const { logUserActivity } = require('../middleware/auth');
 const vh = require('../utils/viewHelpers');
+const autoBind = require('../utils/autoBind');
 
 class ProjectController {
     // ============================================================================
@@ -869,4 +870,4 @@ class ProjectController {
     }
 }
 
-module.exports = new ProjectController();
+module.exports = autoBind(new ProjectController());

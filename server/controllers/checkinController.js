@@ -7,6 +7,7 @@
 const { checkinService } = require('../services');
 const { logUserActivity } = require('../middleware/auth');
 const vh = require('../utils/viewHelpers');
+const autoBind = require('../utils/autoBind');
 
 class CheckinController {
     /**
@@ -614,4 +615,4 @@ class CheckinController {
     }
 }
 
-module.exports = new CheckinController();
+module.exports = autoBind(new CheckinController());

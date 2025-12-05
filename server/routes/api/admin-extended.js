@@ -591,18 +591,51 @@ router.get('/projects/:id/stats', authenticateSession, async (req, res) => {
     }
 });
 
-// API: 獲取專案參加者列表 (HTML)
+// API: 獲取專案參加者列表 (JSON，支援分頁)
 // @refactor: 使用 projectService + viewHelpers
 router.get('/projects/:id/participants', authenticateSession, async (req, res) => {
     try {
-        const participants = await projectService.getParticipants(req.params.id);
-        const html = participants.length === 0
-            ? vh.emptyTableRow('暫無參加者資料', 7)
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const search = req.query.search || '';
+
+        const result = await projectService.getParticipants(req.params.id, { page, limit, search });
+        const { participants, pagination } = result;
+
+        // 生成表格 HTML
+        const tableHtml = participants.length === 0
+            ? vh.emptyTableRow('暫無參加者資料', 8)
             : participants.map(p => vh.projectParticipantRow(p)).join('');
-        res.send(html);
+
+        // 生成分頁 HTML
+        let paginationHtml = '';
+        if (pagination.totalPages > 1) {
+            paginationHtml = `
+                <div class="pagination-wrapper" style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 1rem; background: #f8f9fa; border-radius: 4px;">
+                    <div class="pagination-info">
+                        共 <strong>${pagination.total}</strong> 筆，第 ${pagination.page} / ${pagination.totalPages} 頁
+                    </div>
+                    <div class="pagination-buttons" style="display: flex; gap: 0.5rem;">
+                        ${pagination.hasPrev ? `<button class="btn btn-sm btn-outline-primary" onclick="loadParticipants(${page - 1})">上一頁</button>` : ''}
+                        ${pagination.hasNext ? `<button class="btn btn-sm btn-outline-primary" onclick="loadParticipants(${page + 1})">下一頁</button>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        res.json({
+            success: true,
+            tableHtml,
+            paginationHtml,
+            pagination
+        });
     } catch (error) {
         console.error('獲取專案參加者失敗:', error);
-        res.send(vh.errorTableRow('載入失敗', 7));
+        res.json({
+            success: false,
+            tableHtml: vh.errorTableRow('載入失敗', 8),
+            paginationHtml: ''
+        });
     }
 });
 

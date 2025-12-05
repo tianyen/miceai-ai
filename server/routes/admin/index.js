@@ -4,6 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateSession } = require('../../middleware/auth');
+const ProjectService = require('../../services/project.service');
 
 // 導入子路由
 const authRoutes = require('./auth');
@@ -84,17 +85,36 @@ router.get('/qr-scanner', authenticateSession, (req, res) => {
 });
 
 // 參加者追蹤頁面
-router.get('/trace-tracking', authenticateSession, (req, res) => {
-    res.render('admin/trace-tracking', {
-        layout: 'admin',
-        pageTitle: '參加者追蹤',
-        currentPage: 'trace-tracking',
-        user: req.user,
-        breadcrumbs: [
-            { name: '儀表板', url: '/admin/dashboard' },
-            { name: '參加者追蹤' }
-        ]
-    });
+router.get('/trace-tracking', authenticateSession, async (req, res) => {
+    try {
+        // 動態載入專案列表 (ProjectService 是 singleton)
+        const projects = await ProjectService.getAllForDropdown();
+
+        res.render('admin/trace-tracking', {
+            layout: 'admin',
+            pageTitle: '參加者追蹤',
+            currentPage: 'trace-tracking',
+            user: req.user,
+            projects,  // 傳遞專案列表給模板
+            breadcrumbs: [
+                { name: '儀表板', url: '/admin/dashboard' },
+                { name: '參加者追蹤' }
+            ]
+        });
+    } catch (error) {
+        console.error('載入追蹤頁面失敗:', error);
+        res.render('admin/trace-tracking', {
+            layout: 'admin',
+            pageTitle: '參加者追蹤',
+            currentPage: 'trace-tracking',
+            user: req.user,
+            projects: [],
+            breadcrumbs: [
+                { name: '儀表板', url: '/admin/dashboard' },
+                { name: '參加者追蹤' }
+            ]
+        });
+    }
 });
 
 module.exports = router;

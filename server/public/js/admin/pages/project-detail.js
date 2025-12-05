@@ -24,6 +24,13 @@ $(document).ready(function() {
             searchTracking();
         }
     });
+
+    // 參加者搜尋 Enter 鍵支援
+    $('#participants-search').on('keypress', function(e) {
+        if (e.which === 13) {
+            searchParticipants();
+        }
+    });
 });
 
 // 切換選項卡
@@ -109,18 +116,43 @@ function loadProjectStats() {
     });
 }
 
-// 載入參加者列表
-function loadParticipants() {
+// 參加者搜尋狀態
+let currentParticipantsSearch = '';
+
+// 載入參加者列表（支援分頁和搜尋）
+function loadParticipants(page = 1, search = currentParticipantsSearch) {
+    currentParticipantsSearch = search;
     $.ajax({
         url: `/api/admin/projects/${projectId}/participants`,
         method: 'GET',
-        success: function(data) {
-            $('#participants-list').html(data);
+        data: { page: page, limit: 20, search: search },
+        success: function(response) {
+            if (response.success) {
+                $('#participants-list').html(response.tableHtml);
+                $('#participants-pagination').html(response.paginationHtml);
+            } else {
+                $('#participants-list').html('<tr><td colspan="8" class="text-center text-danger">載入參加者失敗</td></tr>');
+                $('#participants-pagination').empty();
+            }
         },
         error: function() {
-            $('#participants-list').html('<tr><td colspan="6" class="text-center text-danger">載入參加者失敗</td></tr>');
+            $('#participants-list').html('<tr><td colspan="8" class="text-center text-danger">載入參加者失敗</td></tr>');
+            $('#participants-pagination').empty();
         }
     });
+}
+
+// 搜尋參加者
+function searchParticipants() {
+    const search = $('#participants-search').val().trim();
+    loadParticipants(1, search);
+}
+
+// 清除參加者搜尋
+function clearParticipantsSearch() {
+    $('#participants-search').val('');
+    currentParticipantsSearch = '';
+    loadParticipants(1, '');
 }
 
 // 載入問卷資料
@@ -1253,6 +1285,9 @@ function loadFormConfig() {
                 $('#field_gender').prop('checked', optionalFields.includes('gender'));
                 $('#field_title').prop('checked', optionalFields.includes('title'));
                 $('#field_notes').prop('checked', optionalFields.includes('notes'));
+                $('#field_adult_age').prop('checked', optionalFields.includes('adult_age'));
+                $('#field_children_count').prop('checked', optionalFields.includes('children_count'));
+                $('#field_children_ages').prop('checked', optionalFields.includes('children_ages'));
 
                 // 設置選項
                 if (config.gender_options) {
@@ -1278,6 +1313,9 @@ function saveFormConfig() {
     if ($('#field_gender').is(':checked')) optionalFields.push('gender');
     if ($('#field_title').is(':checked')) optionalFields.push('title');
     if ($('#field_notes').is(':checked')) optionalFields.push('notes');
+    if ($('#field_adult_age').is(':checked')) optionalFields.push('adult_age');
+    if ($('#field_children_count').is(':checked')) optionalFields.push('children_count');
+    if ($('#field_children_ages').is(':checked')) optionalFields.push('children_ages');
 
     // 收集選項
     const genderOptions = $('#gender_options').val().split(',').map(s => s.trim()).filter(s => s);
@@ -1294,7 +1332,10 @@ function saveFormConfig() {
             position: '職位',
             gender: '性別',
             title: '尊稱',
-            notes: '留言備註'
+            notes: '留言備註',
+            adult_age: '成人年齡',
+            children_count: '小孩人數',
+            children_ages: '小孩年齡'
         },
         gender_options: genderOptions,
         title_options: titleOptions

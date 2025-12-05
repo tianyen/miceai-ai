@@ -8,6 +8,7 @@ const { userService } = require('../services');
 const { logUserActivity } = require('../middleware/auth');
 const responses = require('../utils/responses');
 const vh = require('../utils/viewHelpers');
+const autoBind = require('../utils/autoBind');
 
 class UserController {
     // ============================================================================
@@ -770,4 +771,4 @@ class UserController {
     }
 }
 
-module.exports = new UserController();
+module.exports = autoBind(new UserController());

@@ -7,6 +7,7 @@
 const { authService } = require('../services');
 const { generateToken, logUserActivity } = require('../middleware/auth');
 const { validationResult } = require('express-validator');
+const autoBind = require('../utils/autoBind');
 
 class AuthController {
     /**
@@ -360,4 +361,4 @@ class AuthController {
     }
 }
 
-module.exports = new AuthController();
+module.exports = autoBind(new AuthController());

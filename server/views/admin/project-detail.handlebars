@@ -105,6 +105,20 @@
             </div>
         </div>
 
+        <div class="search-bar" style="margin-bottom: 1rem;">
+            <div class="input-group" style="max-width: 400px;">
+                <input type="text" id="participants-search" class="form-control" placeholder="搜尋姓名或 Email...">
+                <div class="input-group-append">
+                    <button class="btn btn-primary" onclick="searchParticipants()">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearParticipantsSearch()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div class="data-table-container">
             <div class="table-responsive">
                 <table class="table">
@@ -114,6 +128,7 @@
                             <th>姓名</th>
                             <th>電子郵件</th>
                             <th>電話</th>
+                            <th>小孩</th>
                             <th>參與程度</th>
                             <th>報到狀態</th>
                             <th>操作</th>
@@ -121,13 +136,14 @@
                     </thead>
                     <tbody id="participants-list">
                         <tr>
-                            <td colspan="7" class="text-center">
+                            <td colspan="8" class="text-center">
                                 <div class="loading">載入參加者資料中...</div>
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
+            <div id="participants-pagination"></div>
         </div>
     </div>
 
@@ -175,6 +191,15 @@
                     </label>
                     <label class="field-checkbox">
                         <input type="checkbox" id="field_notes" name="optional_notes" checked> 留言備註
+                    </label>
+                    <label class="field-checkbox">
+                        <input type="checkbox" id="field_adult_age" name="optional_adult_age"> 成人年齡
+                    </label>
+                    <label class="field-checkbox">
+                        <input type="checkbox" id="field_children_count" name="optional_children_count"> 小孩人數
+                    </label>
+                    <label class="field-checkbox">
+                        <input type="checkbox" id="field_children_ages" name="optional_children_ages"> 小孩年齡
                     </label>
                 </div>
             </div>
