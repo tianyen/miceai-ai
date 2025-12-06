@@ -13,6 +13,7 @@
  * 注意：此腳本會動態查詢可用的活動、攤位和遊戲，不依賴寫死的 ID
  */
 
+const { createDb } = require('./utils/db');
 const API_URL = process.env.API_URL || 'http://localhost:3000/api/v1';
 
 // ANSI 顏色
@@ -459,6 +460,12 @@ async function verifyGroupFullFlow() {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // 清理測試資料
+    // ═══════════════════════════════════════════════════════════════
+    logSection('清理測試資料');
+    await cleanupTestData(timestamp);
+
+    // ═══════════════════════════════════════════════════════════════
     // 測試結果摘要
     // ═══════════════════════════════════════════════════════════════
     console.log(`\n${colors.cyan}${'═'.repeat(60)}${colors.reset}`);
@@ -478,6 +485,54 @@ async function verifyGroupFullFlow() {
     console.log(`\n${colors.dim}${'─'.repeat(60)}${colors.reset}`);
 
     process.exit(results.failed > 0 ? 1 : 0);
+}
+
+/**
+ * 清理測試資料
+ * @param {number} timestamp - 測試時使用的 timestamp
+ */
+function cleanupTestData(timestamp) {
+    let db;
+    try {
+        db = createDb();
+
+        // 查找這次測試產生的報名記錄（按 is_primary 排序，先刪同行者再刪主報名人）
+        const testPattern = `%_${timestamp}`;
+        const submissions = db.prepare(`
+            SELECT id, trace_id, submitter_name FROM form_submissions
+            WHERE submitter_name LIKE ?
+            ORDER BY is_primary ASC, id DESC
+        `).all(testPattern);
+
+        if (submissions.length === 0) {
+            log('ℹ️', '沒有找到需要清理的測試資料', colors.yellow);
+            return;
+        }
+
+        log('🧹', `找到 ${submissions.length} 筆測試資料，開始清理...`, colors.yellow);
+
+        // 逐筆刪除，使用正確的欄位名稱
+        for (const submission of submissions) {
+            const { id, trace_id, submitter_name } = submission;
+            log('   ', `清理: ${submitter_name} (${trace_id})`, colors.dim);
+
+            // qr_codes 使用 submission_id
+            db.prepare('DELETE FROM qr_codes WHERE submission_id = ?').run(id);
+            // checkin_records 使用 submission_id
+            db.prepare('DELETE FROM checkin_records WHERE submission_id = ?').run(id);
+            // participant_interactions 使用 trace_id
+            db.prepare('DELETE FROM participant_interactions WHERE trace_id = ?').run(trace_id);
+            // 最後刪除報名記錄
+            db.prepare('DELETE FROM form_submissions WHERE id = ?').run(id);
+        }
+
+        log('✅', `測試資料清理完成 (${submissions.length} 筆)`, colors.green);
+    } catch (error) {
+        log('⚠️', `清理測試資料時發生錯誤: ${error.message}`, colors.yellow);
+        // 清理失敗不影響測試結果
+    } finally {
+        if (db) db.close();
+    }
 }
 
 // 執行

@@ -208,7 +208,7 @@ const seedData = {
             project_id: 2,  // MOON2025
             user_id: null,
             submitter_name: '福利團體1',
-            submitter_email: 'okzmdu@gmail.com',
+            submitter_email: 'test@test.com',
             submitter_phone: '0900000000',
             company_name: '天衍互動',
             position: '負責人',
@@ -228,7 +228,7 @@ const seedData = {
             project_id: 2,  // MOON2025
             user_id: null,
             submitter_name: '陳哥',
-            submitter_email: 'okz5289@gmail.com',
+            submitter_email: 'test@gmail.com',
             submitter_phone: '0900000001',
             company_name: null,
             position: null,
@@ -248,7 +248,7 @@ const seedData = {
             project_id: 2,  // MOON2025
             user_id: null,
             submitter_name: '王爸爸',
-            submitter_email: 'okzmdu@gmail.com',
+            submitter_email: 'test@test.com',
             submitter_phone: '0900000002',
             company_name: null,
             position: null,
@@ -268,7 +268,7 @@ const seedData = {
             project_id: 2,  // MOON2025
             user_id: null,
             submitter_name: '王媽媽',
-            submitter_email: 'emyerst@gmail.com',
+            submitter_email: 'test@gmail.com',
             submitter_phone: '0900000003',
             company_name: null,
             position: null,
@@ -288,7 +288,7 @@ const seedData = {
             project_id: 2,  // MOON2025
             user_id: null,
             submitter_name: '王姑姑',
-            submitter_email: 'emyerst@gmail.com',
+            submitter_email: 'test@gmail.com',
             submitter_phone: '0900000004',
             company_name: null,
             position: null,
@@ -308,7 +308,7 @@ const seedData = {
             project_id: 2,  // MOON2025
             user_id: null,
             submitter_name: '福利團體2',
-            submitter_email: 'okz5289@gmail.com',
+            submitter_email: 'test@gmail.com',
             submitter_phone: '0900000005',
             company_name: null,
             position: null,

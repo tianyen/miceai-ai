@@ -75,7 +75,7 @@ function handleServiceError(res, error, defaultMessage) {
  *         body: JSON.stringify({
  *           // ✅ 必填欄位
  *           name: '福利團體1',
- *           email: 'okzmdu@gmail.com',
+ *           email: 'test@test.com',
  *           phone: '0900000000',
  *           data_consent: true,
  *
@@ -159,7 +159,7 @@ function handleServiceError(res, error, defaultMessage) {
  *                 type: string
  *                 format: email
  *                 description: 電子郵件
- *                 example: "okzmdu@gmail.com"
+ *                 example: "test@test.com"
  *               phone:
  *                 type: string
  *                 pattern: '^[0-9\-\+\s\(\)]{8,20}$'
@@ -269,7 +269,7 @@ function handleServiceError(res, error, defaultMessage) {
  *                           example: "福利團體1"
  *                         email:
  *                           type: string
- *                           example: "okzmdu@gmail.com"
+ *                           example: "test@test.com"
  *                     qr_code:
  *                       type: object
  *                       properties:
