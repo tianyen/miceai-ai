@@ -168,16 +168,30 @@ server/
 **Swagger UI**: http://localhost:3000/api-docs
 
 主要 API 端點：
-- `/api/v1/*` - 前端 API（15+ 端點，完整 Swagger 文檔）
+- `/api/v1/*` - 前端 API（25 個端點，完整 Swagger 文檔）
   - Check-in: 報到管理（2 個端點）
-  - Events: 活動管理（4 個端點）
-  - Registrations: 報名管理（5 個端點，含團體報名）
+  - Events: 活動管理（3 個端點）
+    - `GET /events` - 活動列表
+    - `GET /events/:id` - 活動詳情
+    - `GET /events/code/:code` - 根據代碼查詢活動
+  - Registrations: 報名管理（7 個端點，含團體報名）
     - `POST /events/{eventId}/registrations` - 單人報名
     - `POST /events/{eventId}/registrations/batch` - **團體報名 (最多 5 人)**
+    - `GET /registrations/{traceId}` - 查詢報名狀態
     - `POST /registrations/{traceId}/resend-email` - **重寄邀請信**
+    - `GET /qr-codes/{traceId}` - QR Code 圖片
+    - `GET /qr-codes/{traceId}/data` - QR Code Base64 數據
+    - `POST /verify-pass-code` - 驗證通行碼
   - Games: 遊戲管理（4 個端點）
-  - Business Cards: 名片管理（2 個端點）
-  - Wish Tree: 許願樹（2 個端點）
+  - Business Cards: 名片管理（3 個端點）
+    - `POST /business-cards` - 創建名片
+    - `GET /business-cards/:cardId` - 名片詳情
+    - `GET /business-cards/project/:projectId` - 專案名片列表
+  - Wish Tree: 許願樹（4 個端點）
+    - `POST /wish-tree/submit` - 提交許願
+    - `GET /wish-tree/stats` - 統計數據
+    - `GET /wish-tree/recent` - 最近許願記錄
+    - `GET /wish-tree/wish/:wishId` - 單一許願詳情（含圖片）
 - `/api/admin/*` - 後台管理 API（18+ 個端點）
   - Dashboard: 儀表板統計（4 個端點）
   - Email Management: 郵件管理（4 個端點）
@@ -372,6 +386,10 @@ pm2 startup
 **維護者**: MICE-AI Team
 
 ### 更新日誌
+
+#### 2025-12-06
+- 修正: pass_code
+- 修正: 驗證後台 Email 發送信件 + 暫時移除 pass_code 號碼在 Email template 中顯示
 
 #### 2025-12-05
 - 新增：個人報名 API 支援年齡相關欄位 (`adult_age`, `children_count`, `children_ages`)
