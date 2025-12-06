@@ -17,6 +17,7 @@ const { setupSwaggerUI } = require('./config/swagger');
 // 導入中間件
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { requestLogger, errorCatcher, devLogger, apiLogger, adminLogger } = require('./middleware/requestLogger');
+const { adminViewCsrf, adminApiCsrf } = require('./middleware/csrf');
 
 // 導入路由
 const mainRoutes = require('./routes');
@@ -51,6 +52,10 @@ app.use(express.urlencoded({ extended: true, limit: config.upload.maxFileSize })
 
 // Session 配置
 app.use(sessionConfig);
+
+// CSRF 防護（僅後台）
+app.use('/admin', adminViewCsrf);
+app.use('/api/admin', adminApiCsrf);
 
 // ===== 靜態文件服務 =====
 app.use(express.static(config.paths.public));

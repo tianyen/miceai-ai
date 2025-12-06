@@ -1,5 +1,7 @@
 # MICE AI Backend
 
+> Version: **v1.0** · Documentation reset on 2025-12-07
+
 專業的 MICE (會議、獎勵旅遊、大型會議、展覽) 活動管理系統後端，提供完整的活動管理、報名系統、遊戲室、問卷、許願樹等功能。
 
 ## 🚀 快速開始
@@ -277,7 +279,7 @@ const dbPath = getDbPath();
 const dbPath = './data/mice_ai.db';  // 不要這樣做！
 ```
 
-### 欄位命名規範（v2.6）
+### 欄位命名規範（v1.0）
 
 **時間欄位**: 使用 `_at` 後綴（如 `created_at`, `updated_at`）
 - ⚠️ **例外**: `qr_codes.last_scanned` 不使用 `_at` 後綴
@@ -354,6 +356,12 @@ TRACE{timestamp}{random}
 
 預設管理員帳號：`admin` / `admin123`
 
+### CSRF 防護（Admin）
+
+- 所有 `/admin/*` 表單與 `/api/admin/*` 請求都會驗證 Session 綁定的 CSRF Token。
+- Handlebars 版面會自動在 `<head>` 載入 `<meta name="csrf-token">`，並在送出表單或 `fetch`/`$.ajax` 時附加 `_csrf` 欄位與 `X-CSRF-Token` header。
+- 若自行撰寫前端程式碼，請從 `<meta name="csrf-token">` 讀取 token 並附加到請求；否則會收到 `403 CSRF_TOKEN_INVALID`。
+
 ## 📚 文檔資源
 
 | 資源 | 位置 | 說明 |
@@ -386,6 +394,10 @@ pm2 startup
 **維護者**: MICE-AI Team
 
 ### 更新日誌
+
+#### 2025-12-07 (v1.0)
+- 文檔重整：以專案根目錄 README 為主，其他規格逐步移轉至 /claude 目錄
+- 版本號回歸 v1.0，作為長期維護基準
 
 #### 2025-12-06
 - 修正: pass_code

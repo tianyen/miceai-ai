@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{#if pageTitle}}{{pageTitle}} - {{/if}}MICE AI MICE-AI </title>
+    {{#if csrfToken}}
+    <meta name="csrf-token" content="{{csrfToken}}">
+    {{/if}}
 
     <!-- 基礎樣式 -->
     <link rel="stylesheet" href="/css/common/base.css">
@@ -29,12 +32,69 @@
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 
+    {{#if csrfToken}}
+    <script>
+        window.__CSRF_TOKEN__ = '{{csrfToken}}';
+        (function () {
+            const token = window.__CSRF_TOKEN__;
+            if (!token) return;
+
+            // 自動替所有表單加入 CSRF 欄位
+            document.addEventListener('submit', function (event) {
+                const form = event.target;
+                if (!form || typeof form.method !== 'string') return;
+                if (form.method.toUpperCase() === 'GET') return;
+                if (form.querySelector('input[name="_csrf"]')) return;
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = '_csrf';
+                input.value = token;
+                form.appendChild(input);
+            }, true);
+
+            // fetch 請求預設帶上 CSRF header
+            if (window.fetch) {
+                const originalFetch = window.fetch.bind(window);
+                window.fetch = function (input, init) {
+                    const options = init ? { ...init } : {};
+                    if (input instanceof Request) {
+                        options.headers = options.headers || new Headers(input.headers || undefined);
+                    } else {
+                        options.headers = options.headers || {};
+                    }
+
+                    const headers = options.headers;
+                    const headerName = 'X-CSRF-Token';
+
+                    if (headers instanceof Headers) {
+                        if (!headers.has(headerName)) {
+                            headers.set(headerName, token);
+                        }
+                    } else if (Array.isArray(headers)) {
+                        const hasHeader = headers.some(([key]) => key && key.toLowerCase() === headerName.toLowerCase());
+                        if (!hasHeader) {
+                            headers.push([headerName, token]);
+                        }
+                    } else {
+                        const normalized = Object.keys(headers).some(key => key.toLowerCase() === headerName.toLowerCase());
+                        if (!normalized) {
+                            headers[headerName] = token;
+                        }
+                    }
+
+                    return originalFetch(input, options);
+                };
+            }
+        })();
+    </script>
+    {{/if}}
+
     <!-- jQuery 配置 -->
     <script>
         // jQuery 全域 AJAX 配置
         $.ajaxSetup({
             beforeSend: function(xhr, settings) {
-                const token = $('meta[name="csrf-token"]').attr('content');
+                const token = window.__CSRF_TOKEN__ || $('meta[name="csrf-token"]').attr('content');
                 if (token && !settings.crossDomain) {
                     xhr.setRequestHeader('X-CSRF-Token', token);
                 }
