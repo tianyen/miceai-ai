@@ -599,14 +599,17 @@ async function addSeedData() {
             INSERT INTO form_submissions (
                 trace_id, project_id, user_id, submitter_name, submitter_email, submitter_phone,
                 company_name, position, gender, adult_age, children_count, children_ages,
-                participation_level, activity_notifications, product_updates,
+                pass_code, participation_level, activity_notifications, product_updates,
                 status, ip_address, data_consent, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '127.0.0.1', 1, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '127.0.0.1', 1, ?)
         `);
 
         const submissionIds = [];
         for (const submission of seedData.submissions) {
             try {
+                // 為每筆假資料生成 6 位數 pass_code
+                const passCode = Math.random().toString().slice(2, 8);
+
                 const result = submissionStmt.run(
                     submission.trace_id,
                     submission.project_id,
@@ -620,6 +623,7 @@ async function addSeedData() {
                     submission.adult_age || null,
                     submission.children_count || 0,
                     submission.children_ages || null,
+                    passCode,  // 新增 pass_code
                     submission.participation_level,
                     submission.activity_notifications,
                     submission.product_updates,

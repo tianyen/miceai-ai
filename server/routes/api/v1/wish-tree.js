@@ -42,7 +42,7 @@ function handleServiceError(res, error, defaultMessage) {
  *   post:
  *     summary: 提交許願樹互動數據
  *     description: 記錄用戶在許願樹活動中提交的願望文字和圖片
- *     tags: [許願樹]
+ *     tags: [Wish Tree (許願樹)]
  *     requestBody:
  *       required: true
  *       content:
@@ -98,7 +98,7 @@ router.post('/submit', async (req, res) => {
  *   get:
  *     summary: 獲取許願樹統計數據
  *     description: 獲取許願樹的統計資訊，包括互動高峰頻率分析
- *     tags: [許願樹]
+ *     tags: [Wish Tree (許願樹)]
  *     parameters:
  *       - in: query
  *         name: project_id
@@ -147,7 +147,7 @@ router.get('/stats', async (req, res) => {
  *   get:
  *     summary: 獲取最近的許願記錄
  *     description: 獲取最近提交的許願記錄（不含圖片，減少數據量）
- *     tags: [許願樹]
+ *     tags: [Wish Tree (許願樹)]
  *     parameters:
  *       - in: query
  *         name: project_id
@@ -187,7 +187,7 @@ router.get('/recent', async (req, res) => {
  *   get:
  *     summary: 獲取單一許願記錄（含圖片）
  *     description: 根據許願 ID 獲取完整記錄，包括 Base64 圖片
- *     tags: [許願樹]
+ *     tags: [Wish Tree (許願樹)]
  *     parameters:
  *       - in: path
  *         name: wishId

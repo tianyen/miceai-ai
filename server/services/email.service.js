@@ -262,18 +262,12 @@ class EmailService {
                 <div style="text-align: center; margin-bottom: 30px;">
                     <p style="font-size: 14px; color: #666; margin-bottom: 15px;">請於活動當天出示以下 QR Code 報到入場：</p>
                     <img src="cid:qrcode" alt="入場 QR Code" style="width: 200px; height: 200px; border: 1px solid #ddd; border-radius: 8px;">
-
-                    <!-- Pass Code -->
-                    <div style="margin-top: 20px; padding: 15px; background-color: #e8f5e9; border-radius: 8px; display: inline-block;">
-                        <p style="margin: 0 0 5px 0; font-size: 12px; color: #666;">您的通行碼</p>
-                        <p style="margin: 0; font-size: 28px; font-weight: bold; color: #2e7d32; letter-spacing: 4px;">${passCode}</p>
-                    </div>
                 </div>
 
                 <!-- Tips -->
                 <div style="background-color: #fff3e0; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                     <p style="margin: 0; font-size: 14px; color: #e65100;">
-                        💡 <strong>小提醒：</strong>請妥善保存此郵件，活動當天需出示 QR Code 或通行碼進行報到。
+                        💡 <strong>小提醒：</strong>請妥善保存此郵件，活動當天需出示 QR Code 進行報到。
                     </p>
                 </div>
             </td>
@@ -362,12 +356,6 @@ class EmailService {
                 <div style="text-align: center; margin-bottom: 30px;">
                     <p style="font-size: 14px; color: #666; margin-bottom: 15px;">以下是<strong>您個人</strong>的入場 QR Code：</p>
                     <img src="cid:qrcode" alt="入場 QR Code" style="width: 200px; height: 200px; border: 1px solid #ddd; border-radius: 8px;">
-
-                    <!-- Pass Code -->
-                    <div style="margin-top: 20px; padding: 15px; background-color: #e8f5e9; border-radius: 8px; display: inline-block;">
-                        <p style="margin: 0 0 5px 0; font-size: 12px; color: #666;">您的通行碼</p>
-                        <p style="margin: 0; font-size: 28px; font-weight: bold; color: #2e7d32; letter-spacing: 4px;">${passCode}</p>
-                    </div>
                 </div>
 
                 <!-- Tips -->
@@ -377,7 +365,7 @@ class EmailService {
                     </p>
                     <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #e65100;">
                         <li>每位成員都會收到各自的入場憑證郵件</li>
-                        <li>每人須持自己的 QR Code 或通行碼報到</li>
+                        <li>每人須持自己的 QR Code 報到</li>
                         <li>請提醒同行成員查收郵件</li>
                     </ul>
                 </div>
@@ -453,18 +441,12 @@ class EmailService {
                 <div style="text-align: center; margin-bottom: 30px;">
                     <p style="font-size: 14px; color: #666; margin-bottom: 15px;">請於活動當天出示以下 QR Code 報到入場：</p>
                     <img src="cid:qrcode" alt="入場 QR Code" style="width: 200px; height: 200px; border: 1px solid #ddd; border-radius: 8px;">
-
-                    <!-- Pass Code -->
-                    <div style="margin-top: 20px; padding: 15px; background-color: #e8f5e9; border-radius: 8px; display: inline-block;">
-                        <p style="margin: 0 0 5px 0; font-size: 12px; color: #666;">您的通行碼</p>
-                        <p style="margin: 0; font-size: 28px; font-weight: bold; color: #2e7d32; letter-spacing: 4px;">${passCode}</p>
-                    </div>
                 </div>
 
                 <!-- Tips -->
                 <div style="background-color: #fff3e0; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                     <p style="margin: 0; font-size: 14px; color: #e65100;">
-                        💡 <strong>小提醒：</strong>請妥善保存此郵件，活動當天需出示 QR Code 或通行碼進行報到。
+                        💡 <strong>小提醒：</strong>請妥善保存此郵件，活動當天需出示 QR Code 進行報到。
                     </p>
                 </div>
             </td>

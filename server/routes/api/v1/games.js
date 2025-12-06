@@ -50,7 +50,7 @@ function handleServiceError(res, error, defaultMessage) {
  *   post:
  *     summary: 開始遊戲會話
  *     description: 創建新的遊戲會話，用於追蹤玩家遊戲進度
- *     tags: [遊戲室]
+ *     tags: [Games (遊戲室)]
  *     parameters:
  *       - in: path
  *         name: game_id
@@ -171,7 +171,7 @@ router.post('/:gameId/sessions/start', async (req, res) => {
  *   post:
  *     summary: 接收遊戲日誌
  *     description: 記錄玩家遊戲過程中的操作和事件
- *     tags: [遊戲室]
+ *     tags: [Games (遊戲室)]
  *     parameters:
  *       - in: path
  *         name: game_id
@@ -306,7 +306,7 @@ router.post('/:gameId/logs', async (req, res) => {
  *   post:
  *     summary: 結束遊戲會話並檢查兌換券條件
  *     description: 結束遊戲會話，檢查玩家是否符合兌換券條件，自動發放兌換券
- *     tags: [遊戲室]
+ *     tags: [Games (遊戲室)]
  *     parameters:
  *       - in: path
  *         name: game_id
@@ -476,7 +476,7 @@ router.post('/:gameId/sessions/end', async (req, res) => {
  *   get:
  *     summary: 獲取遊戲資訊
  *     description: 獲取遊戲基本資訊。如果提供 project_id，會額外返回專案綁定狀態和兌換券資訊
- *     tags: [遊戲室]
+ *     tags: [Games (遊戲室)]
  *     parameters:
  *       - in: path
  *         name: gameId

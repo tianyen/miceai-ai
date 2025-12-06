@@ -3,7 +3,7 @@
  * 路徑: /api/v1/business-cards
  * @swagger
  * tags:
- *   name: Business Cards
+ *   name: Business Cards (名片管理)
  *   description: QR Code 名片管理 API
  *
  * @refactor 2025-12-01: 使用 businessCardService 處理業務邏輯
@@ -33,7 +33,7 @@ function handleServiceError(res, error, defaultMessage) {
  * @swagger
  * /api/v1/business-cards:
  *   post:
- *     tags: [Business Cards]
+ *     tags: [Business Cards (名片管理)]
  *     summary: 創建 QR Code 名片
  *     description: 創建新的 QR Code 名片，生成包含名片展示頁面 URL 的 QR Code
  *     requestBody:
@@ -166,7 +166,7 @@ router.post('/', [
  * @swagger
  * /api/v1/business-cards/project/{projectId}:
  *   get:
- *     tags: [Business Cards]
+ *     tags: [Business Cards (名片管理)]
  *     summary: 獲取專案名片列表
  *     description: 獲取指定專案下的所有名片列表，支援分頁和搜尋
  *     parameters:
@@ -241,7 +241,7 @@ router.get('/project/:projectId', [
  * @swagger
  * /api/v1/business-cards/{cardId}:
  *   get:
- *     tags: [Business Cards]
+ *     tags: [Business Cards (名片管理)]
  *     summary: 獲取名片詳情（JSON API）
  *     description: 根據名片 ID 獲取完整的名片資訊，返回 JSON 格式供前端串接使用
  *     parameters:

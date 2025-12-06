@@ -99,13 +99,13 @@ async function verifyBatchRegistration() {
         results.passed++;
         results.tests.push({ name: '團體報名 API', passed: true });
 
-        // 驗證返回的資料結構
+        // 驗證返回的資料結構（包含 passCode）
         const structureValid = registrations.every(r =>
-            r.traceId && r.name && typeof r.isPrimary === 'boolean' && r.qrCode?.url
+            r.traceId && r.name && typeof r.isPrimary === 'boolean' && r.qrCode?.url && r.passCode
         );
 
         if (structureValid) {
-            log('✅', '返回資料結構正確 (traceId, name, isPrimary, qrCode)', colors.green);
+            log('✅', '返回資料結構正確 (traceId, name, isPrimary, qrCode, passCode)', colors.green);
             results.passed++;
             results.tests.push({ name: '返回資料結構驗證', passed: true });
         } else {
@@ -114,11 +114,11 @@ async function verifyBatchRegistration() {
             results.tests.push({ name: '返回資料結構驗證', passed: false });
         }
 
-        // 列出所有報名者
+        // 列出所有報名者（含 passCode）
         console.log(`\n${colors.dim}報名者列表:${colors.reset}`);
         registrations.forEach((reg, i) => {
             const role = reg.isPrimary ? '👑 主' : '👤 從';
-            console.log(`   ${i + 1}. ${role} ${reg.name} → ${reg.traceId}`);
+            console.log(`   ${i + 1}. ${role} ${reg.name} → ${reg.traceId} | pass: ${reg.passCode || 'N/A'}`);
         });
 
         // ═══════════════════════════════════════════════════════════════

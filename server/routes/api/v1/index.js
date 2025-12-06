@@ -69,25 +69,35 @@ router.use('*', (req, res) => {
             available_endpoints: [
                 'GET /api/v1/',
                 'GET /api/v1/health',
+                // Events (3)
                 'GET /api/v1/events',
                 'GET /api/v1/events/:id',
                 'GET /api/v1/events/code/:code',
+                // Registrations (7)
                 'POST /api/v1/events/:eventId/registrations',
+                'POST /api/v1/events/:eventId/registrations/batch',
                 'GET /api/v1/registrations/:traceId',
+                'POST /api/v1/registrations/:traceId/resend-email',
                 'GET /api/v1/qr-codes/:traceId',
                 'GET /api/v1/qr-codes/:traceId/data',
+                'POST /api/v1/verify-pass-code',
+                // Check-in (2)
                 'POST /api/v1/check-in',
                 'GET /api/v1/check-in/:traceId',
+                // Business Cards (3)
                 'POST /api/v1/business-cards',
                 'GET /api/v1/business-cards/:cardId',
                 'GET /api/v1/business-cards/project/:projectId',
+                // Games (4)
                 'POST /api/v1/games/:gameId/sessions/start',
                 'POST /api/v1/games/:gameId/logs',
                 'POST /api/v1/games/:gameId/sessions/end',
                 'GET /api/v1/games/:gameId/info',
+                // Wish Tree (4)
                 'POST /api/v1/wish-tree/submit',
                 'GET /api/v1/wish-tree/stats',
-                'GET /api/v1/wish-tree/recent'
+                'GET /api/v1/wish-tree/recent',
+                'GET /api/v1/wish-tree/wish/:wishId'
             ]
         }
     });
