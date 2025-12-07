@@ -46,8 +46,7 @@ const swaggerDefinition = {
       '| `notes` | string | ⭕ | 留言備註 (最多500字) | `"需要素食餐點"` |\n' +
       '| `marketing_consent` | boolean | ⭕ | 行銷推廣同意 | `false` |\n' +
       '| `adult_age` | integer | ⭕ | 成人年齡 (18-120) | `35` |\n' +
-      '| `children_count` | integer | ⭕ | 小孩人數 (0-10) | `2` |\n' +
-      '| `children_ages` | array | ⭕ | 小孩年齡陣列 (每個 0-17) | `[5, 8]` |\n\n' +
+      '| `children_ages` | object | ⭕ | 小孩年齡區間人數 | `{ "age_0_6": 1, "age_6_12": 2, "age_12_18": 0 }` |\n\n' +
       '---\n\n' +
       '### 方式一：單人報名\n\n' +
       '**端點：** `POST /api/v1/events/{eventId}/registrations`\n\n' +
@@ -74,8 +73,7 @@ const swaggerDefinition = {
       '    notes: \'需要素食餐點\',\n' +
       '    marketing_consent: false,\n' +
       '    adult_age: 35,\n' +
-      '    children_count: 2,\n' +
-      '    children_ages: [5, 8]\n' +
+      '    children_ages: { age_0_6: 1, age_6_12: 2, age_12_18: 0 }  // 0-6歲1人, 6-12歲2人\n' +
       '  })\n' +
       '});\n\n' +
       '// 步驟 3：處理回應\n' +
@@ -109,8 +107,7 @@ const swaggerDefinition = {
       '      notes: \'團體報名\',\n' +
       '      marketing_consent: false,\n' +
       '      adult_age: 40,\n' +
-      '      children_count: 1,\n' +
-      '      children_ages: [10]\n' +
+      '      children_ages: { age_0_6: 0, age_6_12: 1, age_12_18: 0 }  // 6-12歲1人\n' +
       '    },\n' +
       '    // 同行者 (最多 4 人)\n' +
       '    participants: [\n' +
@@ -333,8 +330,17 @@ const swaggerDefinition = {
           company_name: { type: 'string', example: '科技創新公司' },
           position: { type: 'string', example: '技術總監' },
           adult_age: { type: 'integer', example: 35, description: '成人年齡 (18-120)' },
-          children_count: { type: 'integer', example: 2, description: '小孩人數 (0-10)' },
-          children_ages: { type: 'array', items: { type: 'integer' }, example: [5, 8], description: '小孩年齡陣列' },
+          children_count: { type: 'integer', example: 3, description: '小孩總人數（自動計算）' },
+          children_ages: {
+            type: 'object',
+            properties: {
+              age_0_6: { type: 'integer', example: 1, description: '0-6歲人數' },
+              age_6_12: { type: 'integer', example: 2, description: '6-12歲人數' },
+              age_12_18: { type: 'integer', example: 0, description: '12-18歲人數' }
+            },
+            example: { age_0_6: 1, age_6_12: 2, age_12_18: 0 },
+            description: '小孩年齡區間人數'
+          },
           status: { type: 'string', enum: ['pending', 'confirmed', 'cancelled'], example: 'confirmed' },
           qr_code_base64: { type: 'string', example: 'data:image/png;base64,iVBORw0KG...' },
           created_at: { type: 'string', format: 'date-time', example: '2025-11-13T10:00:00.000Z' }

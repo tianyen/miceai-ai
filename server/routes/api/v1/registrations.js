@@ -86,8 +86,7 @@ function handleServiceError(res, error, defaultMessage) {
  *           title: '先生',                 // 尊稱: 先生/女士/博士/教授
  *           notes: '福利團體報名',         // 留言備註
  *           adult_age: null,               // 成年人年齡 (18-120)
- *           children_count: 3,             // 小朋友數量 (0-10)
- *           children_ages: [5, 8, 10],     // 小朋友年齡陣列
+ *           children_ages: { age_0_6: 1, age_6_12: 2, age_12_18: 0 },  // 小朋友年齡區間人數（自動計算 children_count）
  *           marketing_consent: false       // 行銷同意
  *         })
  *       });
@@ -125,8 +124,7 @@ function handleServiceError(res, error, defaultMessage) {
  *       | title | string | ⭕ | 尊稱: `先生` / `女士` / `博士` / `教授` |
  *       | notes | string | ⭕ | 留言備註 (最多500字) |
  *       | adult_age | integer | ⭕ | 成年人年齡 (18-120) |
- *       | children_count | integer | ⭕ | 小朋友數量 (0-10) |
- *       | children_ages | array | ⭕ | 小朋友年齡陣列，例如 [5, 8, 12] |
+ *       | children_ages | object | ⭕ | 小朋友年齡區間人數，格式 `{ age_0_6: 1, age_6_12: 2, age_12_18: 0 }` |
  *       | marketing_consent | boolean | ⭕ | 行銷推廣同意 |
  *
  *     parameters:
@@ -204,20 +202,29 @@ function handleServiceError(res, error, defaultMessage) {
  *                 maximum: 120
  *                 description: 成年人年齡（福利團體可為 null）
  *                 example: null
- *               children_count:
- *                 type: integer
- *                 minimum: 0
- *                 maximum: 10
- *                 description: 小朋友數量
- *                 example: 3
  *               children_ages:
- *                 type: array
- *                 items:
- *                   type: integer
- *                   minimum: 0
- *                   maximum: 17
- *                 description: 小朋友年齡陣列
- *                 example: [5, 8, 10]
+ *                 type: object
+ *                 description: 小朋友年齡區間人數（總人數自動計算）
+ *                 properties:
+ *                   age_0_6:
+ *                     type: integer
+ *                     minimum: 0
+ *                     maximum: 10
+ *                     description: 0-6歲人數
+ *                     example: 1
+ *                   age_6_12:
+ *                     type: integer
+ *                     minimum: 0
+ *                     maximum: 10
+ *                     description: 6-12歲人數
+ *                     example: 2
+ *                   age_12_18:
+ *                     type: integer
+ *                     minimum: 0
+ *                     maximum: 10
+ *                     description: 12-18歲人數
+ *                     example: 0
+ *                 example: { "age_0_6": 1, "age_6_12": 2, "age_12_18": 0 }
  *     responses:
  *       201:
  *         description: 報名成功
@@ -308,9 +315,11 @@ router.post('/events/:eventId/registrations', [
     body('marketing_consent').optional().isBoolean().withMessage('行銷同意必須是布林值'),
     // 新增欄位驗證
     body('adult_age').optional().isInt({ min: 18, max: 120 }).withMessage('成年人年齡必須在 18-120 之間'),
-    body('children_count').optional().isInt({ min: 0, max: 10 }).withMessage('小朋友數量必須在 0-10 之間'),
-    body('children_ages').optional().isArray({ max: 10 }).withMessage('小朋友年齡必須是陣列'),
-    body('children_ages.*').optional().isInt({ min: 0, max: 17 }).withMessage('小朋友年齡必須在 0-17 之間')
+    // children_ages 改為年齡區間物件格式 { age_0_6: 1, age_6_12: 2, age_12_18: 0 }
+    body('children_ages').optional().isObject().withMessage('小朋友年齡必須是物件格式'),
+    body('children_ages.age_0_6').optional().isInt({ min: 0, max: 10 }).withMessage('0-6歲人數必須在 0-10 之間'),
+    body('children_ages.age_6_12').optional().isInt({ min: 0, max: 10 }).withMessage('6-12歲人數必須在 0-10 之間'),
+    body('children_ages.age_12_18').optional().isInt({ min: 0, max: 10 }).withMessage('12-18歲人數必須在 0-10 之間')
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -327,7 +336,7 @@ router.post('/events/:eventId/registrations', [
         const {
             name, email, phone, company, position, gender, title, notes,
             data_consent, marketing_consent,
-            adult_age, children_count, children_ages
+            adult_age, children_ages
         } = req.body;
 
         const result = await registrationService.submitRegistration({
@@ -341,7 +350,6 @@ router.post('/events/:eventId/registrations', [
             title: title || null,
             notes: notes || null,
             adultAge: adult_age || null,
-            childrenCount: children_count || 0,
             childrenAges: children_ages || null,
             dataConsent: data_consent === true || data_consent === 'true' || data_consent === 1 ? 1 : 0,
             marketingConsent: marketing_consent === true || marketing_consent === 'true' || marketing_consent === 1 ? 1 : 0,

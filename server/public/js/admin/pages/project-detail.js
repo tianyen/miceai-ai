@@ -83,6 +83,7 @@ function loadProjectStats() {
         success: function(response) {
             if (response.success) {
                 const stats = response.data;
+                const ageDist = stats.children_age_distribution || { age_0_6: 0, age_6_12: 0, age_12_18: 0 };
                 const statsHtml = `
                     <div class="stats-grid">
                         <div class="stat-item">
@@ -96,6 +97,11 @@ function loadProjectStats() {
                         <div class="stat-item">
                             <div class="stat-value">${stats.total_children || 0}</div>
                             <div class="stat-label">小孩總數</div>
+                            <div class="stat-detail">
+                                <span class="age-tag">0-6歲: ${ageDist.age_0_6}</span>
+                                <span class="age-tag">6-12歲: ${ageDist.age_6_12}</span>
+                                <span class="age-tag">12-18歲: ${ageDist.age_12_18}</span>
+                            </div>
                         </div>
                         <div class="stat-item">
                             <div class="stat-value">${stats.questionnaire_responses || 0}</div>
@@ -1334,8 +1340,8 @@ function saveFormConfig() {
             title: '尊稱',
             notes: '留言備註',
             adult_age: '成人年齡',
-            children_count: '小孩人數',
-            children_ages: '小孩年齡'
+            children_count: '小孩人數（自動計算）',
+            children_ages: '小孩年齡區間'
         },
         gender_options: genderOptions,
         title_options: titleOptions

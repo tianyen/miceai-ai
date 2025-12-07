@@ -237,12 +237,19 @@ router.get('/:id', async (req, res) => {
                                         ${submission.adult_age ? `<p><strong>成人年齡：</strong>${submission.adult_age} 歲</p>` : ''}
                                         ${submission.children_count ? `
                                         <p><strong>小孩人數：</strong>${submission.children_count} 人</p>
-                                        <p><strong>小孩年齡：</strong>${(() => {
+                                        <p><strong>小孩年齡分佈：</strong>${(() => {
                                             try {
                                                 const ages = typeof submission.children_ages === 'string'
                                                     ? JSON.parse(submission.children_ages)
-                                                    : (submission.children_ages || []);
-                                                return ages.length > 0 ? ages.join(', ') + ' 歲' : '-';
+                                                    : (submission.children_ages || {});
+                                                if (typeof ages === 'object' && ages !== null) {
+                                                    const parts = [];
+                                                    if (ages.age_0_6) parts.push('0-6歲: ' + ages.age_0_6 + '人');
+                                                    if (ages.age_6_12) parts.push('6-12歲: ' + ages.age_6_12 + '人');
+                                                    if (ages.age_12_18) parts.push('12-18歲: ' + ages.age_12_18 + '人');
+                                                    return parts.length > 0 ? parts.join(', ') : '-';
+                                                }
+                                                return '-';
                                             } catch(e) { return '-'; }
                                         })()}</p>
                                         ` : ''}

@@ -29,10 +29,15 @@ class RegistrationService extends BaseService {
             eventId, name, email, phone,
             company, position,
             gender, title, notes,
-            adultAge, childrenCount, childrenAges,
+            adultAge, childrenAges,
             dataConsent, marketingConsent,
             ipAddress, userAgent
         } = data;
+
+        // 自動計算 children_count（根據年齡區間人數加總）
+        const childrenCount = childrenAges
+            ? (childrenAges.age_0_6 || 0) + (childrenAges.age_6_12 || 0) + (childrenAges.age_12_18 || 0)
+            : 0;
 
         // 1. 檢查活動是否存在且開放報名
         const event = await this.projectRepo.findActiveById(eventId);

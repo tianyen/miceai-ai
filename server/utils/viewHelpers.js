@@ -301,21 +301,27 @@ function projectParticipantRow(participant) {
         ? idBadge(participant.user_id, 'info', 'User #')
         : idBadge(participant.id, 'secondary', '#');
 
-    // 處理小孩資訊
+    // 處理小孩資訊（新格式：年齡區間人數物件）
     let childrenDisplay = '-';
     if (participant.children_count && participant.children_count > 0) {
-        let agesText = '';
+        let agesHtml = '';
         try {
             const ages = typeof participant.children_ages === 'string'
                 ? JSON.parse(participant.children_ages)
-                : (participant.children_ages || []);
-            if (ages.length > 0) {
-                agesText = ` (${ages.join(', ')}歲)`;
+                : (participant.children_ages || {});
+            if (ages && typeof ages === 'object') {
+                const parts = [];
+                if (ages.age_0_6) parts.push(`<span class="age-tag age-0-6">0-6歲:${ages.age_0_6}</span>`);
+                if (ages.age_6_12) parts.push(`<span class="age-tag age-6-12">6-12歲:${ages.age_6_12}</span>`);
+                if (ages.age_12_18) parts.push(`<span class="age-tag age-12-18">12-18歲:${ages.age_12_18}</span>`);
+                if (parts.length > 0) {
+                    agesHtml = `<div class="age-distribution">${parts.join('')}</div>`;
+                }
             }
         } catch (e) {
             // ignore parse error
         }
-        childrenDisplay = `<span class="badge badge-info">${participant.children_count}人</span>${agesText}`;
+        childrenDisplay = `<span class="badge badge-info">${participant.children_count}人</span>${agesHtml}`;
     }
 
     return `

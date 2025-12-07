@@ -48,8 +48,9 @@ async function verifyChildrenStats() {
         // ═══════════════════════════════════════════════════════════════
         logSection('STEP 1: 單人報名 API（帶小孩資料）');
 
-        const childrenAges = [5, 8, 12];
-        const childrenCount = childrenAges.length;
+        // 新格式：年齡區間人數
+        const childrenAges = { age_0_6: 1, age_6_12: 1, age_12_18: 1 };
+        const childrenCount = childrenAges.age_0_6 + childrenAges.age_6_12 + childrenAges.age_12_18;
 
         const payload = {
             name: `小孩統計測試_${timestamp}`,
@@ -58,11 +59,10 @@ async function verifyChildrenStats() {
             data_consent: true,
             marketing_consent: false,
             adult_age: 35,
-            children_count: childrenCount,
             children_ages: childrenAges
         };
 
-        log('📦', `發送報名請求 (${childrenCount} 個小孩，年齡: ${childrenAges.join(', ')})`);
+        log('📦', `發送報名請求 (${childrenCount} 個小孩，0-6歲: ${childrenAges.age_0_6}, 6-12歲: ${childrenAges.age_6_12}, 12-18歲: ${childrenAges.age_12_18})`);
 
         const regResponse = await fetch(`${API_URL}/events/${EVENT_ID}/registrations`, {
             method: 'POST',
@@ -110,13 +110,17 @@ async function verifyChildrenStats() {
             results.tests.push({ name: '資料庫儲存驗證', passed: false, error: '記錄不存在' });
         } else {
             const storedChildrenCount = submission.children_count;
-            const storedChildrenAges = JSON.parse(submission.children_ages || '[]');
+            const storedChildrenAges = JSON.parse(submission.children_ages || '{}');
 
             log('  ', `children_count: ${storedChildrenCount}`);
             log('  ', `children_ages: ${submission.children_ages}`);
 
-            if (storedChildrenCount === childrenCount &&
-                JSON.stringify(storedChildrenAges) === JSON.stringify(childrenAges)) {
+            // 驗證總人數和年齡區間物件
+            const agesMatch = storedChildrenAges.age_0_6 === childrenAges.age_0_6 &&
+                              storedChildrenAges.age_6_12 === childrenAges.age_6_12 &&
+                              storedChildrenAges.age_12_18 === childrenAges.age_12_18;
+
+            if (storedChildrenCount === childrenCount && agesMatch) {
                 log('✅', '資料庫儲存正確', colors.green);
                 results.passed++;
                 results.tests.push({ name: '資料庫儲存驗證', passed: true });

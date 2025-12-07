@@ -99,8 +99,8 @@ CREATE TABLE IF NOT EXISTS form_submissions (
     title VARCHAR(20),                     -- 尊稱：先生/女士/博士/教授
     notes TEXT,                            -- 留言備註
     adult_age INTEGER,                      -- 成年人年齡
-    children_count INTEGER DEFAULT 0,       -- 小朋友數量
-    children_ages TEXT,                     -- 小朋友年齡 (JSON 陣列，如 "[5, 8, 12]")
+    children_count INTEGER DEFAULT 0,       -- 小朋友總數量（自動計算）
+    children_ages TEXT,                     -- 小朋友年齡區間人數 (JSON 物件，如 {"age_0_6": 1, "age_6_12": 2, "age_12_18": 0})
     pass_code VARCHAR(6),
     department VARCHAR(100),
     employee_id VARCHAR(50),

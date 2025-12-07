@@ -216,6 +216,49 @@
     font-size: 0.9rem;
 }
 
+.stat-detail {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    justify-content: center;
+}
+
+.age-tag {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+/* 參加者列表小孩年齡分佈 */
+.age-distribution {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    margin-top: 0.3rem;
+}
+
+.age-distribution .age-tag {
+    padding: 0.1rem 0.3rem;
+    font-size: 0.65rem;
+}
+
+.age-distribution .age-tag.age-0-6 {
+    background: #10b981;
+}
+
+.age-distribution .age-tag.age-6-12 {
+    background: #3b82f6;
+}
+
+.age-distribution .age-tag.age-12-18 {
+    background: #8b5cf6;
+}
+
 /* 問卷項目樣式 */
 .questionnaires-list {
     space-y: 1rem;

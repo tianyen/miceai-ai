@@ -103,13 +103,55 @@ class ProjectRepository extends BaseRepository {
             WHERE s.project_id = ?
         `;
         const result = await this.rawGet(sql, [projectId]);
-        return result || {
-            total_participants: 0,
-            checked_in_count: 0,
-            questionnaire_responses: 0,
-            checkin_rate: 0,
-            total_children: 0
+
+        // 計算小孩年齡分佈
+        const ageDistribution = await this.getChildrenAgeDistribution(projectId);
+
+        return {
+            total_participants: result?.total_participants || 0,
+            checked_in_count: result?.checked_in_count || 0,
+            questionnaire_responses: result?.questionnaire_responses || 0,
+            checkin_rate: result?.checkin_rate || 0,
+            total_children: result?.total_children || 0,
+            children_age_distribution: ageDistribution
         };
+    }
+
+    /**
+     * 取得專案小孩年齡分佈統計
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Object>}
+     */
+    async getChildrenAgeDistribution(projectId) {
+        const sql = `
+            SELECT children_ages
+            FROM form_submissions
+            WHERE project_id = ? AND children_ages IS NOT NULL
+        `;
+        const rows = await this.rawAll(sql, [projectId]);
+
+        const distribution = {
+            age_0_6: 0,
+            age_6_12: 0,
+            age_12_18: 0
+        };
+
+        for (const row of rows) {
+            try {
+                const ages = typeof row.children_ages === 'string'
+                    ? JSON.parse(row.children_ages)
+                    : row.children_ages;
+                if (ages && typeof ages === 'object') {
+                    distribution.age_0_6 += ages.age_0_6 || 0;
+                    distribution.age_6_12 += ages.age_6_12 || 0;
+                    distribution.age_12_18 += ages.age_12_18 || 0;
+                }
+            } catch (e) {
+                // 忽略無效的 JSON
+            }
+        }
+
+        return distribution;
     }
 
     /**

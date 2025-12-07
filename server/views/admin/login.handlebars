@@ -10,12 +10,13 @@
         <div id="success-message" class="alert alert-success" style="display: none;"></div>
 
         <form id="loginForm" class="login-form">
+            <input type="hidden" id="csrfToken" value="{{csrfToken}}">
             <div class="input-group">
-                <input type="text" 
-                       id="username" 
-                       name="username" 
-                       class="form-input" 
-                       required 
+                <input type="text"
+                       id="username"
+                       name="username"
+                       class="form-input"
+                       required
                        placeholder="電子信箱">
             </div>
 
@@ -492,6 +493,9 @@ $(document).ready(function() {
             url: '/admin/login',
             method: 'POST',
             data: formData,
+            headers: {
+                'X-CSRF-Token': $('#csrfToken').val()
+            },
             success: function(response) {
                 if (response.success) {
                     showSuccess('登入成功，正在重定向...');
