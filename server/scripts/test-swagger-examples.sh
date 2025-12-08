@@ -62,11 +62,12 @@ echo ""
 
 echo "🎮 2. 遊戲 API"
 echo "--------------------------------------"
+# 使用王大明 (registration_id=1, trace_id=MICE-d074dd3e-e3e27b6b0)
 test_api "開始遊戲會話" "POST" "/api/v1/games/1/sessions/start" \
-    '{"trace_id":"MICE-05207cf7-199967c04","user_id":"3","project_id":1}'
+    '{"trace_id":"MICE-d074dd3e-e3e27b6b0","user_id":"1","project_id":1}'
 
 test_api "記錄遊戲日誌" "POST" "/api/v1/games/1/logs" \
-    '{"trace_id":"MICE-05207cf7-199967c04","user_id":"3","project_id":1,"message":"測試日誌","log_level":"info"}'
+    '{"trace_id":"MICE-d074dd3e-e3e27b6b0","user_id":"1","project_id":1,"message":"測試日誌","log_level":"info"}'
 
 test_api "查詢遊戲資訊" "GET" "/api/v1/games/1/info"
 test_api "查詢遊戲資訊(含專案)" "GET" "/api/v1/games/1/info?project_id=1"
@@ -74,15 +75,14 @@ echo ""
 
 echo "📋 3. 報名 API"
 echo "--------------------------------------"
-test_api "查詢報名狀態(王大明)" "GET" "/api/v1/registrations/MICE-05207cf7-199967c04"
-test_api "查詢報名狀態(張志明)" "GET" "/api/v1/registrations/MICE-d074dd3e-e3e27b6b0"
-test_api "查詢報名狀態(李美玲)" "GET" "/api/v1/registrations/MICE-d74b09c8-6cfa4a823"
+# 精簡測試用戶: 王大明(reg_id=1), 福利團體1(reg_id=2)
+test_api "查詢報名狀態(王大明)" "GET" "/api/v1/registrations/MICE-d074dd3e-e3e27b6b0"
+test_api "查詢報名狀態(福利團體1)" "GET" "/api/v1/registrations/MICE-d74b09c8-6cfa4a823"
 echo ""
 
 echo "🔲 4. QR Code API"
 echo "--------------------------------------"
-test_api "獲取 QR Code Base64(王大明)" "GET" "/api/v1/qr-codes/MICE-05207cf7-199967c04/data"
-test_api "獲取 QR Code Base64(張志明)" "GET" "/api/v1/qr-codes/MICE-d074dd3e-e3e27b6b0/data"
+test_api "獲取 QR Code Base64(王大明)" "GET" "/api/v1/qr-codes/MICE-d074dd3e-e3e27b6b0/data"
 echo ""
 
 echo "======================================"

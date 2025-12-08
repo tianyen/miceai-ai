@@ -1,18 +1,17 @@
 /**
  * 確定性 Trace ID 生成器
- * 
+ *
  * 用於生成可預測的 trace_id，確保測試資料的一致性。
- * 
- * 測試用戶對應表：
- * | 用戶   | registration_id | trace_id                    |
- * |--------|-----------------|----------------------------|
- * | 張志明 | 1               | MICE-d074dd3e-e3e27b6b0   |
- * | 李美玲 | 2               | MICE-d74b09c8-6cfa4a823   |
- * | 王大明 | 3               | MICE-05207cf7-199967c04   |
- * 
+ *
+ * 測試用戶對應表（精簡版，每個專案各一人）：
+ * | 用戶       | registration_id | project  | trace_id                    |
+ * |------------|-----------------|----------|----------------------------|
+ * | 王大明     | 1               | TECH2024 | MICE-d074dd3e-e3e27b6b0   |
+ * | 福利團體1  | 2               | MOON2025 | MICE-d74b09c8-6cfa4a823   |
+ *
  * 注意：這裡的 registration_id 是 form_submissions.id，
  * 與後台管理員的 users.id 是不同的概念！
- * 
+ *
  * 後台管理員 users.id:
  * - 1: admin (super_admin)
  * - 2: manager (project_manager)
@@ -63,23 +62,20 @@ class TraceIdGenerator {
 // 預設實例
 const defaultGenerator = new TraceIdGenerator();
 
-// 預定義的測試用戶資料
+// 預定義的測試用戶資料（精簡版，每個專案各一人）
 // 注意：這些 id 是 registration_id (form_submissions.id)，不是 users.id
 const TEST_REGISTRATIONS = {
-    ZHANG_ZHIMING: { 
-        registration_id: 1, 
-        name: '張志明', 
-        traceId: defaultGenerator.generateTraceId(1)  // MICE-d074dd3e-e3e27b6b0
+    WANG_DAMING: {
+        registration_id: 1,
+        name: '王大明',
+        project: 'TECH2024',
+        traceId: defaultGenerator.generateTraceId(1)
     },
-    LI_MEILING: { 
-        registration_id: 2, 
-        name: '李美玲', 
-        traceId: defaultGenerator.generateTraceId(2)  // MICE-d74b09c8-6cfa4a823
-    },
-    WANG_DAMING: { 
-        registration_id: 3, 
-        name: '王大明', 
-        traceId: defaultGenerator.generateTraceId(3)  // MICE-05207cf7-199967c04
+    FULI_GROUP1: {
+        registration_id: 2,
+        name: '福利團體1',
+        project: 'MOON2025',
+        traceId: defaultGenerator.generateTraceId(2)
     }
 };
 

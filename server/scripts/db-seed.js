@@ -11,15 +11,8 @@
  * 測試報名用戶對應表（form_submissions.id = registration_id）：
  * | 用戶       | reg_id | project  | 說明                        |
  * |------------|--------|----------|----------------------------|
- * | 張志明     | 1      | TECH2024 | 科技創新公司技術總監         |
- * | 李美玲     | 2      | TECH2024 | 數位行銷公司行銷經理         |
- * | 王大明     | 3      | TECH2024 | AI新創公司執行長             |
- * | 福利團體1  | 4      | MOON2025 | 帶3小孩(5,8,10歲)           |
- * | 陳哥       | 5      | MOON2025 | 個人報名, 男25歲            |
- * | 王爸爸     | 6      | MOON2025 | 團體主報名者, 男45歲        |
- * | 王媽媽     | 7      | MOON2025 | 團體成員, 女50歲            |
- * | 王姑姑     | 8      | MOON2025 | 團體成員, 女50歲            |
- * | 福利團體2  | 9      | MOON2025 | 帶8小孩(10-15歲)            |
+ * | 王大明     | 1      | TECH2024 | AI新創公司執行長             |
+ * | 福利團體1  | 2      | MOON2025 | 帶3小孩(0-6:1, 6-12:2)      |
  *
  * 注意：這些 registration_id 與後台管理員 users.id (1-4) 是不同的概念！
  */
@@ -142,53 +135,17 @@ const seedData = {
     // - form_submissions.id (= registration_id): 報名記錄主鍵，API 返回的 user_id 就是這個值
     // - form_submissions.user_id: 後台管理員 users.id，通常為 NULL（API 報名用戶無後台帳號）
     //
-    // 報名用戶對應表：
+    // 報名用戶對應表（精簡版，每個專案各一人）：
     // | reg_id | 姓名       | project  | 說明                           |
     // |--------|------------|----------|--------------------------------|
-    // | 1      | 張志明     | TECH2024 | 科技創新公司技術總監            |
-    // | 2      | 李美玲     | TECH2024 | 數位行銷公司行銷經理            |
-    // | 3      | 王大明     | TECH2024 | AI新創公司執行長                |
-    // | 4      | 福利團體1  | MOON2025 | 帶3小孩(5,8,10歲)              |
-    // | 5      | 陳哥       | MOON2025 | 個人報名, 男25歲               |
-    // | 6      | 王爸爸     | MOON2025 | 團體主報名者, 男45歲           |
-    // | 7      | 王媽媽     | MOON2025 | 團體成員, 女50歲               |
-    // | 8      | 王姑姑     | MOON2025 | 團體成員, 女50歲               |
-    // | 9      | 福利團體2  | MOON2025 | 帶8小孩(10-15歲)              |
+    // | 1      | 王大明     | TECH2024 | AI新創公司執行長                |
+    // | 2      | 福利團體1  | MOON2025 | 帶3小孩(0-6:1, 6-12:2)         |
     //
     submissions: [
+        // TECH2024 專案測試參加者
         {
             trace_id: idGen.generateTraceId(1),  // 固定的 trace_id
             project_id: 1,  // TECH2024
-            user_id: null,  // form_submissions.user_id: 後台管理員 ID，API 報名為 NULL
-            submitter_name: '張志明',
-            submitter_email: 'chang@example.com',
-            submitter_phone: '0912345678',
-            company_name: '科技創新公司',
-            position: '技術總監',
-            participation_level: 85,
-            activity_notifications: 1,
-            product_updates: 1,
-            status: 'confirmed',
-            created_at: idGen.generateTimestamp(-5, 10)  // 5天前 10:00
-        },
-        {
-            trace_id: idGen.generateTraceId(2),  // 固定的 trace_id
-            project_id: 1,  // TECH2024
-            user_id: null,  // form_submissions.user_id: 後台管理員 ID，API 報名為 NULL
-            submitter_name: '李美玲',
-            submitter_email: 'li@example.com',
-            submitter_phone: '0923456789',
-            company_name: '數位行銷公司',
-            position: '行銷經理',
-            participation_level: 70,
-            activity_notifications: 1,
-            product_updates: 0,
-            status: 'confirmed',
-            created_at: idGen.generateTimestamp(-4, 14)  // 4天前 14:00
-        },
-        {
-            trace_id: idGen.generateTraceId(3),  // 固定的 trace_id
-            project_id: 1,  // TECH2024 (與遊戲會話保持一致)
             user_id: null,  // form_submissions.user_id: 後台管理員 ID，API 報名為 NULL
             submitter_name: '王大明',
             submitter_email: 'wang@example.com',
@@ -204,7 +161,7 @@ const seedData = {
         // MOON2025 專案測試參加者
         // 福利團體1 - 帶3小孩的團體報名
         {
-            trace_id: idGen.generateTraceId(4),  // 固定的 trace_id
+            trace_id: idGen.generateTraceId(2),  // 固定的 trace_id
             project_id: 2,  // MOON2025
             user_id: null,
             submitter_name: '福利團體1',
@@ -221,106 +178,6 @@ const seedData = {
             product_updates: 1,
             status: 'confirmed',
             created_at: idGen.generateTimestamp(-1, 10)  // 1天前 10:00
-        },
-        // 陳哥 - 個人報名
-        {
-            trace_id: idGen.generateTraceId(5),
-            project_id: 2,  // MOON2025
-            user_id: null,
-            submitter_name: '陳哥',
-            submitter_email: 'test@gmail.com',
-            submitter_phone: '0900000001',
-            company_name: null,
-            position: null,
-            gender: '男',
-            adult_age: 25,
-            children_count: 0,
-            children_ages: null,
-            participation_level: 100,
-            activity_notifications: 1,
-            product_updates: 1,
-            status: 'confirmed',
-            created_at: idGen.generateTimestamp(-1, 11)  // 1天前 11:00
-        },
-        // 王爸爸 - 團體報名 (主報名者)
-        {
-            trace_id: idGen.generateTraceId(6),
-            project_id: 2,  // MOON2025
-            user_id: null,
-            submitter_name: '王爸爸',
-            submitter_email: 'test@test.com',
-            submitter_phone: '0900000002',
-            company_name: null,
-            position: null,
-            gender: '男',
-            adult_age: 45,
-            children_count: 0,
-            children_ages: null,
-            participation_level: 100,
-            activity_notifications: 1,
-            product_updates: 1,
-            status: 'confirmed',
-            created_at: idGen.generateTimestamp(-1, 12)  // 1天前 12:00
-        },
-        // 王媽媽 - 團體成員 (與王爸爸同組)
-        {
-            trace_id: idGen.generateTraceId(7),
-            project_id: 2,  // MOON2025
-            user_id: null,
-            submitter_name: '王媽媽',
-            submitter_email: 'test@gmail.com',
-            submitter_phone: '0900000003',
-            company_name: null,
-            position: null,
-            gender: '女',
-            adult_age: 50,
-            children_count: 0,
-            children_ages: null,
-            participation_level: 100,
-            activity_notifications: 1,
-            product_updates: 1,
-            status: 'confirmed',
-            created_at: idGen.generateTimestamp(-1, 12)  // 1天前 12:00
-        },
-        // 王姑姑 - 團體成員 (與王爸爸同組)
-        {
-            trace_id: idGen.generateTraceId(8),
-            project_id: 2,  // MOON2025
-            user_id: null,
-            submitter_name: '王姑姑',
-            submitter_email: 'test@gmail.com',
-            submitter_phone: '0900000004',
-            company_name: null,
-            position: null,
-            gender: '女',
-            adult_age: 50,
-            children_count: 0,
-            children_ages: null,
-            participation_level: 100,
-            activity_notifications: 1,
-            product_updates: 1,
-            status: 'confirmed',
-            created_at: idGen.generateTimestamp(-1, 12)  // 1天前 12:00
-        },
-        // 福利團體2 - 帶8小孩的團體報名
-        {
-            trace_id: idGen.generateTraceId(9),
-            project_id: 2,  // MOON2025
-            user_id: null,
-            submitter_name: '福利團體2',
-            submitter_email: 'test@gmail.com',
-            submitter_phone: '0900000005',
-            company_name: null,
-            position: null,
-            gender: null,
-            adult_age: null,
-            children_count: 8,
-            children_ages: JSON.stringify({ age_0_6: 0, age_6_12: 5, age_12_18: 3 }),
-            participation_level: 100,
-            activity_notifications: 1,
-            product_updates: 1,
-            status: 'confirmed',
-            created_at: idGen.generateTimestamp(-1, 13)  // 1天前 13:00
         }
     ],
 
@@ -329,22 +186,12 @@ const seedData = {
         {
             project_id: 1,
             submission_id: 1,
-            trace_id: idGen.generateTraceId(1),  // 與 submission 1 相同
-            attendee_name: '張志明',
-            company_name: '科技創新公司',
-            phone_number: '0912345678',
+            trace_id: idGen.generateTraceId(1),  // 與 submission 1 (王大明) 相同
+            attendee_name: '王大明',
+            company_name: 'AI新創公司',
+            phone_number: '0934567890',
             scanned_by: 2,
             checkin_time: idGen.generateTimestamp(-1, 9)  // 1天前 09:00
-        },
-        {
-            project_id: 1,
-            submission_id: 2,
-            trace_id: idGen.generateTraceId(2),  // 與 submission 2 相同
-            attendee_name: '李美玲',
-            company_name: '數位行銷公司',
-            phone_number: '0923456789',
-            scanned_by: 2,
-            checkin_time: idGen.generateTimestamp(-1, 9, 15)  // 1天前 09:15
         }
     ],
 
@@ -381,7 +228,7 @@ const seedData = {
             target_id: 1,
             details: JSON.stringify({
                 project_name: '2024年度科技論壇',
-                participant_name: '張志明'
+                participant_name: '王大明'
             }),
             ip_address: '192.168.1.100'
         },
@@ -496,9 +343,9 @@ const seedData = {
             })
         },
         {
-            trace_id: 'TRC002',
+            trace_id: 'TRC001',
             project_id: 1,
-            submission_id: 2,
+            submission_id: 1,
             interaction_type: 'survey_completion',
             interaction_target: 'feedback_survey',
             interaction_data: JSON.stringify({

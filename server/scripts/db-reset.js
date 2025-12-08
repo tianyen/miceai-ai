@@ -39,33 +39,33 @@ if (fs.existsSync(dbPath)) {
 // 建立新資料庫
 const db = new Database(dbPath);
 
-// 初始用戶資料
+// 初始用戶資料（密碼: 8位數，大小英文+數字）
 const initialUsers = [
     {
         username: 'admin',
         email: 'admin@miceai.com',
-        password: 'admin123',
+        password: 'Admin1qa',  // 8位數: 大寫A + 小寫dmin + 數字1 + 小寫qa
         full_name: '系統管理員',
         role: 'super_admin'
     },
     {
         username: 'manager',
         email: 'manager@miceai.com',
-        password: 'manager123',
+        password: 'Mngr2wsX',  // 8位數: 大寫M + 小寫ngr + 數字2 + 小寫ws + 大寫X
         full_name: '專案管理員',
         role: 'project_manager'
     },
     {
         username: 'user',
         email: 'user@miceai.com',
-        password: 'user123',
+        password: 'User3edC',  // 8位數: 大寫U + 小寫ser + 數字3 + 小寫ed + 大寫C
         full_name: '項目用戶',
         role: 'project_user'
     },
     {
         username: 'vendor',
         email: 'vendor@miceai.com',
-        password: 'vendor123',
+        password: 'Vndr4rfV',  // 8位數: 大寫V + 小寫ndr + 數字4 + 小寫rf + 大寫V
         full_name: '廠商用戶',
         role: 'vendor'
     }

@@ -125,9 +125,9 @@ async function runTests() {
     // Test 6: 重複報名 (使用已存在的 email)
     console.log('\n📋 測試 6: 重複報名檢測');
     res = await request('POST', '/api/v1/events/1/registrations', {
-        name: '張志明',
-        email: 'chang@example.com',  // 已存在的 email
-        phone: '0912345678',
+        name: '王大明',
+        email: 'wang@example.com',  // 已存在的 email (王大明 reg_id=1)
+        phone: '0934567890',
         data_consent: true
     });
     if (res.status === 409) {

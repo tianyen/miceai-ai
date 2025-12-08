@@ -3,9 +3,15 @@
  * 為遊戲分析頁面添加遊戲假資料
  *
  * 目的：
- * - 為三個測試用戶（張志明、李美玲、王大明）添加飛鏢遊戲記錄
+ * - 為測試用戶（王大明）添加飛鏢遊戲記錄
  * - 讓遊戲分析頁面可以顯示完整的 bar chart 和排行榜
  * - 包含 game_sessions 和 game_logs 數據
+ *
+ * 測試報名用戶對應表（精簡版）：
+ * | 用戶       | registration_id | project  |
+ * |------------|-----------------|----------|
+ * | 王大明     | 1               | TECH2024 |
+ * | 福利團體1  | 2               | MOON2025 |
  */
 
 const Database = require('better-sqlite3');
@@ -52,13 +58,14 @@ const db = new Database(dbPath);
 console.log('✅ 資料庫連接成功');
 
 // 遊戲會話假資料（使用今天的日期）
+// 只為王大明 (registration_id=1) 添加遊戲記錄
 const gameSessions = [
-    // 張志明 - 3 次遊戲
+    // 王大明 - 4 次遊戲
     {
         project_id: 1,
         game_id: 1,
         trace_id: idGen.generateTraceId(1),
-        user_id: '3',
+        user_id: '1',  // registration_id = 1 (王大明)
         session_start: idGen.generateTimestamp(0, 10, 0),
         session_end: idGen.generateTimestamp(0, 10, 5),
         total_play_time: 300,
@@ -70,98 +77,10 @@ const gameSessions = [
         project_id: 1,
         game_id: 1,
         trace_id: idGen.generateTraceId(1),
-        user_id: '3',
+        user_id: '1',
         session_start: idGen.generateTimestamp(0, 14, 0),
         session_end: idGen.generateTimestamp(0, 14, 4),
         total_play_time: 240,
-        final_score: 92,
-        voucher_earned: 1,
-        voucher_id: 2
-    },
-    {
-        project_id: 1,
-        game_id: 1,
-        trace_id: idGen.generateTraceId(1),
-        user_id: '3',
-        session_start: idGen.generateTimestamp(0, 16, 30),
-        session_end: idGen.generateTimestamp(0, 16, 35),
-        total_play_time: 300,
-        final_score: 78,
-        voucher_earned: 0,
-        voucher_id: null
-    },
-
-    // 李美玲 - 5 次遊戲
-    {
-        project_id: 1,
-        game_id: 1,
-        trace_id: idGen.generateTraceId(2),
-        user_id: '4',
-        session_start: idGen.generateTimestamp(0, 9, 30),
-        session_end: idGen.generateTimestamp(0, 9, 35),
-        total_play_time: 300,
-        final_score: 95,
-        voucher_earned: 1,
-        voucher_id: 3
-    },
-    {
-        project_id: 1,
-        game_id: 1,
-        trace_id: idGen.generateTraceId(2),
-        user_id: '4',
-        session_start: idGen.generateTimestamp(0, 11, 0),
-        session_end: idGen.generateTimestamp(0, 11, 4),
-        total_play_time: 240,
-        final_score: 88,
-        voucher_earned: 1,
-        voucher_id: 4
-    },
-    {
-        project_id: 1,
-        game_id: 1,
-        trace_id: idGen.generateTraceId(2),
-        user_id: '4',
-        session_start: idGen.generateTimestamp(0, 13, 0),
-        session_end: idGen.generateTimestamp(0, 13, 5),
-        total_play_time: 300,
-        final_score: 102,
-        voucher_earned: 1,
-        voucher_id: 1
-    },
-    {
-        project_id: 1,
-        game_id: 1,
-        trace_id: idGen.generateTraceId(2),
-        user_id: '4',
-        session_start: idGen.generateTimestamp(0, 15, 0),
-        session_end: idGen.generateTimestamp(0, 15, 4),
-        total_play_time: 240,
-        final_score: 91,
-        voucher_earned: 0,
-        voucher_id: null
-    },
-    {
-        project_id: 1,
-        game_id: 1,
-        trace_id: idGen.generateTraceId(2),
-        user_id: '4',
-        session_start: idGen.generateTimestamp(0, 17, 0),
-        session_end: idGen.generateTimestamp(0, 17, 3),
-        total_play_time: 180,
-        final_score: 76,
-        voucher_earned: 0,
-        voucher_id: null
-    },
-
-    // 王大明 - 4 次遊戲
-    {
-        project_id: 1,
-        game_id: 1,
-        trace_id: idGen.generateTraceId(3),
-        user_id: '5',
-        session_start: idGen.generateTimestamp(0, 10, 30),
-        session_end: idGen.generateTimestamp(0, 10, 35),
-        total_play_time: 300,
         final_score: 110,
         voucher_earned: 1,
         voucher_id: 2
@@ -169,10 +88,10 @@ const gameSessions = [
     {
         project_id: 1,
         game_id: 1,
-        trace_id: idGen.generateTraceId(3),
-        user_id: '5',
-        session_start: idGen.generateTimestamp(0, 12, 0),
-        session_end: idGen.generateTimestamp(0, 12, 5),
+        trace_id: idGen.generateTraceId(1),
+        user_id: '1',
+        session_start: idGen.generateTimestamp(0, 16, 30),
+        session_end: idGen.generateTimestamp(0, 16, 35),
         total_play_time: 300,
         final_score: 98,
         voucher_earned: 1,
@@ -181,24 +100,12 @@ const gameSessions = [
     {
         project_id: 1,
         game_id: 1,
-        trace_id: idGen.generateTraceId(3),
-        user_id: '5',
-        session_start: idGen.generateTimestamp(0, 14, 30),
-        session_end: idGen.generateTimestamp(0, 14, 34),
+        trace_id: idGen.generateTraceId(1),
+        user_id: '1',
+        session_start: idGen.generateTimestamp(0, 17, 0),
+        session_end: idGen.generateTimestamp(0, 17, 4),
         total_play_time: 240,
-        final_score: 105,
-        voucher_earned: 1,
-        voucher_id: 4
-    },
-    {
-        project_id: 1,
-        game_id: 1,
-        trace_id: idGen.generateTraceId(3),
-        user_id: '5',
-        session_start: idGen.generateTimestamp(0, 16, 0),
-        session_end: idGen.generateTimestamp(0, 16, 4),
-        total_play_time: 240,
-        final_score: 89,
+        final_score: 78,
         voucher_earned: 0,
         voucher_id: null
     }
@@ -295,9 +202,7 @@ function seed() {
 
         console.log('🎉 遊戲假資料添加完成！\n');
         console.log('📊 數據統計:');
-        console.log(`   - 張志明 (User ID: 3): 3 次遊戲，最高分 92`);
-        console.log(`   - 李美玲 (User ID: 4): 5 次遊戲，最高分 102`);
-        console.log(`   - 王大明 (User ID: 5): 4 次遊戲，最高分 110`);
+        console.log(`   - 王大明 (User ID: 1): 4 次遊戲，最高分 110`);
         console.log(`   - 總遊戲會話: ${gameSessions.length}`);
         console.log(`   - 總遊戲日誌: ${logCount}\n`);
         console.log('💡 現在可以訪問 http://localhost:3000/admin/game-analytics 查看完整數據！');

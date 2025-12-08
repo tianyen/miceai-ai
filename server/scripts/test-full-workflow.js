@@ -3,12 +3,11 @@
  * 測試完整業務流程
  * 報名 → 報到 → 遊玩遊戲 → 獲得兌換券 → 兌換商品 → 庫存-1
  *
- * 測試用戶對應表：
- * | 用戶   | registration_id (user_id) | trace_id                    |
- * |--------|---------------------------|----------------------------|
- * | 張志明 | 1                         | MICE-d074dd3e-e3e27b6b0   |
- * | 李美玲 | 2                         | MICE-d74b09c8-6cfa4a823   |
- * | 王大明 | 3                         | MICE-05207cf7-199967c04   |
+ * 測試用戶對應表（精簡版，每個專案各一人）：
+ * | 用戶       | registration_id (user_id) | project  | trace_id                    |
+ * |------------|---------------------------|----------|----------------------------|
+ * | 王大明     | 1                         | TECH2024 | MICE-d074dd3e-e3e27b6b0   |
+ * | 福利團體1  | 2                         | MOON2025 | MICE-d74b09c8-6cfa4a823   |
  */
 
 require('dotenv').config();
@@ -18,9 +17,8 @@ const { TEST_REGISTRATIONS } = require('./utils/trace-id-generator');
 
 // 確定性測試用戶資料（從共用模組獲取）
 const TEST_USERS = {
-    ZHANG_ZHIMING: { id: TEST_REGISTRATIONS.ZHANG_ZHIMING.registration_id, name: TEST_REGISTRATIONS.ZHANG_ZHIMING.name, traceId: TEST_REGISTRATIONS.ZHANG_ZHIMING.traceId },
-    LI_MEILING:    { id: TEST_REGISTRATIONS.LI_MEILING.registration_id, name: TEST_REGISTRATIONS.LI_MEILING.name, traceId: TEST_REGISTRATIONS.LI_MEILING.traceId },
-    WANG_DAMING:   { id: TEST_REGISTRATIONS.WANG_DAMING.registration_id, name: TEST_REGISTRATIONS.WANG_DAMING.name, traceId: TEST_REGISTRATIONS.WANG_DAMING.traceId }
+    WANG_DAMING:   { id: TEST_REGISTRATIONS.WANG_DAMING.registration_id, name: TEST_REGISTRATIONS.WANG_DAMING.name, traceId: TEST_REGISTRATIONS.WANG_DAMING.traceId },
+    FULI_GROUP1:   { id: TEST_REGISTRATIONS.FULI_GROUP1.registration_id, name: TEST_REGISTRATIONS.FULI_GROUP1.name, traceId: TEST_REGISTRATIONS.FULI_GROUP1.traceId }
 };
 
 const dbPath = getDbPath();

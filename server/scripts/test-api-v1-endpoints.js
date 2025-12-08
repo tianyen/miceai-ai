@@ -23,19 +23,17 @@ const results = {
     errors: []
 };
 
-// 測試用戶資料（從共用模組獲取）
+// 測試用戶資料（從共用模組獲取，精簡版每個專案各一人）
 // user_id = registration_id = form_submissions.id
 const TEST_USERS = {
-    ZHANG_ZHIMING: { id: TEST_REGISTRATIONS.ZHANG_ZHIMING.registration_id, name: TEST_REGISTRATIONS.ZHANG_ZHIMING.name, traceId: TEST_REGISTRATIONS.ZHANG_ZHIMING.traceId },
-    LI_MEILING:    { id: TEST_REGISTRATIONS.LI_MEILING.registration_id, name: TEST_REGISTRATIONS.LI_MEILING.name, traceId: TEST_REGISTRATIONS.LI_MEILING.traceId },
-    WANG_DAMING:   { id: TEST_REGISTRATIONS.WANG_DAMING.registration_id, name: TEST_REGISTRATIONS.WANG_DAMING.name, traceId: TEST_REGISTRATIONS.WANG_DAMING.traceId }
+    WANG_DAMING:   { id: TEST_REGISTRATIONS.WANG_DAMING.registration_id, name: TEST_REGISTRATIONS.WANG_DAMING.name, traceId: TEST_REGISTRATIONS.WANG_DAMING.traceId },
+    FULI_GROUP1:   { id: TEST_REGISTRATIONS.FULI_GROUP1.registration_id, name: TEST_REGISTRATIONS.FULI_GROUP1.name, traceId: TEST_REGISTRATIONS.FULI_GROUP1.traceId }
 };
 
 // 向後相容舊的 trace_id 引用
 const TEST_TRACE_IDS = {
-    user1: TEST_USERS.ZHANG_ZHIMING.traceId,
-    user2: TEST_USERS.LI_MEILING.traceId,
-    user3: TEST_USERS.WANG_DAMING.traceId
+    user1: TEST_USERS.WANG_DAMING.traceId,
+    user2: TEST_USERS.FULI_GROUP1.traceId
 };
 
 // 輔助函數：執行 SQL 查詢（同步版本，返回 Promise 以保持相容性）
@@ -72,7 +70,7 @@ async function runTests() {
     await testEndpoint('POST /api/v1/check-in - 掃描 QR Code 報到', async () => {
         const submission = await get(
             'SELECT * FROM form_submissions WHERE trace_id = ?',
-            [TEST_TRACE_IDS.user3]
+            [TEST_TRACE_IDS.user1]
         );
         if (!submission) throw new Error('找不到測試報名記錄');
         
@@ -153,7 +151,7 @@ async function runTests() {
     await testEndpoint('GET /api/v1/registrations/{traceId} - 查詢報名狀態', async () => {
         const submission = await get(
             'SELECT * FROM form_submissions WHERE trace_id = ?',
-            [TEST_TRACE_IDS.user3]
+            [TEST_TRACE_IDS.user1]
         );
         if (!submission) throw new Error('找不到報名記錄');
         if (!submission.trace_id) throw new Error('trace_id 為空');
@@ -166,7 +164,7 @@ async function runTests() {
             `SELECT qr.* FROM qr_codes qr
              JOIN form_submissions fs ON qr.submission_id = fs.id
              WHERE fs.trace_id = ?`,
-            [TEST_TRACE_IDS.user3]
+            [TEST_TRACE_IDS.user1]
         );
         if (!qrCode) throw new Error('找不到 QR Code');
         if (!qrCode.qr_data) throw new Error('qr_data 為空');
@@ -178,7 +176,7 @@ async function runTests() {
             `SELECT qr.* FROM qr_codes qr
              JOIN form_submissions fs ON qr.submission_id = fs.id
              WHERE fs.trace_id = ?`,
-            [TEST_TRACE_IDS.user3]
+            [TEST_TRACE_IDS.user1]
         );
         if (!qrCode) throw new Error('找不到 QR Code');
         if (!qrCode.qr_base64) throw new Error('qr_base64 為空');
@@ -221,7 +219,7 @@ async function runTests() {
         // 檢查兌換券發放
         const redemptions = await query(
             'SELECT * FROM voucher_redemptions WHERE trace_id = ?',
-            [TEST_TRACE_IDS.user3]
+            [TEST_TRACE_IDS.user1]
         );
         if (redemptions.length === 0) throw new Error('沒有兌換券記錄');
 

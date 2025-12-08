@@ -460,6 +460,28 @@ router.post('/events/:eventId/registrations', [
  *                     type: string
  *                     description: 備註
  *                     example: "需要素食餐點"
+ *                   adult_age:
+ *                     type: integer
+ *                     minimum: 18
+ *                     maximum: 120
+ *                     description: 成年人年齡
+ *                     example: 35
+ *                   children_ages:
+ *                     type: object
+ *                     description: 小朋友年齡區間人數
+ *                     properties:
+ *                       age_0_6:
+ *                         type: integer
+ *                         description: 0-6歲人數
+ *                         example: 2
+ *                       age_6_12:
+ *                         type: integer
+ *                         description: 6-12歲人數
+ *                         example: 0
+ *                       age_12_18:
+ *                         type: integer
+ *                         description: 12-18歲人數
+ *                         example: 1
  *               participants:
  *                 type: array
  *                 items:
@@ -501,6 +523,25 @@ router.post('/events/:eventId/registrations', [
  *                     notes:
  *                       type: string
  *                       description: 備註
+ *                     adult_age:
+ *                       type: integer
+ *                       minimum: 18
+ *                       maximum: 120
+ *                       description: 成年人年齡
+ *                       example: 30
+ *                     children_ages:
+ *                       type: object
+ *                       description: 小朋友年齡區間人數
+ *                       properties:
+ *                         age_0_6:
+ *                           type: integer
+ *                           description: 0-6歲人數
+ *                         age_6_12:
+ *                           type: integer
+ *                           description: 6-12歲人數
+ *                         age_12_18:
+ *                           type: integer
+ *                           description: 12-18歲人數
  *                 maxItems: 4
  *                 description: 同行者列表（最多 4 人）
  *     responses:
@@ -530,11 +571,23 @@ router.post('/events/:eventId/registrations/batch', [
     body('primaryParticipant.email').isEmail().withMessage('主報名人 Email 格式錯誤'),
     body('primaryParticipant.phone').matches(phoneRegex).withMessage('主報名人手機號碼格式錯誤'),
     body('primaryParticipant.data_consent').custom(val => val === true || val === 'true' || val === 1).withMessage('主報名人必須同意資料使用條款'),
-    
+    // 主報名人 children_ages 驗證
+    body('primaryParticipant.children_ages').optional().isObject().withMessage('小朋友年齡必須是物件格式'),
+    body('primaryParticipant.children_ages.age_0_6').optional().isInt({ min: 0, max: 10 }).withMessage('0-6歲人數必須在 0-10 之間'),
+    body('primaryParticipant.children_ages.age_6_12').optional().isInt({ min: 0, max: 10 }).withMessage('6-12歲人數必須在 0-10 之間'),
+    body('primaryParticipant.children_ages.age_12_18').optional().isInt({ min: 0, max: 10 }).withMessage('12-18歲人數必須在 0-10 之間'),
+    body('primaryParticipant.adult_age').optional().isInt({ min: 18, max: 120 }).withMessage('成年人年齡必須在 18-120 之間'),
+
     body('participants').optional().isArray({ max: 4 }).withMessage('同行者最多 4 人'),
     body('participants.*.name').trim().isLength({ min: 2, max: 50 }).withMessage('同行者姓名長度錯誤'),
     body('participants.*.email').optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('同行者 Email 格式錯誤'),
-    body('participants.*.phone').optional({ nullable: true, checkFalsy: true }).matches(phoneRegex).withMessage('同行者手機號碼格式錯誤')
+    body('participants.*.phone').optional({ nullable: true, checkFalsy: true }).matches(phoneRegex).withMessage('同行者手機號碼格式錯誤'),
+    // 同行者 children_ages 驗證
+    body('participants.*.children_ages').optional().isObject().withMessage('小朋友年齡必須是物件格式'),
+    body('participants.*.children_ages.age_0_6').optional().isInt({ min: 0, max: 10 }).withMessage('0-6歲人數必須在 0-10 之間'),
+    body('participants.*.children_ages.age_6_12').optional().isInt({ min: 0, max: 10 }).withMessage('6-12歲人數必須在 0-10 之間'),
+    body('participants.*.children_ages.age_12_18').optional().isInt({ min: 0, max: 10 }).withMessage('12-18歲人數必須在 0-10 之間'),
+    body('participants.*.adult_age').optional().isInt({ min: 18, max: 120 }).withMessage('成年人年齡必須在 18-120 之間')
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -560,6 +613,8 @@ router.post('/events/:eventId/registrations/batch', [
             gender: p.gender || null,
             title: p.title || null,
             notes: p.notes || null,
+            adultAge: p.adult_age || null,
+            childrenAges: p.children_ages || null,
             dataConsent: p.data_consent === true || p.data_consent === 'true' || p.data_consent === 1,
             marketingConsent: p.marketing_consent === true || p.marketing_consent === 'true' || p.marketing_consent === 1
         });

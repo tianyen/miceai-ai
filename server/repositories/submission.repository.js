@@ -415,12 +415,14 @@ class SubmissionRepository extends BaseRepository {
                 trace_id, project_id, group_id, is_primary, parent_submission_id,
                 submitter_name, submitter_email, submitter_phone,
                 company_name, position, gender, title, notes, pass_code,
+                adult_age, children_count, children_ages,
                 data_consent, marketing_consent, activity_notifications, product_updates,
                 ip_address, user_agent, status, created_at
             ) VALUES (
                 @traceId, @projectId, @groupId, @isPrimary, @parentSubmissionId,
                 @name, @email, @phone,
                 @company, @position, @gender, @title, @notes, @passCode,
+                @adultAge, @childrenCount, @childrenAges,
                 @dataConsent, @marketingConsent, @marketingConsent, @marketingConsent,
                 @ipAddress, @userAgent, 'pending', CURRENT_TIMESTAMP
             )
@@ -444,6 +446,12 @@ class SubmissionRepository extends BaseRepository {
                     reg.parentSubmissionId = primaryId;
                 }
 
+                // 計算 children_count（根據年齡區間人數加總）
+                const childrenAges = reg.childrenAges || null;
+                const childrenCount = childrenAges
+                    ? (childrenAges.age_0_6 || 0) + (childrenAges.age_6_12 || 0) + (childrenAges.age_12_18 || 0)
+                    : 0;
+
                 const result = insertSubmission.run({
                     traceId: reg.traceId,
                     projectId: reg.projectId,
@@ -459,6 +467,9 @@ class SubmissionRepository extends BaseRepository {
                     title: reg.title || null,
                     notes: reg.notes || null,
                     passCode: reg.passCode,
+                    adultAge: reg.adultAge || null,
+                    childrenCount: childrenCount,
+                    childrenAges: childrenAges ? JSON.stringify(childrenAges) : null,
                     dataConsent: reg.dataConsent ? 1 : 0,
                     marketingConsent: reg.marketingConsent ? 1 : 0,
                     ipAddress: reg.ipAddress || null,

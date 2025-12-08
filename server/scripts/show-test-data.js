@@ -19,24 +19,19 @@ function generateTraceId(index) {
 console.log('📊 固定測試數據清單（用於 Swagger 範例）');
 console.log('='.repeat(70));
 
-console.log('\n👥 用戶數據:');
-console.log('  張志明 (User 1):');
+console.log('\n👥 測試報名用戶（精簡版，每個專案各一人）:');
+console.log('  王大明 (registration_id=1, TECH2024):');
 console.log('    - user_id: 1');
 console.log('    - trace_id:', generateTraceId(1));
-console.log('    - email: chang@example.com');
-console.log('    - phone: 0912345678');
-
-console.log('\n  李美玲 (User 2):');
-console.log('    - user_id: 2');
-console.log('    - trace_id:', generateTraceId(2));
-console.log('    - email: li@example.com');
-console.log('    - phone: 0923456789');
-
-console.log('\n  王大明 (User 3):');
-console.log('    - user_id: 3');
-console.log('    - trace_id:', generateTraceId(3));
 console.log('    - email: wang@example.com');
 console.log('    - phone: 0934567890');
+
+console.log('\n  福利團體1 (registration_id=2, MOON2025):');
+console.log('    - user_id: 2');
+console.log('    - trace_id:', generateTraceId(2));
+console.log('    - email: test@test.com');
+console.log('    - phone: 0900000000');
+console.log('    - children_ages: { age_0_6: 1, age_6_12: 2, age_12_18: 0 }');
 
 console.log('\n🎯 專案數據:');
 console.log('  TECH2024:');
@@ -64,20 +59,20 @@ console.log('    - booth_name: "A區攤位"');
 
 console.log('\n📋 Swagger 範例格式:');
 console.log('='.repeat(70));
-console.log('\n報名 API 範例:');
+console.log('\n報名 API 範例 (王大明):');
 console.log(JSON.stringify({
-    trace_id: generateTraceId(3),
-    user_id: "3",
+    trace_id: generateTraceId(1),
+    user_id: "1",
     project_id: 1,
     submitter_name: "王大明",
     submitter_email: "wang@example.com",
     submitter_phone: "0934567890"
 }, null, 2));
 
-console.log('\n遊戲 API 範例:');
+console.log('\n遊戲 API 範例 (王大明):');
 console.log(JSON.stringify({
-    trace_id: generateTraceId(3),
-    user_id: "3",
+    trace_id: generateTraceId(1),
+    user_id: "1",
     project_id: 1,
     game_id: 1
 }, null, 2));
