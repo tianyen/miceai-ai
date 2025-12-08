@@ -342,10 +342,10 @@ async function resetDatabase() {
 
         console.log('✅ 資料庫重置完成！');
         console.log('\n📋 初始帳號資訊（後台管理員 users.id）:');
-        console.log('   1. 超級管理員: admin / admin123');
-        console.log('   2. 專案管理員: manager / manager123');
-        console.log('   3. 項目用戶: user / user123');
-        console.log('   4. 廠商用戶: vendor / vendor123');
+        console.log('   1. 超級管理員: admin / Admin1qa');
+        console.log('   2. 專案管理員: manager / Mngr2wsX');
+        console.log('   3. 項目用戶: user / User3edC');
+        console.log('   4. 廠商用戶: vendor / Vndr4rfV');
         console.log('\n🚀 系統已準備就緒！');
 
     } catch (error) {

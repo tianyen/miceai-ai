@@ -141,10 +141,10 @@ function showCompletionInfo() {
     console.log('   • 編碼: UTF-8\n');
     
     console.log('👥 預設帳號:');
-    console.log('   • 超級管理員: admin / admin123');
-    console.log('   • 專案管理員: manager / manager123');
-    console.log('   • 項目用戶: user / user123');
-    console.log('   • 廠商用戶: vendor / vendor123\n');
+    console.log('   • 超級管理員: admin / Admin1qa');
+    console.log('   • 專案管理員: manager / Mngr2wsX');
+    console.log('   • 項目用戶: user / User3edC');
+    console.log('   • 廠商用戶: vendor / Vndr4rfV\n');
     
     console.log('📋 示例數據:');
     console.log('   • 1 個預設MICE-AI 項目');

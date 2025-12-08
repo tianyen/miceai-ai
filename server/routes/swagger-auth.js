@@ -236,7 +236,7 @@ router.get('/swagger-login', (req, res) => {
             <h3>⚡ 快速登入</h3>
             <form action="/swagger-login/quick" method="POST">
                 <button type="submit" class="quick-login-btn">
-                    使用測試帳號登入 (admin / admin123)
+                    使用測試帳號登入 (admin / Admin1qa)
                 </button>
             </form>
         </div>
@@ -263,7 +263,7 @@ router.get('/swagger-login', (req, res) => {
             <strong>💡 提示：</strong>
             登入後將自動跳轉到 Swagger UI，您可以直接測試需要認證的 API 端點。
             <br><br>
-            預設測試帳號：<code>admin</code> / <code>admin123</code>
+            預設測試帳號：<code>admin</code> / <code>Admin1qa</code>
         </div>
     </div>
     
@@ -287,7 +287,7 @@ router.get('/swagger-login', (req, res) => {
 router.post('/swagger-login/quick', async (req, res) => {
     try {
         const username = 'admin';
-        const password = 'admin123';
+        const password = 'Admin1qa';
 
         // 使用 Repository 查詢用戶
         const user = await userRepository.findActiveByUsername(username);

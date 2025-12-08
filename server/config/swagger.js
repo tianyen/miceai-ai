@@ -22,9 +22,10 @@ const swaggerDefinition = {
       '### 2. 測試帳號\n\n' +
       '| 角色 | 帳號 | 密碼 |\n' +
       '|------|------|------|\n' +
-      '| 管理員 | `admin` | `admin123` |\n' +
-      '| 專案經理 | `pm1` | `pm123` |\n' +
-      '| 廠商 | `vendor1` | `vendor123` |\n\n' +
+      '| 超級管理員 | `admin` | `Admin1qa` |\n' +
+      '| 專案管理員 | `manager` | `Mngr2wsX` |\n' +
+      '| 項目用戶 | `user` | `User3edC` |\n' +
+      '| 廠商用戶 | `vendor` | `Vndr4rfV` |\n\n' +
       '### 3. 測試專案\n\n' +
       '| ID | 專案代碼 | 名稱 | 狀態 | 日期 |\n' +
       '|----|----------|------|------|------|\n' +
@@ -397,14 +398,15 @@ const swaggerDefinition = {
               properties: {
                 id: { type: 'integer', example: 1 },
                 username: { type: 'string', example: 'admin' },
-                password: { type: 'string', example: 'admin123' },
+                password: { type: 'string', example: 'Admin1qa' },
                 role: { type: 'string', example: 'super_admin' }
               }
             },
             example: [
-              { id: 1, username: 'admin', password: 'admin123', role: 'super_admin' },
-              { id: 2, username: 'pm1', password: 'pm123', role: 'project_manager' },
-              { id: 3, username: 'vendor1', password: 'vendor123', role: 'vendor' }
+              { id: 1, username: 'admin', password: 'Admin1qa', role: 'super_admin' },
+              { id: 2, username: 'manager', password: 'Mngr2wsX', role: 'project_manager' },
+              { id: 3, username: 'user', password: 'User3edC', role: 'project_user' },
+              { id: 4, username: 'vendor', password: 'Vndr4rfV', role: 'vendor' }
             ]
           },
           events: {
