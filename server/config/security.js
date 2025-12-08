@@ -28,7 +28,8 @@ const allowedOrigins = [
     'https://localhost:3000',
     'https://localhost:3443',
     'https://tianyen-service.com:4037',
-    'https://mice-ai.tianyen-service.com'
+    'https://mice-ai.tianyen-service.com',
+    'https://moon2025.tianyen-service.com'
 ];
 
 const corsConfig = cors({
