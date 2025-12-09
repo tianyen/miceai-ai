@@ -228,7 +228,7 @@ class EmailService {
         <!-- Header -->
         <tr>
             <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
-                <h1 style="color: #ffffff; margin: 0; font-size: 24px;">🎉 報名成功</h1>
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px;">🎉 報名成功！謝謝你與我們一起點亮這座城市的光。</h1>
             </td>
         </tr>
 
@@ -310,7 +310,7 @@ class EmailService {
         <!-- Header -->
         <tr>
             <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
-                <h1 style="color: #ffffff; margin: 0; font-size: 24px;">🎊 團體報名成功</h1>
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px;">🎊 報名成功！謝謝你與我們一起點亮這座城市的光。</h1>
                 <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">共 ${totalCount} 人</p>
             </td>
         </tr>
@@ -407,7 +407,7 @@ class EmailService {
         <!-- Header -->
         <tr>
             <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
-                <h1 style="color: #ffffff; margin: 0; font-size: 24px;">🎉 報名成功</h1>
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px;">🎉 報名成功！謝謝你與我們一起點亮這座城市的光。</h1>
             </td>
         </tr>
 
