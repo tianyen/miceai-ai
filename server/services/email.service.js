@@ -270,6 +270,15 @@ class EmailService {
                         💡 <strong>小提醒：</strong>請妥善保存此郵件，活動當天需出示 QR Code 進行報到。
                     </p>
                 </div>
+
+                <!-- Event Info Link -->
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <p style="font-size: 14px; color: #666; margin-bottom: 10px;">📖 查看完整活動資訊：</p>
+                    <a href="https://www.notion.so/2c1e1fe9d39e802b8546c7f1b6a1feae"
+                       style="display: inline-block; padding: 10px 20px; background-color: #667eea; color: #ffffff; text-decoration: none; border-radius: 5px; font-size: 14px;">
+                        活動詳情頁面
+                    </a>
+                </div>
             </td>
         </tr>
 
@@ -369,6 +378,15 @@ class EmailService {
                         <li>請提醒同行成員查收郵件</li>
                     </ul>
                 </div>
+
+                <!-- Event Info Link -->
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <p style="font-size: 14px; color: #666; margin-bottom: 10px;">📖 查看完整活動資訊：</p>
+                    <a href="https://www.notion.so/2c1e1fe9d39e802b8546c7f1b6a1feae"
+                       style="display: inline-block; padding: 10px 20px; background-color: #667eea; color: #ffffff; text-decoration: none; border-radius: 5px; font-size: 14px;">
+                        活動詳情頁面
+                    </a>
+                </div>
             </td>
         </tr>
 
@@ -448,6 +466,15 @@ class EmailService {
                     <p style="margin: 0; font-size: 14px; color: #e65100;">
                         💡 <strong>小提醒：</strong>請妥善保存此郵件，活動當天需出示 QR Code 進行報到。
                     </p>
+                </div>
+
+                <!-- Event Info Link -->
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <p style="font-size: 14px; color: #666; margin-bottom: 10px;">📖 查看完整活動資訊：</p>
+                    <a href="https://www.notion.so/2c1e1fe9d39e802b8546c7f1b6a1feae"
+                       style="display: inline-block; padding: 10px 20px; background-color: #667eea; color: #ffffff; text-decoration: none; border-radius: 5px; font-size: 14px;">
+                        活動詳情頁面
+                    </a>
                 </div>
             </td>
         </tr>
