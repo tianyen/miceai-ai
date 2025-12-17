@@ -246,8 +246,6 @@ async function generateWishTreeQRCode() {
 
         console.log('✅ QR Code 生成成功！');
         console.log('📄 HTML 檔案:', outputPath);
-        console.log('🌐 可訪問: http://localhost:3000/wish-tree-qrcode.html');
-        console.log('   或: https://mice-ai.tianyen-service.com/wish-tree-qrcode.html');
 
     } catch (error) {
         console.error('❌ 生成 QR Code 失敗:', error);
