@@ -121,6 +121,19 @@ npm start
 
 > 💡 **Gmail 設定**: 需要啟用兩步驟驗證後，在 Google 帳戶 → 安全性 → 應用程式密碼 產生專用密碼。
 
+### Email Banner 配置
+
+報名成功郵件支援自訂 Banner 圖片：
+
+| 變數 | 建議尺寸 | 說明 |
+|------|----------|------|
+| `EMAIL_BANNER_TOP_URL` | 600x200px | Top Banner 圖片 URL（活動主視覺） |
+| `EMAIL_BANNER_TOP_ALT` | - | Top Banner Alt 文字 |
+| `EMAIL_BANNER_FOOTER_URL` | 600x150px | Footer Banner 圖片 URL（主辦單位/贊助商） |
+| `EMAIL_BANNER_FOOTER_ALT` | - | Footer Banner Alt 文字 |
+
+> 💡 **圖片建議**：使用 PNG 或 JPG 格式，單張圖片建議 < 100KB，託管在穩定的 CDN 上。
+
 ### 生產環境建議
 
 - `BASE_URL`: 設定為實際域名（含 https://）
