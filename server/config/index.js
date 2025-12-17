@@ -94,15 +94,6 @@ module.exports = {
         from: {
             name: process.env.SMTP_FROM_NAME || 'MICE-AI 活動系統',
             email: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER
-        },
-        // Email Banner 圖片設定
-        banner: {
-            // Top Banner: 600x200px - 活動主視覺
-            topUrl: process.env.EMAIL_BANNER_TOP_URL || 'https://via.placeholder.com/600x200/667eea/ffffff?text=Top+Banner+(600x200)',
-            topAlt: process.env.EMAIL_BANNER_TOP_ALT || '活動主視覺',
-            // Footer Banner: 600x150px - 主辦單位/贊助商
-            footerUrl: process.env.EMAIL_BANNER_FOOTER_URL || 'https://via.placeholder.com/600x150/764ba2/ffffff?text=Footer+Banner+(600x150)',
-            footerAlt: process.env.EMAIL_BANNER_FOOTER_ALT || '主辦單位資訊'
         }
     }
 };
