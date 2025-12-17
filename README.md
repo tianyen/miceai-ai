@@ -21,7 +21,7 @@ npm start
 ```
 
 **訪問系統**:
-- 後台管理: http://localhost:3000/admin (預設帳號: admin / admin123)
+- 後台管理: http://localhost:3000/admin (預設帳號: admin / Admin1qa)
 - API 文檔: http://localhost:3000/api-docs
 
 ## 📋 可用腳本
@@ -354,7 +354,7 @@ TRACE{timestamp}{random}
 - `project_manager` - 專案管理員（專案管理）
 - `project_user` - 一般用戶（基本權限）
 
-預設管理員帳號：`admin` / `admin123`
+預設管理員帳號：`admin` / `Admin1qa`
 
 ### CSRF 防護（Admin）
 

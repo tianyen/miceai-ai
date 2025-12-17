@@ -30,9 +30,9 @@ const allowedOrigins = [
     'http://localhost:9998',
     'https://localhost:3443',
     'https://tianyen-service.com:4037',
-    'https://mice-ai.tianyen-service.com',
     'https://moon2025.tianyen-service.com',
-    'https://backend-0032.miceai.ai'
+    'https://backend-0032.miceai.ai',
+    'https://event-0032.miceai.ai'
 ];
 
 const corsConfig = cors({
