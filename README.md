@@ -174,8 +174,9 @@ server/
   - Check-in: 報到管理（2 個端點）
   - Events: 活動管理（3 個端點）
     - `GET /events` - 活動列表
-    - `GET /events/:id` - 活動詳情
-    - `GET /events/code/:code` - 根據代碼查詢活動
+    - `GET /events/:id` - 活動詳情（含報名狀態）
+    - `GET /events/code/:code` - 根據代碼查詢活動（含報名狀態）
+    - 🆕 **報名狀態欄位**: `max_participants`, `current_participants`, `remaining_slots`, `registration_open`
   - Registrations: 報名管理（7 個端點，含團體報名）
     - `POST /events/{eventId}/registrations` - 單人報名
     - `POST /events/{eventId}/registrations/batch` - **團體報名 (最多 5 人)**
@@ -394,6 +395,12 @@ pm2 startup
 **維護者**: MICE-AI Team
 
 ### 更新日誌
+
+#### 2025-12-18
+- 新增：活動人數限制功能 (`max_participants`, `registration_deadline`)
+- 新增：Events API 回傳報名狀態欄位 (`remaining_slots`, `registration_open`, `current_participants`)
+- 新增：後台專案詳情 → 報名設定 Tab 可修改人數上限
+- 更新：db-reset.js 種子資料 (TECH2024: 無限制, MOON2025: 91 人)
 
 #### 2025-12-07 (v1.0)
 - 文檔重整：以專案根目錄 README 為主，其他規格逐步移轉至 /claude 目錄
