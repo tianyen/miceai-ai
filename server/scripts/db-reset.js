@@ -93,7 +93,8 @@ const initialProjects = [
         event_end_date: '2025-12-24',
         event_location: '誠品生活松菸店',
         event_type: 'exhibition',
-        status: 'active'
+        status: 'active',
+        max_participants: 90
     }
 ];
 
@@ -282,8 +283,8 @@ async function resetDatabase() {
             INSERT INTO event_projects (
                 project_name, project_code, description, event_date,
                 event_start_date, event_end_date,
-                event_location, event_type, status, created_by, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                event_location, event_type, status, max_participants, created_by, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
         `);
 
         for (const project of initialProjects) {
@@ -297,6 +298,7 @@ async function resetDatabase() {
                 project.event_location,
                 project.event_type,
                 project.status,
+                project.max_participants || 0,
                 now,  // created_at (GMT+8)
                 now   // updated_at (GMT+8)
             );

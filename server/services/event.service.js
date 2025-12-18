@@ -216,6 +216,14 @@ class EventService extends BaseService {
         // 解析 event_highlights
         const highlights = this._safeJsonParse(event.event_highlights, null);
 
+        // 計算剩餘名額
+        const remainingSlots = event.max_participants > 0
+            ? Math.max(0, event.max_participants - event.current_participants)
+            : null; // null 表示無限制
+
+        // 判斷是否開放報名
+        const registrationOpen = this._checkRegistrationOpen(event, remainingSlots);
+
         return {
             id: event.id,
             name: event.name,
@@ -230,6 +238,8 @@ class EventService extends BaseService {
             status: event.status,
             max_participants: event.max_participants,
             current_participants: event.current_participants,
+            remaining_slots: remainingSlots,
+            registration_open: registrationOpen,
             registration_deadline: event.registration_deadline,
             agenda: event.agenda,
             created_at: event.created_at,
@@ -240,6 +250,32 @@ class EventService extends BaseService {
             },
             template
         };
+    }
+
+    /**
+     * 內部方法：檢查是否開放報名
+     * @private
+     */
+    _checkRegistrationOpen(event, remainingSlots) {
+        // 1. 活動狀態必須是 active
+        if (event.status !== 'active') {
+            return false;
+        }
+
+        // 2. 檢查報名截止時間
+        if (event.registration_deadline) {
+            const deadline = new Date(event.registration_deadline);
+            if (new Date() > deadline) {
+                return false;
+            }
+        }
+
+        // 3. 檢查名額（若有設定上限）
+        if (event.max_participants > 0 && remainingSlots <= 0) {
+            return false;
+        }
+
+        return true;
     }
 }
 

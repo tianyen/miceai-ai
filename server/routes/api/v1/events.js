@@ -246,10 +246,21 @@ router.get('/', [
  *                       example: "active"
  *                     max_participants:
  *                       type: integer
- *                       example: 200
+ *                       description: 最大參與人數上限 (0 表示無限制)
+ *                       example: 90
  *                     current_participants:
  *                       type: integer
+ *                       description: 目前已報名人數
  *                       example: 45
+ *                     remaining_slots:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: 剩餘名額 (null 表示無限制)
+ *                       example: 45
+ *                     registration_open:
+ *                       type: boolean
+ *                       description: 是否開放報名 (檢查活動狀態、截止時間、剩餘名額)
+ *                       example: true
  *                     registration_deadline:
  *                       type: string
  *                       format: date-time
@@ -428,10 +439,21 @@ router.get('/code/:code', [
  *                       example: 台北國際會議中心
  *                     max_participants:
  *                       type: integer
- *                       example: 500
+ *                       description: 最大參與人數上限 (0 表示無限制)
+ *                       example: 90
  *                     current_participants:
  *                       type: integer
- *                       example: 150
+ *                       description: 目前已報名人數
+ *                       example: 45
+ *                     remaining_slots:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: 剩餘名額 (null 表示無限制)
+ *                       example: 45
+ *                     registration_open:
+ *                       type: boolean
+ *                       description: 是否開放報名 (檢查活動狀態、截止時間、剩餘名額)
+ *                       example: true
  *                     is_active:
  *                       type: integer
  *                       example: 1

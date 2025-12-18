@@ -58,6 +58,13 @@ function handleServiceError(res, error, defaultMessage) {
  *       提交活動報名資料，系統會自動生成 QR Code Base64 並返回 trace_id
  *
  *       ---
+ *       ## ⚠️ 人數限制
+ *
+ *       - 活動設有 `max_participants` 人數上限
+ *       - 當報名人數達到上限時，將返回 400 錯誤：`活動已滿額`
+ *       - 團體報名時會檢查剩餘名額是否足夠
+ *
+ *       ---
  *       ## 📋 前端串接教學
  *
  *       ### 步驟 1: 查詢活動資訊
@@ -288,11 +295,15 @@ function handleServiceError(res, error, defaultMessage) {
  *                           description: QR Code 查詢 URL
  *                           example: "/api/v1/qr-codes/MICE-f8247b08-9df1d0fbb"
  *       400:
- *         description: 請求參數錯誤或活動已滿額
+ *         description: |
+ *           請求參數錯誤，可能原因：
+ *           - 必填欄位缺失或格式錯誤
+ *           - `活動已滿額` - 報名人數已達 max_participants 上限
+ *           - `報名已截止` - 已過 registration_deadline
  *       404:
- *         description: 活動不存在
+ *         description: 活動不存在或未開放報名
  *       409:
- *         description: 重複報名
+ *         description: 此電子郵件已報名過此活動
  *       500:
  *         description: 服務器錯誤
  */
@@ -391,8 +402,16 @@ router.post('/events/:eventId/registrations', [
  *     description: |
  *       提交團體報名資料，系統會自動生成多組 QR Code 和 trace_id。
  *       單次請求最多包含 1 位主報名人 + 4 位同行者。
- *       
+ *
  *       **注意**: 若同行者未提供 Email，將自動使用主報名人的 Email。
+ *
+ *       ---
+ *       ## ⚠️ 人數限制
+ *
+ *       - 活動設有 `max_participants` 人數上限
+ *       - 團體報名時會檢查剩餘名額是否足夠容納所有成員
+ *       - 若名額不足，將返回 400 錯誤：`活動名額不足，剩餘 X 個名額`
+ *
  *     parameters:
  *       - in: path
  *         name: eventId
