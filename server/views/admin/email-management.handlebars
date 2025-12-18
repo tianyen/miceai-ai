@@ -542,8 +542,21 @@
                     nameCell.appendChild(expandBtn);
                     tr.appendChild(nameCell);
 
-                    tr.appendChild(createCell('--'));  // Email
-                    tr.appendChild(createCell('--'));  // 電話
+                    // Email: 優先顯示主報名人，若無則顯示聯絡人
+                    var emailCell = document.createElement('td');
+                    if (reg.primaryEmail) {
+                        emailCell.textContent = reg.primaryEmail;
+                    } else if (reg.contactEmail) {
+                        emailCell.innerHTML = reg.contactEmail + ' <small style="color:#888;">(' + reg.contactName + ')</small>';
+                    } else {
+                        emailCell.textContent = '--';
+                    }
+                    tr.appendChild(emailCell);
+
+                    // 電話: 優先顯示主報名人，若無則顯示聯絡人
+                    var phoneCell = document.createElement('td');
+                    phoneCell.textContent = reg.primaryPhone || reg.contactPhone || '--';
+                    tr.appendChild(phoneCell);
 
                     // 類型徽章
                     var typeCell = document.createElement('td');
@@ -553,7 +566,9 @@
                     typeCell.appendChild(typeBadge);
                     tr.appendChild(typeCell);
 
-                    tr.appendChild(createCell('--'));  // 狀態
+                    // 取得主報名人的狀態
+                    var primaryMember = reg.members && reg.members.find(function(m) { return m.is_primary; });
+                    tr.appendChild(createCell(primaryMember ? (primaryMember.status || 'pending') : '--'));
                     tr.appendChild(createCell(formatDate(reg.created_at)));
 
                     // 操作

@@ -119,10 +119,20 @@ router.get('/registrations', async (req, res) => {
         // 將團體資料加入結果
         for (const [groupId, group] of groupMap) {
             const primary = group.members.find(m => m.is_primary);
+            // 如果主報名人沒有 email（如小孩），嘗試從其他成員取得聯絡資訊
+            const contactMember = group.members.find(m => m.submitter_email) || primary;
+            const phoneMember = group.members.find(m => m.submitter_phone) || primary;
+
             result.push({
                 groupId,
                 isGroup: true,
                 primaryName: primary?.submitter_name || '未知',
+                primaryEmail: primary?.submitter_email || '',
+                primaryPhone: primary?.submitter_phone || '',
+                // 聯絡人資訊（有 email/phone 的成員）
+                contactEmail: contactMember?.submitter_email || '',
+                contactName: contactMember?.submitter_name || '',
+                contactPhone: phoneMember?.submitter_phone || '',
                 memberCount: group.members.length,
                 members: group.members,
                 created_at: primary?.created_at
