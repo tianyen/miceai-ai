@@ -87,7 +87,7 @@ function handleServiceError(res, error, defaultMessage) {
  *           data_consent: true,
  *
  *           // ⭕ 選填欄位
- *           company: '天衍互動',           // 公司名稱
+ *           company: '月光映像館',           // 公司名稱
  *           position: '負責人',            // 職位
  *           gender: '男',                  // 性別: 男/女/其他
  *           title: '先生',                 // 尊稱: 先生/女士/博士/教授
@@ -174,7 +174,7 @@ function handleServiceError(res, error, defaultMessage) {
  *                 type: string
  *                 maxLength: 100
  *                 description: 公司名稱
- *                 example: "天衍互動"
+ *                 example: "月光映像館"
  *               position:
  *                 type: string
  *                 maxLength: 50
@@ -268,7 +268,7 @@ function handleServiceError(res, error, defaultMessage) {
  *                       properties:
  *                         name:
  *                           type: string
- *                           example: "誠品X天衍 平安夜聯名公益｜沈浸式露天電影院"
+ *                           example: "平安夜公益活動X沉浸式露天電影院"
  *                         date:
  *                           type: string
  *                           example: "2025-12-24"

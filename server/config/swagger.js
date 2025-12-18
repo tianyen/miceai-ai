@@ -30,7 +30,7 @@ const swaggerDefinition = {
       '| ID | 專案代碼 | 名稱 | 狀態 | 日期 |\n' +
       '|----|----------|------|------|------|\n' +
       '| 1 | `TECH2024` | 2024 資訊月互動許願樹 | 已完成 | 2024-12-01 ~ 12-03 |\n' +
-      '| 2 | `MOON2025` | 誠品X天衍 平安夜聯名公益｜沈浸式露天電影院 | 進行中 | 2025-12-24 |\n\n' +
+      '| 2 | `MOON2025` | 平安夜公益活動X沉浸式露天電影院 | 進行中 | 2025-12-24 |\n\n' +
       '---\n\n' +
       '## 📝 報名 API 完整教學\n\n' +
       '### 報名欄位說明\n\n' +
@@ -414,7 +414,7 @@ const swaggerDefinition = {
             items: { $ref: '#/components/schemas/Event' },
             example: [
               { id: 1, project_code: 'TECH2024', project_name: '2024 資訊月互動許願樹', status: 'completed', date: '2024-12-01 ~ 12-03' },
-              { id: 2, project_code: 'MOON2025', project_name: '誠品X天衍 平安夜聯名公益｜沈浸式露天電影院', status: 'active', date: '2025-12-24' }
+              { id: 2, project_code: 'MOON2025', project_name: '平安夜公益活動X沉浸式露天電影院', status: 'active', date: '2025-12-24' }
             ]
           },
           booths: {
