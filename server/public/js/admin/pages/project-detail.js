@@ -1351,6 +1351,9 @@ function saveFormConfig() {
     const maxParticipants = parseInt($('#max_participants').val()) || 0;
     const registrationDeadline = $('#registration_deadline').val() || null;
 
+    // 取得 CSRF token
+    const csrfToken = window.__CSRF_TOKEN__ || $('meta[name="csrf-token"]').attr('content');
+
     // 同時更新表單配置和專案設定
     const requests = [
         // 1. 更新表單配置
@@ -1358,6 +1361,7 @@ function saveFormConfig() {
             url: `/admin/projects/${projectId}/form-config`,
             method: 'PUT',
             contentType: 'application/json',
+            headers: { 'X-CSRF-Token': csrfToken },
             data: JSON.stringify({ form_config: formConfig })
         }),
         // 2. 更新人數限制
@@ -1365,6 +1369,7 @@ function saveFormConfig() {
             url: `/api/admin/projects/${projectId}`,
             method: 'PUT',
             contentType: 'application/json',
+            headers: { 'X-CSRF-Token': csrfToken },
             data: JSON.stringify({
                 max_participants: maxParticipants,
                 registration_deadline: registrationDeadline
