@@ -94,7 +94,7 @@ const initialProjects = [
         event_location: '誠品生活松菸店',
         event_type: 'exhibition',
         status: 'active',
-        max_participants: 90
+        max_participants: 91
     }
 ];
 
