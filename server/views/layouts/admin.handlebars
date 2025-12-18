@@ -4,6 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {{#if csrfToken}}
+    <meta name="csrf-token" content="{{csrfToken}}">
+    {{/if}}
     <title>{{#if pageTitle}}{{pageTitle}} - {{/if}}MICE AI 管理系統</title>
 
     <!-- 基礎樣式 -->
@@ -23,6 +26,22 @@
 
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <!-- CSRF Token 配置 -->
+    {{#if csrfToken}}
+    <script>
+        window.__CSRF_TOKEN__ = '{{csrfToken}}';
+        // jQuery 全域 AJAX 配置 - 自動帶入 CSRF Token
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                const token = window.__CSRF_TOKEN__ || $('meta[name="csrf-token"]').attr('content');
+                if (token && !settings.crossDomain) {
+                    xhr.setRequestHeader('X-CSRF-Token', token);
+                }
+            }
+        });
+    </script>
+    {{/if}}
 </head>
 
 <body class="admin-layout">
