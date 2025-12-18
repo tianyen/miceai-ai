@@ -823,8 +823,11 @@ class EmailService {
      * @returns {{ dateStr: string, timeStr: string }}
      */
     _parseEventDateTime(eventDate) {
+        // 預設時間
+        const DEFAULT_TIME = '17:30';
+
         if (!eventDate) {
-            return { dateStr: '', timeStr: '' };
+            return { dateStr: '', timeStr: DEFAULT_TIME };
         }
 
         let dateStr = '';
@@ -839,7 +842,7 @@ class EmailService {
             const month = isoMatch[2].padStart(2, '0');
             const day = isoMatch[3].padStart(2, '0');
             dateStr = `${month}.${day}`;
-            timeStr = isoMatch[4] || '';
+            timeStr = isoMatch[4] || DEFAULT_TIME;
             return { dateStr, timeStr };
         }
 
@@ -849,7 +852,7 @@ class EmailService {
             const month = cnMatch[1].padStart(2, '0');
             const day = cnMatch[2].padStart(2, '0');
             dateStr = `${month}.${day}`;
-            timeStr = cnMatch[3] || '';
+            timeStr = cnMatch[3] || DEFAULT_TIME;
             return { dateStr, timeStr };
         }
 
@@ -860,8 +863,8 @@ class EmailService {
             return { dateStr, timeStr };
         }
 
-        // 無法解析，返回原始字串
-        return { dateStr: eventDate, timeStr: '' };
+        // 無法解析，返回原始字串，但時間使用預設值
+        return { dateStr: eventDate, timeStr: DEFAULT_TIME };
     }
 
     /**

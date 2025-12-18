@@ -87,8 +87,8 @@ const initialProjects = [
     {
         project_name: '誠品X天衍 平安夜聯名公益｜沈浸式露天電影院',
         project_code: 'MOON2025',
-        description: '誠品X天衍 平安夜聯名公益活動，沈浸式露天電影院體驗 (5:30-8:30 PM)',
-        event_date: '2025-12-24',
+        description: '誠品X天衍 平安夜公益活動，沈浸式露天電影院體驗 (5:30-8:30 PM)',
+        event_date: '2025/12/24 17:30',
         event_start_date: '2025-12-24',
         event_end_date: '2025-12-24',
         event_location: '誠品生活松菸店',
