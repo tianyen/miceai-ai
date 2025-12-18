@@ -1347,22 +1347,55 @@ function saveFormConfig() {
         title_options: titleOptions
     };
 
-    $.ajax({
-        url: `/admin/projects/${projectId}/form-config`,
-        method: 'PUT',
-        contentType: 'application/json',
-        data: JSON.stringify({ form_config: formConfig }),
-        success: function(response) {
-            if (response.success) {
+    // 收集人數限制設定
+    const maxParticipants = parseInt($('#max_participants').val()) || 0;
+    const registrationDeadline = $('#registration_deadline').val() || null;
+
+    // 同時更新表單配置和專案設定
+    const requests = [
+        // 1. 更新表單配置
+        $.ajax({
+            url: `/admin/projects/${projectId}/form-config`,
+            method: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify({ form_config: formConfig })
+        }),
+        // 2. 更新人數限制
+        $.ajax({
+            url: `/api/admin/projects/${projectId}`,
+            method: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                max_participants: maxParticipants,
+                registration_deadline: registrationDeadline
+            })
+        })
+    ];
+
+    Promise.all(requests)
+        .then(function(responses) {
+            const allSuccess = responses.every(r => r.success !== false);
+            if (allSuccess) {
                 alert('報名設定已儲存');
+                // 更新頁面顯示
+                updateParticipantStats();
             } else {
-                alert('儲存失敗：' + response.message);
+                alert('部分設定儲存失敗');
             }
-        },
-        error: function(xhr) {
-            alert('儲存失敗：' + (xhr.responseJSON?.message || '系統錯誤'));
-        }
-    });
+        })
+        .catch(function(error) {
+            console.error('儲存失敗:', error);
+            alert('儲存失敗：' + (error.responseJSON?.message || '系統錯誤'));
+        });
+}
+
+/**
+ * 更新參加者統計數字
+ */
+function updateParticipantStats() {
+    const maxParticipants = parseInt($('#max_participants').val()) || 0;
+    const displayMax = maxParticipants > 0 ? maxParticipants : '∞';
+    $('.stat-label').text('/ ' + displayMax);
 }
 
 // 當切換到許願樹 Tab 時載入數據

@@ -82,7 +82,8 @@ const initialProjects = [
         event_end_date: '2024-12-03',
         event_location: '台北世貿一館',
         event_type: 'exhibition',
-        status: 'completed'
+        status: 'completed',
+        max_participants: 0  // 0 = 無限制
     },
     {
         project_name: '誠品X天衍 平安夜聯名公益｜沈浸式露天電影院',

@@ -152,7 +152,8 @@ class ProjectService extends BaseService {
         const allowedFields = [
             'project_name', 'project_code', 'description', 'event_date',
             'event_location', 'event_type', 'status', 'assigned_to',
-            'template_config', 'brand_config'
+            'template_config', 'brand_config',
+            'max_participants', 'registration_deadline'
         ];
 
         const updateFields = [];

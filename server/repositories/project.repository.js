@@ -318,7 +318,13 @@ class ProjectRepository extends BaseRepository {
      */
     async getProjectWithCreator(projectId) {
         const sql = `
-            SELECT p.*, u.full_name as creator_name, t.template_name, t.id as template_id
+            SELECT p.*,
+                   u.full_name as creator_name,
+                   t.template_name,
+                   t.id as template_id,
+                   (SELECT COUNT(*) FROM form_submissions fs
+                    WHERE fs.project_id = p.id
+                    AND fs.status IN ('pending', 'approved', 'confirmed')) as current_participants
             FROM event_projects p
             LEFT JOIN users u ON p.created_by = u.id
             LEFT JOIN invitation_templates t ON p.template_id = t.id

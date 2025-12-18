@@ -213,6 +213,32 @@
                 <h4>尊稱選項</h4>
                 <input type="text" id="title_options" class="form-control" value="先生, 女士, 博士, 教授" placeholder="以逗號分隔">
             </div>
+
+            <div class="settings-group">
+                <h4>📊 人數限制</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="max_participants">人數上限</label>
+                        <input type="number" id="max_participants" class="form-control" min="0" value="{{project.max_participants}}" placeholder="0 = 無限制">
+                        <small class="form-text text-muted">設為 0 表示不限制人數</small>
+                    </div>
+                    <div class="form-group">
+                        <label>目前報名人數</label>
+                        <div class="participant-stats">
+                            <span class="stat-value" id="current_participants">{{project.current_participants}}</span>
+                            <span class="stat-label">/ {{#if project.max_participants}}{{project.max_participants}}{{else}}∞{{/if}}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <h4>📅 報名截止時間</h4>
+                <div class="form-group">
+                    <input type="datetime-local" id="registration_deadline" class="form-control" value="{{project.registration_deadline}}">
+                    <small class="form-text text-muted">留空表示不設定截止時間</small>
+                </div>
+            </div>
         </div>
     </div>
 

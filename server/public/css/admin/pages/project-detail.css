@@ -665,3 +665,47 @@
 .settings-group .form-control {
     max-width: 400px;
 }
+
+/* 人數限制設定 */
+.settings-group .form-row {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+}
+
+.settings-group .form-group {
+    flex: 1;
+    max-width: 250px;
+}
+
+.settings-group .form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--gray-700);
+}
+
+.settings-group .form-text {
+    font-size: 0.85rem;
+    color: var(--gray-500);
+    margin-top: 0.25rem;
+}
+
+.participant-stats {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+    padding: 0.75rem 1rem;
+    background: var(--gray-100);
+    border-radius: var(--border-radius);
+    font-size: 1.25rem;
+}
+
+.participant-stats .stat-value {
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.participant-stats .stat-label {
+    color: var(--gray-500);
+}
