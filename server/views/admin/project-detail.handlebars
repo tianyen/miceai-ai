@@ -528,6 +528,99 @@
     {{/if}}
 </div>
 
+<!-- 編輯參加者 Modal -->
+<div class="modal" id="edit-participant-modal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>編輯參加者</h3>
+                <button class="modal-close" onclick="closeEditParticipantModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-participant-form">
+                    <input type="hidden" id="edit-participant-id">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-name">姓名 <span class="required">*</span></label>
+                            <input type="text" id="edit-name" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-email">電子郵件</label>
+                            <input type="email" id="edit-email" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-phone">電話</label>
+                            <input type="text" id="edit-phone" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-gender">性別</label>
+                            <select id="edit-gender" class="form-control">
+                                <option value="">請選擇</option>
+                                <option value="男">男</option>
+                                <option value="女">女</option>
+                                <option value="其他">其他</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-company">公司名稱</label>
+                            <input type="text" id="edit-company" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-position">職位</label>
+                            <input type="text" id="edit-position" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-participation-level">參與程度 (%)</label>
+                            <input type="number" id="edit-participation-level" class="form-control" min="0" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-children-count">小孩人數 (自動計算)</label>
+                            <input type="number" id="edit-children-count" class="form-control" min="0" readonly>
+                            <small class="form-text">由下方年齡區間自動計算</small>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>小孩年齡區間</label>
+                        <div class="form-row" style="margin-top: 0.5rem;">
+                            <div class="form-group">
+                                <label for="edit-children-age-0-6" style="font-weight: normal; font-size: 0.875rem;">0-6 歲</label>
+                                <input type="number" id="edit-children-age-0-6" class="form-control children-age-input" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-children-age-6-12" style="font-weight: normal; font-size: 0.875rem;">6-12 歲</label>
+                                <input type="number" id="edit-children-age-6-12" class="form-control children-age-input" min="0" value="0">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="edit-children-age-12-18" style="font-weight: normal; font-size: 0.875rem;">12-18 歲</label>
+                                <input type="number" id="edit-children-age-12-18" class="form-control children-age-input" min="0" value="0">
+                            </div>
+                            <div class="form-group"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-notes">備註</label>
+                        <textarea id="edit-notes" class="form-control" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEditParticipantModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveParticipant()">
+                    <i class="fas fa-save"></i> 儲存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 模態框容器 -->
 <div id="modal-container"></div>
 

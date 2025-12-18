@@ -337,6 +337,136 @@ function bulkCheckin() {
     }
 }
 
+// ========== 參加者編輯/刪除功能 ==========
+
+// 開啟編輯參加者 Modal
+function editParticipant(participant) {
+    // 填入表單資料
+    $('#edit-participant-id').val(participant.id);
+    $('#edit-name').val(participant.submitter_name || '');
+    $('#edit-email').val(participant.submitter_email || '');
+    $('#edit-phone').val(participant.submitter_phone || '');
+    $('#edit-company').val(participant.company_name || '');
+    $('#edit-position').val(participant.position || '');
+    $('#edit-gender').val(participant.gender || '');
+    $('#edit-participation-level').val(participant.participation_level || 50);
+    $('#edit-notes').val(participant.notes || '');
+
+    // 解析小孩年齡區間
+    let childrenAges = { age_0_6: 0, age_6_12: 0, age_12_18: 0 };
+    if (participant.children_ages) {
+        try {
+            childrenAges = typeof participant.children_ages === 'string'
+                ? JSON.parse(participant.children_ages)
+                : participant.children_ages;
+        } catch (e) {
+            console.warn('解析 children_ages 失敗:', e);
+        }
+    }
+    $('#edit-children-age-0-6').val(childrenAges.age_0_6 || 0);
+    $('#edit-children-age-6-12').val(childrenAges.age_6_12 || 0);
+    $('#edit-children-age-12-18').val(childrenAges.age_12_18 || 0);
+    updateChildrenCount();
+
+    // 顯示 Modal
+    $('#edit-participant-modal').addClass('show');
+}
+
+// 更新小孩人數（自動計算）
+function updateChildrenCount() {
+    const age0_6 = parseInt($('#edit-children-age-0-6').val()) || 0;
+    const age6_12 = parseInt($('#edit-children-age-6-12').val()) || 0;
+    const age12_18 = parseInt($('#edit-children-age-12-18').val()) || 0;
+    $('#edit-children-count').val(age0_6 + age6_12 + age12_18);
+}
+
+// 關閉編輯 Modal
+function closeEditParticipantModal() {
+    $('#edit-participant-modal').removeClass('show');
+    $('#edit-participant-form')[0].reset();
+}
+
+// 儲存參加者資料
+function saveParticipant() {
+    const participantId = $('#edit-participant-id').val();
+    const name = $('#edit-name').val().trim();
+
+    if (!name) {
+        showNotification('請輸入姓名', 'warning');
+        return;
+    }
+
+    // 組合小孩年齡區間
+    const childrenAges = {
+        age_0_6: parseInt($('#edit-children-age-0-6').val()) || 0,
+        age_6_12: parseInt($('#edit-children-age-6-12').val()) || 0,
+        age_12_18: parseInt($('#edit-children-age-12-18').val()) || 0
+    };
+    const childrenCount = childrenAges.age_0_6 + childrenAges.age_6_12 + childrenAges.age_12_18;
+
+    const data = {
+        submitter_name: name,
+        submitter_email: $('#edit-email').val().trim(),
+        submitter_phone: $('#edit-phone').val().trim(),
+        company_name: $('#edit-company').val().trim(),
+        position: $('#edit-position').val().trim(),
+        gender: $('#edit-gender').val(),
+        participation_level: parseInt($('#edit-participation-level').val()) || 50,
+        children_count: childrenCount,
+        children_ages: JSON.stringify(childrenAges),
+        notes: $('#edit-notes').val().trim()
+    };
+
+    $.ajax({
+        url: `/api/admin/participants/${participantId}`,
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCsrfToken()
+        },
+        data: JSON.stringify(data),
+        success: function(response) {
+            if (response.success) {
+                showNotification('參加者資料已更新', 'success');
+                closeEditParticipantModal();
+                loadParticipants();
+            } else {
+                showNotification(response.message || '更新失敗', 'error');
+            }
+        },
+        error: function(xhr) {
+            const msg = xhr.responseJSON?.message || '更新失敗，請稍後再試';
+            showNotification(msg, 'error');
+        }
+    });
+}
+
+// 刪除參加者
+function deleteParticipant(participantId, participantName) {
+    if (!confirm(`確定要刪除參加者「${participantName}」嗎？\n\n此操作將同時刪除該參加者的：\n- 報到紀錄\n- QR Code\n- 相關互動紀錄\n\n此操作無法復原！`)) {
+        return;
+    }
+
+    $.ajax({
+        url: `/api/admin/participants/${participantId}`,
+        method: 'DELETE',
+        headers: { 'X-CSRF-Token': getCsrfToken() },
+        success: function(response) {
+            if (response.success) {
+                showNotification('參加者已刪除', 'success');
+                loadParticipants();
+                loadProjectStats();
+            } else {
+                showNotification(response.message || '刪除失敗', 'error');
+            }
+        },
+        error: function(xhr) {
+            const msg = xhr.responseJSON?.message || '刪除失敗，請稍後再試';
+            showNotification(msg, 'error');
+        }
+    });
+}
+
 // 創建問卷
 function createQuestionnaire() {
     window.location.href = `/admin/questionnaire/new?project_id=${projectId}`;
@@ -1426,5 +1556,10 @@ $(document).ready(function() {
                 loadRecentWishes();
             }
         }
+    });
+
+    // 監聽小孩年齡區間輸入變化，自動更新總人數
+    $(document).on('input', '.children-age-input', function() {
+        updateChildrenCount();
     });
 });

@@ -324,8 +324,23 @@ function projectParticipantRow(participant) {
         childrenDisplay = `<span class="badge badge-info">${participant.children_count}人</span>${agesHtml}`;
     }
 
+    // 將參加者資料編碼為 JSON 供編輯使用
+    const participantJson = safeText(JSON.stringify({
+        id: participant.id,
+        submitter_name: participant.submitter_name || '',
+        submitter_email: participant.submitter_email || '',
+        submitter_phone: participant.submitter_phone || '',
+        company_name: participant.company_name || '',
+        position: participant.position || '',
+        gender: participant.gender || '',
+        children_count: participant.children_count || 0,
+        children_ages: participant.children_ages || {},
+        participation_level: participant.participation_level || 50,
+        notes: participant.notes || ''
+    }));
+
     return `
-        <tr>
+        <tr data-participant-id="${participant.id}">
             <td>${idDisplay}</td>
             <td>${safeText(participant.submitter_name)}</td>
             <td>${safeText(participant.submitter_email)}</td>
@@ -336,15 +351,21 @@ function projectParticipantRow(participant) {
             <td>
                 <div class="btn-group">
                     ${!participant.checked_in_at
-                        ? `<button class="btn btn-sm btn-success" onclick="manualCheckin(${participant.id})">
-                            <i class="fas fa-check"></i> 簽到
+                        ? `<button class="btn btn-sm btn-success" onclick="manualCheckin(${participant.id})" title="簽到">
+                            <i class="fas fa-check"></i>
                         </button>`
-                        : `<button class="btn btn-sm btn-warning" onclick="cancelCheckin(${participant.id})">
-                            <i class="fas fa-times"></i> 取消簽到
+                        : `<button class="btn btn-sm btn-warning" onclick="cancelCheckin(${participant.id})" title="取消簽到">
+                            <i class="fas fa-times"></i>
                         </button>`
                     }
-                    <button class="btn btn-sm btn-info" onclick="viewParticipantTracking('${participant.trace_id}')">
-                        <i class="fas fa-search"></i> 追蹤
+                    <button class="btn btn-sm btn-info" onclick="viewParticipantTracking('${participant.trace_id}')" title="追蹤">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <button class="btn btn-sm btn-primary" onclick='editParticipant(${participantJson})' title="編輯">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteParticipant(${participant.id}, '${safeText(participant.submitter_name)}')" title="刪除">
+                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </td>

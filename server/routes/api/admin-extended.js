@@ -562,6 +562,104 @@ router.post('/participants/:id/cancel-checkin', authenticateSession, async (req,
     }
 });
 
+// 更新參加者資料 API
+router.put('/participants/:id', authenticateSession, async (req, res) => {
+    try {
+        const participantId = req.params.id;
+        const updateData = req.body;
+
+        // 允許更新的欄位
+        const allowedFields = [
+            'submitter_name', 'submitter_email', 'submitter_phone',
+            'company_name', 'position', 'gender',
+            'participation_level', 'children_count', 'children_ages', 'notes'
+        ];
+
+        // 過濾只允許的欄位
+        const filteredData = {};
+        for (const field of allowedFields) {
+            if (updateData[field] !== undefined) {
+                filteredData[field] = updateData[field];
+            }
+        }
+
+        if (Object.keys(filteredData).length === 0) {
+            return responses.badRequest(res, '沒有提供要更新的資料');
+        }
+
+        // 驗證必填欄位
+        if (filteredData.submitter_name !== undefined && !filteredData.submitter_name.trim()) {
+            return responses.badRequest(res, '姓名不可為空');
+        }
+
+        // 使用 repository 更新
+        const submissionRepo = require('../../repositories/submission.repository');
+        const result = await submissionRepo.update(participantId, filteredData);
+
+        if (result.changes === 0) {
+            return responses.notFound(res, '找不到該參加者');
+        }
+
+        // 記錄操作日誌
+        const { logUserActivity } = require('../../middleware/auth');
+        await logUserActivity(
+            req.user.id,
+            'update_participant',
+            'participant',
+            participantId,
+            { updatedFields: Object.keys(filteredData) },
+            req.ip
+        );
+
+        responses.success(res, null, '參加者資料已更新');
+    } catch (error) {
+        console.error('更新參加者失敗:', error);
+        responses.error(res, '更新參加者失敗', 500);
+    }
+});
+
+// 刪除參加者 API
+router.delete('/participants/:id', authenticateSession, async (req, res) => {
+    try {
+        const participantId = req.params.id;
+
+        // 取得參加者資訊（用於記錄）
+        const submissionRepo = require('../../repositories/submission.repository');
+        const participant = await submissionRepo.findById(participantId);
+
+        if (!participant) {
+            return responses.notFound(res, '找不到該參加者');
+        }
+
+        // 刪除互動紀錄（如果有的話）
+        const db = require('../../config/database');
+        await db.run('DELETE FROM participant_interactions WHERE trace_id = ?', [participant.trace_id]);
+
+        // 使用 repository 刪除參加者及相關資料（QR Code、簽到紀錄）
+        await submissionRepo.deleteWithRelated(participantId);
+
+        // 記錄操作日誌
+        const { logUserActivity } = require('../../middleware/auth');
+        await logUserActivity(
+            req.user.id,
+            'delete_participant',
+            'participant',
+            participantId,
+            {
+                participantName: participant.submitter_name,
+                participantEmail: participant.submitter_email,
+                projectId: participant.project_id
+            },
+            req.ip
+        );
+
+        responses.success(res, null, '參加者已刪除');
+    } catch (error) {
+        console.error('刪除參加者失敗:', error);
+        responses.error(res, '刪除參加者失敗', 500);
+    }
+});
+
 // 批量簽到 API
 // @refactor: 使用 checkinService
 router.post('/projects/:id/bulk-checkin', authenticateSession, async (req, res) => {
