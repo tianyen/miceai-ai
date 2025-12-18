@@ -208,6 +208,7 @@ function manualCheckin(participantId) {
         $.ajax({
             url: `/api/admin/participants/${participantId}/checkin`,
             method: 'POST',
+            headers: { 'X-CSRF-Token': getCsrfToken() },
             data: { project_id: projectId },
             success: function(response) {
                 if (response.success) {
@@ -235,6 +236,7 @@ function cancelCheckin(participantId) {
         $.ajax({
             url: `/api/admin/participants/${participantId}/cancel-checkin`,
             method: 'POST',
+            headers: { 'X-CSRF-Token': getCsrfToken() },
             success: function(response) {
                 if (response.success) {
                     showNotification('取消簽到成功', 'success');
@@ -318,6 +320,7 @@ function bulkCheckin() {
         $.ajax({
             url: `/api/admin/projects/${projectId}/bulk-checkin`,
             method: 'POST',
+            headers: { 'X-CSRF-Token': getCsrfToken() },
             success: function(response) {
                 if (response.success) {
                     showNotification(`成功為 ${response.data.count} 位參加者辦理簽到`, 'success');
@@ -758,6 +761,7 @@ function deleteBusinessCard(cardId, cardName) {
         $.ajax({
             url: `/api/admin/business-cards/${cardId}`,
             method: 'DELETE',
+            headers: { 'X-CSRF-Token': getCsrfToken() },
             success: function(response) {
                 if (response.success) {
                     showNotification(response.message, 'success');
@@ -855,6 +859,7 @@ function submitAddBooth() {
         url: `/admin/projects/${projectId}/booths`,
         method: 'POST',
         contentType: 'application/json',
+        headers: { 'X-CSRF-Token': getCsrfToken() },
         data: JSON.stringify(formData),
         success: function(response) {
             if (response.success) {
@@ -878,6 +883,7 @@ function deleteBooth(boothId) {
     $.ajax({
         url: `/admin/projects/${projectId}/booths/${boothId}`,
         method: 'DELETE',
+        headers: { 'X-CSRF-Token': getCsrfToken() },
         success: function(response) {
             if (response.success) {
                 showNotification('攤位已刪除', 'success');
@@ -996,6 +1002,7 @@ function bindGame() {
         url: `/admin/projects/${projectId}/games`,
         method: 'POST',
         contentType: 'application/json',
+        headers: { 'X-CSRF-Token': getCsrfToken() },
         data: JSON.stringify({
             game_id: parseInt(gameId),
             voucher_id: voucherId ? parseInt(voucherId) : null
@@ -1021,6 +1028,7 @@ function unbindGame(bindingId) {
         $.ajax({
             url: `/admin/projects/${projectId}/games/${bindingId}`,
             method: 'DELETE',
+            headers: { 'X-CSRF-Token': getCsrfToken() },
             success: function(response) {
                 if (response.success) {
                     showNotification(response.message, 'success');
@@ -1173,6 +1181,7 @@ function updateProjectGame(bindingId) {
         url: `/admin/projects/${projectId}/games/${bindingId}`,
         method: 'PUT',
         contentType: 'application/json',
+        headers: { 'X-CSRF-Token': getCsrfToken() },
         data: JSON.stringify({
             voucher_id: voucherId ? parseInt(voucherId) : null
         }),

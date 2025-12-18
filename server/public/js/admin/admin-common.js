@@ -2,6 +2,43 @@
  * 管理後台共用功能
  */
 
+/**
+ * 取得 CSRF Token
+ * @returns {string} CSRF token
+ */
+window.getCsrfToken = function() {
+    return window.__CSRF_TOKEN__ || document.querySelector('meta[name="csrf-token"]')?.content || '';
+};
+
+/**
+ * 帶有 CSRF Token 的 fetch 包裝函數
+ * @param {string} url - 請求 URL
+ * @param {object} options - fetch 選項
+ * @returns {Promise} fetch Promise
+ */
+window.adminFetch = function(url, options = {}) {
+    const csrfToken = getCsrfToken();
+    options.headers = {
+        ...options.headers,
+        'X-CSRF-Token': csrfToken
+    };
+    return fetch(url, options);
+};
+
+/**
+ * 帶有 CSRF Token 的 jQuery AJAX 包裝函數
+ * @param {object} options - jQuery AJAX 選項
+ * @returns {jqXHR} jQuery AJAX Promise
+ */
+window.adminAjax = function(options) {
+    const csrfToken = getCsrfToken();
+    options.headers = {
+        ...options.headers,
+        'X-CSRF-Token': csrfToken
+    };
+    return $.ajax(options);
+};
+
 window.AdminSystem = {
     user: null,
     currentPage: null,
@@ -433,10 +470,12 @@ window.AdminSystem = {
     async logout() {
         if (confirm('確定要登出嗎？')) {
             try {
+                const csrfToken = getCsrfToken();
                 const response = await fetch('/admin/logout', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
                     }
                 });
 

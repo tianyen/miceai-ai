@@ -350,7 +350,8 @@
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-Token': getCsrfToken()
             },
             success: function (response) {
                 if (response.success) {
@@ -374,7 +375,8 @@
             url: `/api/admin/templates/${id}`,
             method: 'DELETE',
             headers: {
-                'X-Requested-With': 'XMLHttpRequest'
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-Token': getCsrfToken()
             },
             success: function (response) {
                 if (response.success) {

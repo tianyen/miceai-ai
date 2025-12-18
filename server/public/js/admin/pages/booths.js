@@ -459,7 +459,10 @@ function saveBooth(boothId) {
 
     fetch(url, {
         method: method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCsrfToken()
+        },
         body: JSON.stringify(data)
     })
     .then(function(response) { return response.json(); })
@@ -494,7 +497,8 @@ function deleteBooth(boothId) {
     }
 
     fetch('/admin/booths/api/' + boothId, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'X-CSRF-Token': getCsrfToken() }
     })
     .then(function(response) { return response.json(); })
     .then(function(data) {

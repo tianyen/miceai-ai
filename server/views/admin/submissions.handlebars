@@ -452,6 +452,7 @@
             $.ajax({
                 url: `/api/admin/submissions/${id}`,
                 method: 'DELETE',
+                headers: { 'X-CSRF-Token': getCsrfToken() },
                 success: function (response) {
                     if (response.success) {
                         showNotification('表單已刪除', 'success');
@@ -472,6 +473,7 @@
         $.ajax({
             url: `/api/admin/submissions/${id}/send-confirmation`,
             method: 'POST',
+            headers: { 'X-CSRF-Token': getCsrfToken() },
             success: function (response) {
                 if (response.success) {
                     showNotification('確認郵件已發送', 'success');
@@ -507,6 +509,7 @@
         $.ajax({
             url: `/api/admin/participants/${participantId}/generate-qr`,
             method: 'POST',
+            headers: { 'X-CSRF-Token': getCsrfToken() },
             success: function (response) {
                 if (response.success) {
                     showNotification(response.message, 'success');

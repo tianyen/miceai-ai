@@ -493,6 +493,7 @@ function resetPassword(id) {
         $.ajax({
             url: '/api/admin/users/' + id + '/reset-password',
             method: 'POST',
+            headers: { 'X-CSRF-Token': getCsrfToken() },
             success: function (response) {
                 if (response.success) {
                     alert('密碼重設成功！');
@@ -513,6 +514,7 @@ function deleteUser(id) {
         $.ajax({
             url: '/api/admin/users/' + id,
             method: 'DELETE',
+            headers: { 'X-CSRF-Token': getCsrfToken() },
             success: function (response) {
                 if (response.success) {
                     alert('用戶刪除成功！');

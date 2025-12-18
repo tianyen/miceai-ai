@@ -160,7 +160,8 @@ function deleteProject(id) {
         url: `/api/admin/projects/${id}`,
         method: 'DELETE',
         headers: {
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-Token': getCsrfToken()
         },
         success: function (response) {
             if (response.success) {
@@ -185,7 +186,8 @@ function duplicateProject(id) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-Token': getCsrfToken()
         },
         success: function (response) {
             if (response.success) {

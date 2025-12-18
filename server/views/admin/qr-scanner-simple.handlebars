@@ -387,6 +387,7 @@
             url: '/api/admin/qr-scanner/checkin',
             method: 'POST',
             contentType: 'application/json',
+            headers: { 'X-CSRF-Token': getCsrfToken() },
             data: JSON.stringify({
                 qrData: scannedData
             }),

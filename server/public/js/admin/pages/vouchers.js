@@ -629,7 +629,8 @@ function deleteVoucher(voucherId) {
     }
 
     fetch('/api/admin/vouchers/' + voucherId, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'X-CSRF-Token': getCsrfToken() }
     })
     .then(function(response) { return response.json(); })
     .then(function(data) {

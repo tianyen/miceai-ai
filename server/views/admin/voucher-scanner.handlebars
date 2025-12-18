@@ -210,10 +210,12 @@ async function scanQRCode() {
             data = { code: input };
         }
         
+        const csrfToken = getCsrfToken();
         const response = await fetch('/api/admin/vouchers/scan', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
             },
             body: JSON.stringify(data)
         });
@@ -334,8 +336,10 @@ async function markAsUsed(id) {
     }
 
     try {
+        const csrfToken = getCsrfToken();
         const response = await fetch(`/api/admin/vouchers/redemptions/${id}/use`, {
-            method: 'POST'
+            method: 'POST',
+            headers: { 'X-CSRF-Token': csrfToken }
         });
 
         const result = await response.json();

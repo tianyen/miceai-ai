@@ -256,7 +256,7 @@ class EmailService {
                 <tr>
                     <td align="left" valign="middle" style="padding: 20px 0;">
                         <span style="color: #ffffff; font-size: 18px; font-weight: bold; letter-spacing: 2px;">
-                            天衍互動 <span style="color: #FF5F00;">×</span> 誠品生活
+                            月光映像館
                         </span>
                     </td>
                     <td align="right" valign="middle" style="padding: 20px 0;">
@@ -388,8 +388,8 @@ class EmailService {
                 <tr>
                     <td align="center" style="padding: 30px 0;">
                         <p style="color: #444444; font-size: 11px; line-height: 1.6; margin: 0; text-transform: uppercase; letter-spacing: 1px;">
-                            © ${new Date().getFullYear()} Tianyan Interaction. All Rights Reserved.<br>
-                            主辦單位：天衍互動股份有限公司｜場地贊助：誠品生活
+                            © ${new Date().getFullYear()} 月光映像館. All Rights Reserved.<br>
+                            平安夜公益活動X沉浸式露天電影院
                         </p>
                     </td>
                 </tr>
@@ -453,7 +453,7 @@ class EmailService {
                 <tr>
                     <td align="left" valign="middle" style="padding: 20px 0;">
                         <span style="color: #ffffff; font-size: 18px; font-weight: bold; letter-spacing: 2px;">
-                            天衍互動 <span style="color: #FF5F00;">×</span> 誠品生活
+                            月光映像館
                         </span>
                     </td>
                     <td align="right" valign="middle" style="padding: 20px 0;">
@@ -610,8 +610,8 @@ class EmailService {
                 <tr>
                     <td align="center" style="padding: 30px 0;">
                         <p style="color: #444444; font-size: 11px; line-height: 1.6; margin: 0; text-transform: uppercase; letter-spacing: 1px;">
-                            © ${new Date().getFullYear()} Tianyan Interaction. All Rights Reserved.<br>
-                            主辦單位：天衍互動股份有限公司｜場地贊助：誠品生活
+                            © ${new Date().getFullYear()} 月光映像館. All Rights Reserved.<br>
+                            平安夜公益活動X沉浸式露天電影院
                         </p>
                     </td>
                 </tr>
@@ -670,7 +670,7 @@ class EmailService {
                 <tr>
                     <td align="left" valign="middle" style="padding: 20px 0;">
                         <span style="color: #ffffff; font-size: 18px; font-weight: bold; letter-spacing: 2px;">
-                            天衍互動 <span style="color: #FF5F00;">×</span> 誠品生活
+                            月光映像館
                         </span>
                     </td>
                     <td align="right" valign="middle" style="padding: 20px 0;">
@@ -802,8 +802,8 @@ class EmailService {
                 <tr>
                     <td align="center" style="padding: 30px 0;">
                         <p style="color: #444444; font-size: 11px; line-height: 1.6; margin: 0; text-transform: uppercase; letter-spacing: 1px;">
-                            © ${new Date().getFullYear()} Tianyan Interaction. All Rights Reserved.<br>
-                            主辦單位：天衍互動股份有限公司｜場地贊助：誠品生活
+                            © ${new Date().getFullYear()} 月光映像館. All Rights Reserved.<br>
+                            平安夜公益活動X沉浸式露天電影院
                         </p>
                     </td>
                 </tr>

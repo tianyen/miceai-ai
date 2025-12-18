@@ -253,6 +253,7 @@ class QRScanner {
             method: "POST",
             url: "/api/admin/qr-scanner/checkin",
             data: { qrData: data },
+            headers: { 'X-CSRF-Token': getCsrfToken() },
             success: (response) => {
                 if (response.success) {
                     showNotification(response.message || '報到成功', 'success');

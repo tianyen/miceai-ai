@@ -41,7 +41,8 @@ $(document).ready(function () {
                 url: '/api/admin/checkin/' + participantId + '/checkin',
                 method: 'POST',
                 headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': getCsrfToken()
                 },
                 success: function (response) {
                     if (response.success) {
@@ -66,7 +67,8 @@ $(document).ready(function () {
                 url: '/api/admin/checkin/' + participantId + '/cancel',
                 method: 'POST',
                 headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': getCsrfToken()
                 },
                 success: function (response) {
                     if (response.success) {
@@ -523,6 +525,7 @@ window.generateQRForParticipant = function(participantId) {
     $.ajax({
         url: '/api/admin/participants/' + participantId + '/generate-qr',
         method: 'POST',
+        headers: { 'X-CSRF-Token': getCsrfToken() },
         success: function(response) {
             if (response.success) {
                 showNotification('QR Code 生成成功', 'success');

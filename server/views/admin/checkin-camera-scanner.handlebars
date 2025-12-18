@@ -482,10 +482,12 @@
             }
 
             // 發送報到請求
+            var csrfToken = getCsrfToken();
             fetch('/api/admin/qr-scanner/checkin', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-Token': csrfToken
                 },
                 body: 'qrData=' + encodeURIComponent(scanner.scannedData)
             })

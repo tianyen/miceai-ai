@@ -339,6 +339,7 @@
             $.ajax({
                 url: `/api/admin/logs/${id}`,
                 method: 'DELETE',
+                headers: { 'X-CSRF-Token': getCsrfToken() },
                 success: function (response) {
                     if (response.success) {
                         showNotification('日誌已刪除', 'success');
@@ -362,6 +363,7 @@
                 $.ajax({
                     url: `/api/admin/logs/cleanup`,
                     method: 'DELETE',
+                    headers: { 'X-CSRF-Token': getCsrfToken() },
                     data: { days: days },
                     success: function (response) {
                         if (response.success) {

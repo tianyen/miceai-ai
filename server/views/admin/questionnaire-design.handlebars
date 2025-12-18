@@ -447,7 +447,8 @@
                 url: `/api/admin/questionnaire/${id}/duplicate`,
                 method: 'POST',
                 headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': getCsrfToken()
                 },
                 success: function (response) {
                     if (response.success) {
@@ -471,7 +472,8 @@
                 url: `/api/admin/questionnaire/${id}`,
                 method: 'DELETE',
                 headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': getCsrfToken()
                 },
                 success: function (response) {
                     if (response.success) {

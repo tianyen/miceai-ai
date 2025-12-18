@@ -495,7 +495,10 @@ function toggleGameStatus(gameId, currentStatus) {
 
     fetch('/api/admin/games/' + gameId, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCsrfToken()
+        },
         body: JSON.stringify({ is_active: !currentStatus })
     })
     .then(function(response) { return response.json(); })
@@ -522,7 +525,8 @@ function deleteGame(gameId) {
     }
 
     fetch('/api/admin/games/' + gameId, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'X-CSRF-Token': getCsrfToken() }
     })
     .then(function(response) { return response.json(); })
     .then(function(data) {

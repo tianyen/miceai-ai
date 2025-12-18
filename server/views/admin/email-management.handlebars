@@ -788,9 +788,13 @@
                 return;
             }
 
+            var csrfToken = window.__CSRF_TOKEN__ || document.querySelector('meta[name="csrf-token"]')?.content;
             fetch('/admin/email-management/resend/' + traceId, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                }
             })
             .then(function(response) { return response.json(); })
             .then(function(data) {
@@ -818,9 +822,13 @@
                 return;
             }
 
+            var csrfToken = window.__CSRF_TOKEN__ || document.querySelector('meta[name="csrf-token"]')?.content;
             fetch('/admin/email-management/resend-batch', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
                 body: JSON.stringify({ traceIds: traceIds })
             })
             .then(function(response) { return response.json(); })
@@ -843,9 +851,13 @@
             elements.btnTestSmtp.disabled = true;
             elements.btnTestSmtp.textContent = '測試中...';
 
+            const csrfToken = window.__CSRF_TOKEN__ || document.querySelector('meta[name="csrf-token"]')?.content;
             fetch('/admin/email-management/test-smtp', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                }
             })
             .then(function(response) { return response.json(); })
             .then(function(data) {
