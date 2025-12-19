@@ -60,7 +60,7 @@ function idBadge(id, type = 'secondary', prefix = '#') {
 }
 
 /**
- * 格式化日期
+ * 格式化日期 (GMT+8 台北時區)
  * @param {string|Date} date - 日期
  * @param {string} format - 格式 ('date' | 'datetime')
  * @returns {string} 格式化的日期字串
@@ -68,9 +68,19 @@ function idBadge(id, type = 'secondary', prefix = '#') {
 function formatDate(date, format = 'date') {
     if (!date) return '-';
     const d = new Date(date);
-    return format === 'datetime'
-        ? d.toLocaleString('zh-TW')
-        : d.toLocaleDateString('zh-TW');
+    const options = {
+        timeZone: 'Asia/Taipei',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    };
+    if (format === 'datetime') {
+        options.hour = '2-digit';
+        options.minute = '2-digit';
+        options.second = '2-digit';
+        options.hour12 = false;
+    }
+    return d.toLocaleString('zh-TW', options);
 }
 
 /**
@@ -301,6 +311,24 @@ function projectParticipantRow(participant) {
         ? idBadge(participant.user_id, 'info', 'User #')
         : idBadge(participant.id, 'secondary', '#');
 
+    // 團體報名標記
+    let groupBadge = '';
+    if (participant.group_id) {
+        if (participant.parent_submission_id) {
+            // 團體成員（隨同報名）
+            groupBadge = `<div class="group-badge group-member" title="團體報名成員">
+                <i class="fas fa-user-friends"></i>
+                <span class="group-label">隨 ${safeText(participant.parent_name)} 報名</span>
+            </div>`;
+        } else {
+            // 主報名人
+            groupBadge = `<div class="group-badge group-leader" title="團體報名主報名人">
+                <i class="fas fa-users"></i>
+                <span class="group-label">團體報名</span>
+            </div>`;
+        }
+    }
+
     // 處理小孩資訊（新格式：年齡區間人數物件）
     let childrenDisplay = '-';
     if (participant.children_count && participant.children_count > 0) {
@@ -340,9 +368,14 @@ function projectParticipantRow(participant) {
     }));
 
     return `
-        <tr data-participant-id="${participant.id}">
+        <tr data-participant-id="${participant.id}" ${participant.group_id ? `data-group-id="${safeText(participant.group_id)}"` : ''}>
             <td>${idDisplay}</td>
-            <td>${safeText(participant.submitter_name)}</td>
+            <td>
+                <div class="participant-name-cell">
+                    <strong>${safeText(participant.submitter_name)}</strong>
+                    ${groupBadge}
+                </div>
+            </td>
             <td>${safeText(participant.submitter_email)}</td>
             <td>${safeText(participant.submitter_phone)}</td>
             <td>${childrenDisplay}</td>

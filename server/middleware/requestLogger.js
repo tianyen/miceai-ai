@@ -139,7 +139,8 @@ const errorCatcher = (err, req, res, next) => {
  */
 const devLogger = (req, res, next) => {
     if (process.env.NODE_ENV !== 'production') {
-        const timestamp = new Date().toISOString();
+        const { getGMT8Timestamp } = require('../utils/timezone');
+        const timestamp = getGMT8Timestamp();
         console.log(`📝 [${timestamp}] ${req.method} ${req.originalUrl} - IP: ${req.ip}`);
         
         // 記錄請求體 (POST/PUT/PATCH)
@@ -184,7 +185,7 @@ const apiLogger = (req, res, next) => {
 const adminLogger = (req, res, next) => {
     // 為管理後台添加額外的日誌信息
     req.isAdminRequest = true;
-    
+
     // 記錄管理後台操作
     if (req.user) {
         logger.debug('Admin Operation', {
@@ -198,7 +199,74 @@ const adminLogger = (req, res, next) => {
             ip: logger.getClientIP(req)
         });
     }
-    
+
+    next();
+};
+
+/**
+ * V1 API 專用日誌中間件
+ * 記錄 GET query 和 POST/PUT/PATCH body（dev 和 production 都記錄）
+ */
+const v1ApiLogger = (req, res, next) => {
+    const { getGMT8Timestamp } = require('../utils/timezone');
+    const timestamp = getGMT8Timestamp();
+
+    // 敏感欄位遮蔽清單
+    const sensitiveFields = ['password', 'pass_code', 'token', 'secret', 'authorization'];
+
+    // 遮蔽敏感資料
+    const maskSensitiveData = (data) => {
+        if (!data || typeof data !== 'object') return data;
+        const masked = { ...data };
+        for (const key of Object.keys(masked)) {
+            if (sensitiveFields.some(f => key.toLowerCase().includes(f))) {
+                masked[key] = '***MASKED***';
+            }
+        }
+        return masked;
+    };
+
+    const logData = {
+        timestamp,
+        method: req.method,
+        path: req.originalUrl,
+        ip: logger.getClientIP(req),
+        userAgent: req.get('User-Agent')?.substring(0, 100) || 'unknown'
+    };
+
+    // GET 請求記錄 query params
+    if (req.method === 'GET' && Object.keys(req.query).length > 0) {
+        logData.query = maskSensitiveData(req.query);
+    }
+
+    // POST/PUT/PATCH 請求記錄 body
+    if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
+        logData.body = maskSensitiveData(req.body);
+    }
+
+    // 使用 info level 確保 dev 和 production 都會記錄
+    logger.info('V1 API Request', logData);
+
+    // Console 輸出（更易讀的格式）
+    const methodColor = {
+        'GET': '\x1b[32m',     // 綠色
+        'POST': '\x1b[33m',    // 黃色
+        'PUT': '\x1b[34m',     // 藍色
+        'PATCH': '\x1b[35m',   // 紫色
+        'DELETE': '\x1b[31m'   // 紅色
+    };
+    const color = methodColor[req.method] || '\x1b[0m';
+    const reset = '\x1b[0m';
+
+    console.log(`📡 [${timestamp}] ${color}${req.method}${reset} ${req.originalUrl} - IP: ${logData.ip}`);
+
+    if (logData.query) {
+        console.log('   📋 Query:', JSON.stringify(logData.query));
+    }
+    if (logData.body) {
+        console.log('   📦 Body:', JSON.stringify(logData.body));
+    }
+
     next();
 };
 
@@ -207,5 +275,6 @@ module.exports = {
     errorCatcher,
     devLogger,
     apiLogger,
-    adminLogger
+    adminLogger,
+    v1ApiLogger
 };

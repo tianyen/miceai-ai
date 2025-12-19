@@ -180,7 +180,7 @@ class ProjectRepository extends BaseRepository {
         const countResult = await this.rawGet(countSql, countParams);
         const total = countResult?.total || 0;
 
-        // 取得分頁資料
+        // 取得分頁資料（含團體報名資訊）
         const sql = `
             SELECT
                 fs.id,
@@ -194,10 +194,22 @@ class ProjectRepository extends BaseRepository {
                 fs.status,
                 fs.created_at,
                 fs.children_count,
-                fs.children_ages
+                fs.children_ages,
+                fs.company_name,
+                fs.position,
+                fs.gender,
+                fs.notes,
+                fs.group_id,
+                fs.is_primary,
+                fs.parent_submission_id,
+                parent.submitter_name as parent_name
             FROM form_submissions fs
+            LEFT JOIN form_submissions parent ON fs.parent_submission_id = parent.id
             ${whereClause}
-            ORDER BY fs.created_at DESC
+            ORDER BY
+                COALESCE(fs.group_id, fs.id) ASC,
+                fs.is_primary DESC,
+                fs.created_at ASC
             LIMIT ? OFFSET ?
         `;
         queryParams.push(limit, offset);

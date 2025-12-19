@@ -487,16 +487,18 @@ function viewQuestionnaireStats(questionnaireId) {
     window.location.href = `/admin/questionnaire/stats?id=${questionnaireId}`;
 }
 
-// 格式化日期時間
+// 格式化日期時間 (GMT+8 台北時區)
 function formatDateTime(dateString) {
     if (!dateString) return '-';
     const date = new Date(dateString);
     return date.toLocaleString('zh-TW', {
+        timeZone: 'Asia/Taipei',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        hour12: false
     });
 }
 

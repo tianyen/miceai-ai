@@ -80,18 +80,20 @@ window.App = {
         $(target).find('.loading-overlay').remove();
     },
     
-    // 格式化日期
+    // 格式化日期 (GMT+8 台北時區)
     formatDate: function(dateString, format = 'YYYY-MM-DD') {
         if (!dateString) return '';
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return '';
-        
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        
+
+        // 轉換為台北時區
+        const taipeiDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
+        const year = taipeiDate.getFullYear();
+        const month = String(taipeiDate.getMonth() + 1).padStart(2, '0');
+        const day = String(taipeiDate.getDate()).padStart(2, '0');
+        const hours = String(taipeiDate.getHours()).padStart(2, '0');
+        const minutes = String(taipeiDate.getMinutes()).padStart(2, '0');
+
         switch(format) {
             case 'YYYY-MM-DD':
                 return `${year}-${month}-${day}`;
@@ -100,7 +102,7 @@ window.App = {
             case 'MM/DD':
                 return `${month}/${day}`;
             default:
-                return date.toLocaleDateString('zh-TW');
+                return date.toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' });
         }
     },
     

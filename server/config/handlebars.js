@@ -27,14 +27,23 @@ const helpers = {
     multiply: (a, b) => Number(a) * Number(b),
     divide: (a, b) => Number(a) / Number(b),
 
-    // 日期格式化
+    // 日期格式化 (GMT+8 台北時區)
     formatDate: (date) => {
         if (!date) return '';
-        return new Date(date).toLocaleDateString('zh-TW');
+        return new Date(date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' });
     },
     formatDateTime: (date) => {
         if (!date) return '';
-        return new Date(date).toLocaleString('zh-TW');
+        return new Date(date).toLocaleString('zh-TW', {
+            timeZone: 'Asia/Taipei',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
     },
     
     // 工具函數

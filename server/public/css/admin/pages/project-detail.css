@@ -739,3 +739,56 @@
 .participant-stats .stat-label {
     color: var(--gray-500);
 }
+
+/* ========== Group Registration Badge Styles (團體報名標記) ========== */
+.participant-name-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.group-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+    width: fit-content;
+}
+
+.group-badge i {
+    font-size: 0.7rem;
+}
+
+.group-badge .group-label {
+    font-weight: 500;
+}
+
+.group-leader {
+    background-color: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #90caf9;
+}
+
+.group-member {
+    background-color: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffcc80;
+}
+
+/* 團體成員行的縮排效果 */
+tr[data-group-id] td:first-child {
+    position: relative;
+}
+
+tr[data-group-id]:not(:has(.group-leader)) td:first-child::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background-color: #ffcc80;
+}

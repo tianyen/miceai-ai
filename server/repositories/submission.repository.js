@@ -304,13 +304,25 @@ class SubmissionRepository extends BaseRepository {
      * @returns {Promise<Object>}
      */
     async deleteWithRelated(submissionId) {
-        // 刪除相關 QR Code
+        // 1. 刪除相關 QR Code
         await this.rawRun('DELETE FROM qr_codes WHERE submission_id = ?', [submissionId]);
 
-        // 刪除相關簽到記錄
+        // 2. 刪除相關簽到記錄
         await this.rawRun('DELETE FROM checkin_records WHERE submission_id = ?', [submissionId]);
 
-        // 刪除提交記錄
+        // 3. 刪除問卷回答記錄
+        await this.rawRun('DELETE FROM questionnaire_responses WHERE submission_id = ?', [submissionId]);
+
+        // 4. 刪除互動紀錄
+        await this.rawRun('DELETE FROM participant_interactions WHERE submission_id = ?', [submissionId]);
+
+        // 5. 刪除掃描歷史
+        await this.rawRun('DELETE FROM scan_history WHERE participant_id = ?', [submissionId]);
+
+        // 6. 解除子報名者的父關聯（避免外鍵衝突）
+        await this.rawRun('UPDATE form_submissions SET parent_submission_id = NULL WHERE parent_submission_id = ?', [submissionId]);
+
+        // 7. 刪除提交記錄本身
         return this.delete(submissionId);
     }
 

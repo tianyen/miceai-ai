@@ -56,10 +56,11 @@ class Logger {
     }
 
     /**
-     * 格式化日誌時間
+     * 格式化日誌時間 (GMT+8 台北時區)
      */
     formatTimestamp() {
-        return new Date().toISOString();
+        const { getGMT8Timestamp } = require('./timezone');
+        return getGMT8Timestamp();
     }
 
     /**
@@ -200,7 +201,8 @@ class Logger {
      * 寫入日誌文件
      */
     writeLog(type, data) {
-        const date = new Date().toISOString().split('T')[0];
+        const { getGMT8Date } = require('./timezone');
+        const date = getGMT8Date();
         const filename = `${type}_${date}.log`;
         const filepath = path.join(this.logDir, filename);
         

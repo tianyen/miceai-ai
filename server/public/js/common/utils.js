@@ -7,26 +7,28 @@
 window.Utils = {
     
     /**
-     * 格式化日期
+     * 格式化日期 (GMT+8 台北時區)
      * @param {string|Date} date - 日期
      * @param {string} format - 格式 ('date', 'datetime', 'time')
      * @returns {string} 格式化後的日期字串
      */
     formatDate(date, format = 'date') {
         if (!date) return '';
-        
+
         const d = new Date(date);
         if (isNaN(d.getTime())) return '';
-        
+
         const options = {
-            date: { year: 'numeric', month: '2-digit', day: '2-digit' },
-            datetime: { 
+            date: { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' },
+            datetime: {
+                timeZone: 'Asia/Taipei',
                 year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit', second: '2-digit'
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                hour12: false
             },
-            time: { hour: '2-digit', minute: '2-digit', second: '2-digit' }
+            time: { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }
         };
-        
+
         return d.toLocaleString('zh-TW', options[format] || options.date);
     },
     

@@ -631,11 +631,8 @@ router.delete('/participants/:id', authenticateSession, async (req, res) => {
             return responses.notFound(res, '找不到該參加者');
         }
 
-        // 刪除互動紀錄（如果有的話）
-        const db = require('../../config/database');
-        await db.run('DELETE FROM participant_interactions WHERE trace_id = ?', [participant.trace_id]);
-
-        // 使用 repository 刪除參加者及相關資料（QR Code、簽到紀錄）
+        // 使用 repository 刪除參加者及所有相關資料
+        // (QR Code、簽到紀錄、問卷回答、互動紀錄、掃描歷史)
         await submissionRepo.deleteWithRelated(participantId);
 
         // 記錄操作日誌
@@ -656,7 +653,7 @@ router.delete('/participants/:id', authenticateSession, async (req, res) => {
         responses.success(res, null, '參加者已刪除');
     } catch (error) {
         console.error('刪除參加者失敗:', error);
-        responses.error(res, '刪除參加者失敗', 500);
+        responses.error(res, `刪除參加者失敗: ${error.message}`, 500);
     }
 });
 

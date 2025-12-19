@@ -6,6 +6,9 @@
 const express = require('express');
 const router = express.Router();
 
+// 導入日誌中間件
+const { v1ApiLogger } = require('../../../middleware/requestLogger');
+
 // 導入子路由
 const eventsRouter = require('./events');
 const registrationsRouter = require('./registrations');
@@ -13,6 +16,9 @@ const checkinRouter = require('./checkin');
 const businessCardsRouter = require('./business-cards');
 const gamesRouter = require('./games');
 const wishTreeRouter = require('./wish-tree');
+
+// V1 API 日誌中間件（記錄所有 GET query 和 POST body）
+router.use(v1ApiLogger);
 
 // API 版本信息
 router.get('/', (req, res) => {
