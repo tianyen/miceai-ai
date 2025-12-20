@@ -903,233 +903,258 @@ class EmailService {
 
     /**
      * 生成行前通知 Email HTML（寫死內容，僅動態帶入名字）
+     * 樣式與報名確認信一致（深色主題 #080808 + 橘色強調 #FF5F00）
      * @param {string} name - 參加者名字
      * @returns {string} HTML 內容
      */
     generatePreEventEmailHtml(name) {
         return `
-<!DOCTYPE html>
-<html lang="zh-TW">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>行前通知 - 平安夜公益活動</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.8;
-            color: #333;
-            background-color: #f5f5f5;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        .header {
-            background: linear-gradient(135deg, #1a1a2e, #16213e);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        .header h1 {
-            margin: 0 0 10px 0;
-            font-size: 24px;
-        }
-        .header h2 {
-            margin: 0;
-            font-size: 18px;
-            font-weight: normal;
-            opacity: 0.9;
-        }
-        .content {
-            padding: 30px;
-        }
-        .greeting {
-            font-size: 16px;
-            margin-bottom: 20px;
-        }
-        .section {
-            margin-bottom: 25px;
-        }
-        .section-title {
-            color: #1a1a2e;
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .section-title::before {
-            content: "✦";
-            color: #f39c12;
-        }
-        .info-box {
-            background: #f8f9fa;
-            border-left: 4px solid #3498db;
-            padding: 15px;
-            border-radius: 0 8px 8px 0;
-        }
-        .info-box p {
-            margin: 5px 0;
-        }
-        .schedule-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        .schedule-table th,
-        .schedule-table td {
-            padding: 10px;
-            text-align: left;
-            border-bottom: 1px solid #eee;
-        }
-        .schedule-table th {
-            background: #f8f9fa;
-            font-weight: 600;
-            color: #1a1a2e;
-        }
-        .highlight {
-            background: #fff3cd;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 10px;
-        }
-        .tips {
-            background: #e8f5e9;
-            padding: 15px;
-            border-radius: 8px;
-        }
-        .tips ul {
-            margin: 10px 0 0 0;
-            padding-left: 20px;
-        }
-        .tips li {
-            margin-bottom: 5px;
-        }
-        .footer {
-            background: #f8f9fa;
-            padding: 20px 30px;
-            text-align: center;
-            color: #666;
-            font-size: 14px;
-        }
-        .moon-emoji {
-            font-size: 24px;
-        }
+    <style type="text/css">
+        /* Reset styles */
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+        table { border-collapse: collapse !important; }
+        body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #080808; }
+
+        /* Client-specific overrides */
+        a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; font-size: inherit !important; font-family: inherit !important; font-weight: inherit !important; line-height: inherit !important; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🎬 行前通知</h1>
-            <h2>平安夜公益活動 X 沉浸式露天電影院</h2>
-        </div>
-        
-        <div class="content">
-            <div class="greeting">
-                親愛的 <strong>${name}</strong> 您好，<br><br>
-                感謝您報名參加 12/24（平安夜）《月光映像館》平安夜公益活動 X 沉浸式露天電影院，<br>
-                我們誠摯地期待，與您和孩子一起，在光影之中度過一個溫暖、有意義的夜晚。<br>
-                為了讓您當天能更安心、順利參與活動，以下為活動流程、地點與重要提醒，敬請於活動前詳閱。
-            </div>
+<body style="margin: 0; padding: 0; background-color: #080808; font-family: 'Helvetica Neue', Helvetica, Arial, 'Microsoft JhengHei', sans-serif;">
 
-            <div class="section">
-                <div class="section-title">活動公益理念</div>
-                <p>
-                    這場活動不只是「看一場電影」。<br>
-                    我們希望透過<strong>光影文化與集體參與的力量</strong>，<br>
-                    讓每一個家庭在享受露天電影院的同時，<br>
-                    也能一起為孩子的未來帶來溫暖的改變。<br><br>
-                    將娛樂轉化為公益行動，<br>
-                    讓大人與小孩都能用最輕鬆的方式做善事、散播善意，<br>
-                    讓這個平安夜，多一份溫度，也多一份意義。
-                </p>
-            </div>
-
-            <div class="section">
-                <div class="section-title">活動資訊</div>
-                <div class="info-box">
-                    <p><strong>活動名稱：</strong>月光映像館｜平安夜公益活動 X 沉浸式露天電影院</p>
-                    <p><strong>日期：</strong>2025 年 12 月 24 日（星期三）</p>
-                    <p><strong>播放電影：</strong>《可可夜總會 Coco》</p>
-                    <p><strong>地點：</strong>誠品生活松菸店 B1 戶外空地</p>
-                    <p><strong>地址：</strong>臺北市信義區菸廠路 88 號 B1</p>
-                </div>
-            </div>
-
-            <div class="section">
-                <div class="section-title">活動流程表</div>
-                <table class="schedule-table">
-                    <tr>
-                        <th>時間</th>
-                        <th>活動內容</th>
-                    </tr>
-                    <tr>
-                        <td>17:20</td>
-                        <td>觀眾開始入場</td>
-                    </tr>
-                    <tr>
-                        <td>17:30–18:30</td>
-                        <td>暖場時光｜光影互動遊戲 × DJ 音樂演出</td>
-                    </tr>
-                    <tr>
-                        <td>18:30–18:40</td>
-                        <td>現場引導入座</td>
-                    </tr>
-                    <tr>
-                        <td>18:40–20:25</td>
-                        <td>電影放映：《可可夜總會 Coco》</td>
-                    </tr>
-                    <tr>
-                        <td>20:25–20:30</td>
-                        <td>感謝時間與觀眾退場</td>
-                    </tr>
-                </table>
-            </div>
-
-            <div class="section">
-                <div class="section-title">現場貼心安排提醒</div>
-                <div class="highlight">
-                    <p>🍿 現場設有<strong>點心自助吧</strong>，歡迎大小朋友自由取用</p>
-                    <p>🍱 特別為小朋友準備<strong>餐盒</strong></p>
-                    <p style="margin-left: 20px;">➜ 將於電影開場前發放，讓孩子能邊吃邊安心觀影</p>
-                    <p>⏰ 建議您<strong>提前抵達</strong>，完整參與暖場活動與入座引導</p>
-                </div>
-            </div>
-
-            <div class="section">
-                <div class="section-title">溫馨小提醒</div>
-                <div class="tips">
-                    <ul>
-                        <li>本活動為露天放映，建議穿著<strong>保暖、舒適衣物</strong></li>
-                        <li>現場座位依工作人員引導安排</li>
-                        <li>請協助維護觀影品質與孩童安全，一起創造美好的夜晚回憶</li>
-                    </ul>
-                </div>
-            </div>
-
-            <p style="margin-top: 30px;">
-                謝謝您成為這場公益行動的一份子。<br>
-                期待在平安夜的月光下，與您和孩子相見 <span class="moon-emoji">🌙✨</span>
-            </p>
-
-            <p style="margin-top: 20px;">
-                祝 平安夜快樂<br>
-                <strong>月光映像館 by 天衍互動團隊</strong> 敬上
-            </p>
-        </div>
-
-        <div class="footer">
-            <p>此郵件由系統自動發送，如有任何問題請聯繫主辦單位</p>
-        </div>
+    <!-- 預覽文字 -->
+    <div style="display: none; font-size: 1px; color: #080808; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
+        12/24 平安夜活動行前通知 - 活動流程與注意事項
     </div>
+
+    <!-- 主要容器 -->
+    <center style="width: 100%; background-color: #080808;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+
+            <!-- 1. Logo Header -->
+            <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; border-bottom: 1px solid #333333;">
+                <tr>
+                    <td align="left" valign="middle" style="padding: 20px 0;">
+                        <span style="color: #ffffff; font-size: 18px; font-weight: bold; letter-spacing: 2px;">
+                            月光映像館
+                        </span>
+                    </td>
+                    <td align="right" valign="middle" style="padding: 20px 0;">
+                        <span style="color: #666666; font-size: 12px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;">
+                            PRE-EVENT NOTICE
+                        </span>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- 2. 主標題區 -->
+            <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
+                <tr>
+                    <td align="left" style="padding: 40px 0 20px 0;">
+                        <span style="display: inline-block; padding: 4px 8px; border: 1px solid #FF5F00; color: #FF5F00; font-size: 10px; font-weight: bold; letter-spacing: 1px; margin-bottom: 15px;">
+                            行前通知
+                        </span>
+                        <h1 style="margin: 0; color: #ffffff; font-size: 28px; line-height: 1.3; font-weight: 900; letter-spacing: -0.5px;">
+                            平安夜公益活動<br>
+                            X 沉浸式露天電影院
+                        </h1>
+                    </td>
+                </tr>
+                <tr>
+                    <td align="left" style="padding-bottom: 30px; border-bottom: 1px solid #333333;">
+                        <p style="margin: 0; color: #999999; font-size: 15px; line-height: 1.8;">
+                            親愛的 <span style="color: #ffffff; font-weight: bold;">${name}</span> 您好，<br><br>
+                            感謝您報名參加 12/24（平安夜）《月光映像館》活動，<br>
+                            我們誠摯地期待，與您和孩子一起，在光影之中度過一個溫暖、有意義的夜晚。
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- 活動資訊 Grid -->
+            <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
+                <tr>
+                    <!-- 日期 -->
+                    <td align="left" width="33%" style="padding: 20px 0; border-bottom: 1px solid #333333; border-right: 1px solid #333333;">
+                        <div style="padding-right: 10px;">
+                            <div style="color: #666666; font-size: 10px; font-weight: bold; letter-spacing: 1px; margin-bottom: 5px;">DATE</div>
+                            <div style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: Impact, sans-serif;">2025/12/24</div>
+                        </div>
+                    </td>
+                    <!-- 時間 -->
+                    <td align="left" width="33%" style="padding: 20px 0 20px 20px; border-bottom: 1px solid #333333; border-right: 1px solid #333333;">
+                        <div style="padding-right: 10px;">
+                            <div style="color: #666666; font-size: 10px; font-weight: bold; letter-spacing: 1px; margin-bottom: 5px;">TIME</div>
+                            <div style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: Impact, sans-serif;">17:20</div>
+                        </div>
+                    </td>
+                    <!-- 地點 -->
+                    <td align="left" width="33%" style="padding: 20px 0 20px 20px; border-bottom: 1px solid #333333;">
+                        <div>
+                            <div style="color: #666666; font-size: 10px; font-weight: bold; letter-spacing: 1px; margin-bottom: 5px;">LOCATION</div>
+                            <div style="color: #ffffff; font-size: 14px; font-weight: bold;">誠品松菸 B1</div>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- 公益理念區塊 -->
+            <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin-top: 30px;">
+                <tr>
+                    <td style="padding: 20px; background-color: #111111; border: 1px solid #333333; border-left: 3px solid #FF5F00;">
+                        <div style="color: #FF5F00; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin-bottom: 10px;">活動公益理念</div>
+                        <p style="margin: 0; color: #cccccc; font-size: 14px; line-height: 1.8;">
+                            這場活動不只是「看一場電影」。<br>
+                            我們希望透過<span style="color: #ffffff; font-weight: bold;">光影文化與集體參與的力量</span>，<br>
+                            讓每一個家庭在享受露天電影院的同時，<br>
+                            也能一起為孩子的未來帶來溫暖的改變。
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- 活動詳情 -->
+            <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin-top: 30px;">
+                <tr>
+                    <td style="padding: 20px; background-color: #111111; border: 1px solid #333333;">
+                        <div style="color: #FF5F00; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin-bottom: 15px;">活動資訊</div>
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                                <td style="padding: 8px 0; color: #666666; font-size: 12px; width: 80px;">活動名稱</td>
+                                <td style="padding: 8px 0; color: #ffffff; font-size: 14px;">月光映像館｜平安夜公益活動 X 沉浸式露天電影院</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #666666; font-size: 12px;">日期</td>
+                                <td style="padding: 8px 0; color: #ffffff; font-size: 14px;">2025 年 12 月 24 日（星期三）</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #666666; font-size: 12px;">播放電影</td>
+                                <td style="padding: 8px 0; color: #ffffff; font-size: 14px;">《可可夜總會 Coco》</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #666666; font-size: 12px;">地點</td>
+                                <td style="padding: 8px 0; color: #ffffff; font-size: 14px;">誠品生活松菸店 B1 戶外空地</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #666666; font-size: 12px;">地址</td>
+                                <td style="padding: 8px 0; color: #ffffff; font-size: 14px;">臺北市信義區菸廠路 88 號 B1</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- 活動流程表 -->
+            <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin-top: 30px;">
+                <tr>
+                    <td style="padding: 20px; background-color: #111111; border: 1px solid #333333;">
+                        <div style="color: #FF5F00; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin-bottom: 15px;">活動流程表</div>
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr style="border-bottom: 1px solid #333333;">
+                                <td style="padding: 10px 0; color: #666666; font-size: 11px; font-weight: bold; width: 100px;">時間</td>
+                                <td style="padding: 10px 0; color: #666666; font-size: 11px; font-weight: bold;">活動內容</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px 0; color: #FF5F00; font-size: 14px; font-weight: bold; border-bottom: 1px solid #222222;">17:20</td>
+                                <td style="padding: 12px 0; color: #ffffff; font-size: 14px; border-bottom: 1px solid #222222;">觀眾開始入場</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px 0; color: #FF5F00; font-size: 14px; font-weight: bold; border-bottom: 1px solid #222222;">17:30–18:30</td>
+                                <td style="padding: 12px 0; color: #ffffff; font-size: 14px; border-bottom: 1px solid #222222;">暖場時光｜光影互動遊戲 × DJ 音樂演出</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px 0; color: #FF5F00; font-size: 14px; font-weight: bold; border-bottom: 1px solid #222222;">18:30–18:40</td>
+                                <td style="padding: 12px 0; color: #ffffff; font-size: 14px; border-bottom: 1px solid #222222;">現場引導入座</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px 0; color: #FF5F00; font-size: 14px; font-weight: bold; border-bottom: 1px solid #222222;">18:40–20:25</td>
+                                <td style="padding: 12px 0; color: #ffffff; font-size: 14px; border-bottom: 1px solid #222222;">電影放映：《可可夜總會 Coco》</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px 0; color: #FF5F00; font-size: 14px; font-weight: bold;">20:25–20:30</td>
+                                <td style="padding: 12px 0; color: #ffffff; font-size: 14px;">感謝時間與觀眾退場</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- 現場貼心安排 -->
+            <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin-top: 30px;">
+                <tr>
+                    <td style="padding: 20px; background-color: #1a1a1a; border: 1px solid #FF5F00;">
+                        <div style="color: #FF5F00; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin-bottom: 15px;">現場貼心安排</div>
+                        <p style="margin: 0 0 10px 0; color: #ffffff; font-size: 14px; line-height: 1.6;">
+                            🍿 現場設有<span style="color: #FF5F00; font-weight: bold;">點心自助吧</span>，歡迎大小朋友自由取用
+                        </p>
+                        <p style="margin: 0 0 5px 0; color: #ffffff; font-size: 14px; line-height: 1.6;">
+                            🍱 特別為小朋友準備<span style="color: #FF5F00; font-weight: bold;">餐盒</span>
+                        </p>
+                        <p style="margin: 0 0 10px 0; padding-left: 24px; color: #cccccc; font-size: 13px; line-height: 1.6;">
+                            ➜ 將於電影開場前發放，讓孩子能邊吃邊安心觀影
+                        </p>
+                        <p style="margin: 0; color: #ffffff; font-size: 14px; line-height: 1.6;">
+                            ⏰ 建議您<span style="color: #FF5F00; font-weight: bold;">提前抵達</span>，完整參與暖場活動與入座引導
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- 溫馨小提醒 -->
+            <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin-top: 30px;">
+                <tr>
+                    <td style="padding: 20px; background-color: #111111; border: 1px solid #333333;">
+                        <div style="color: #FF5F00; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin-bottom: 15px;">溫馨小提醒</div>
+                        <p style="margin: 0 0 8px 0; color: #cccccc; font-size: 14px; line-height: 1.6;">
+                            • 本活動為露天放映，建議穿著<span style="color: #ffffff; font-weight: bold;">保暖、舒適衣物</span>
+                        </p>
+                        <p style="margin: 0 0 8px 0; color: #cccccc; font-size: 14px; line-height: 1.6;">
+                            • 現場座位依工作人員引導安排
+                        </p>
+                        <p style="margin: 0; color: #cccccc; font-size: 14px; line-height: 1.6;">
+                            • 請協助維護觀影品質與孩童安全，一起創造美好的夜晚回憶
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- 結語 -->
+            <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin-top: 40px;">
+                <tr>
+                    <td align="left" style="padding: 20px 0;">
+                        <p style="margin: 0 0 15px 0; color: #999999; font-size: 15px; line-height: 1.8;">
+                            謝謝您成為這場公益行動的一份子。<br>
+                            期待在平安夜的月光下，與您和孩子相見 🌙✨
+                        </p>
+                        <p style="margin: 0; color: #999999; font-size: 15px; line-height: 1.8;">
+                            祝 平安夜快樂<br>
+                            <span style="color: #ffffff; font-weight: bold;">月光映像館 by 天衍互動團隊</span> 敬上
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Footer -->
+            <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin-top: 50px; border-top: 1px solid #333333;">
+                <tr>
+                    <td align="center" style="padding: 30px 0;">
+                        <p style="color: #444444; font-size: 11px; line-height: 1.6; margin: 0; text-transform: uppercase; letter-spacing: 1px;">
+                            © ${new Date().getFullYear()} 月光映像館. All Rights Reserved.<br>
+                            平安夜公益活動X沉浸式露天電影院
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+        </div>
+    </center>
 </body>
 </html>`;
     }

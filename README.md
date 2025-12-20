@@ -1,6 +1,6 @@
 # MICE AI Backend
 
-> Version: **v1.0** · Documentation reset on 2025-12-07
+> Version: **v1.0** · Last updated: 2025-12-20
 
 專業的 MICE (會議、獎勵旅遊、大型會議、展覽) 活動管理系統後端，提供完整的活動管理、報名系統、遊戲室、問卷、許願樹等功能。
 
@@ -64,14 +64,18 @@ npm start
 ### 驗證與測試
 | 命令 | 說明 |
 |------|------|
-| `npm run verify` | 執行所有驗證測試 |
+| `npm run verify` | 執行所有驗證測試（8 項） |
+| `npm run db:verify-paths` | 驗證資料庫路徑配置（34 個腳本） |
 | `npm run verify:workflow` | 驗證完整業務流程 |
 | `npm run verify:api` | 驗證 API 端點 |
 | `npm run verify:data` | 驗證資料流程 |
 | `npm run verify:batch-registration` | 驗證團體報名 API |
 | `npm run verify:group-full-flow` | 驗證團體報名完整流程（報名→報到→遊戲→兌換） |
+| `npm run verify:children-stats` | 驗證小孩統計功能 |
 | `npm run test:api` | 測試完整 API 流程 |
 | `npm run test:swagger` | 測試 Swagger 範例 |
+
+> 💡 `npm run verify` 包含：資料庫路徑配置、Schema 驗證、API 端點、資料流程、業務流程、後台資料、團體報名、小孩統計
 
 ### 生成工具
 | 命令 | 說明 |
@@ -101,9 +105,31 @@ npm start
 |------|--------|------|
 | `PORT` | `3000` | 服務器端口 |
 | `BASE_URL` | `http://localhost:3000` | 基礎 URL（QR Code 使用） |
-| `DATABASE_PATH` | `./data/mice_ai.db` | 資料庫路徑 |
+| `DATABASE_PATH` | `./data/mice_ai.db` | 資料庫路徑（所有腳本統一遵守） |
 | `SESSION_SECRET` | 隨機密鑰 | Session 加密密鑰 |
+| `JWT_SECRET` | - | JWT Token 加密密鑰 |
 | `NODE_ENV` | `development` | 運行環境 |
+
+### 安全配置
+
+| 變數 | 預設值 | 說明 |
+|------|--------|------|
+| `CORS_ORIGIN` | `http://localhost:3000` | CORS 允許來源（逗號分隔多個域名） |
+| `API_RATE_LIMIT_WINDOW_MS` | `900000` | API 限流時間窗口（15分鐘） |
+| `API_RATE_LIMIT_MAX_REQUESTS` | `500` | API 限流最大請求數 |
+| `FRONTEND_API_RATE_LIMIT_WINDOW_MS` | `900000` | 前端 API 限流時間窗口 |
+| `FRONTEND_API_RATE_LIMIT_MAX_REQUESTS` | `1000` | 前端 API 限流最大請求數 |
+
+### 功能模組開關
+
+| 變數 | 預設值 | 說明 |
+|------|--------|------|
+| `FEATURE_QUESTIONNAIRES` | `false` | 問卷功能 Tab |
+| `FEATURE_BUSINESS_CARDS` | `false` | QR Code 名片功能 Tab |
+| `FEATURE_GAMES` | `false` | 遊戲設定功能 Tab |
+| `FEATURE_BOOTHS` | `false` | 攤位設定功能 Tab |
+
+> 💡 設為 `true` 啟用對應功能模組，設為 `false` 或留空則隱藏該 Tab
 
 ### Email 配置 (Google SMTP)
 
@@ -395,6 +421,16 @@ pm2 startup
 **維護者**: MICE-AI Team
 
 ### 更新日誌
+
+#### 2025-12-20
+- 修復：security.js 改用 config 讀取 CORS 和 Rate Limit 配置（不再硬編碼）
+- 修復：4 個腳本改用 config.database.path（pre-setup.js, fix-checkin-inconsistency.js, test-checkin-flow.js, test-pass-code.js）
+- 新增：verify-all.sh 新增資料庫路徑配置驗證和 Schema 驗證（8 項測試）
+- 新增：verify-db-paths.js 支援更多配置模式識別（config/db-path/utils-db）
+- 新增：功能模組開關環境變數（FEATURE_QUESTIONNAIRES/BUSINESS_CARDS/GAMES/BOOTHS）
+- 更新：.env.example 新增 JWT_SECRET、CORS_ORIGIN、Rate Limit 配置
+- 清理：移除未使用的 LOG_RETENTION_DAYS 環境變數
+- 清理：刪除意外產生的空 database.sqlite 檔案
 
 #### 2025-12-18
 - 新增：活動人數限制功能 (`max_participants`, `registration_deadline`)
