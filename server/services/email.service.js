@@ -1097,7 +1097,7 @@ class EmailService {
                         <p style="margin: 0 0 5px 0; color: #ffffff; font-size: 14px; line-height: 1.6;">
                             🍱 特別為小朋友準備<span style="color: #FF5F00; font-weight: bold;">餐盒</span>
                         </p>
-                        <p style="margin: 0 0 10px 0; padding-left: 24px; color: #cccccc; font-size: 13px; line-height: 1.6;">
+                        <p style="margin: 0 0 10px 0; color: #cccccc; font-size: 13px; line-height: 1.6;">
                             ➜ 將於電影開場前發放，讓孩子能邊吃邊安心觀影
                         </p>
                         <p style="margin: 0; color: #ffffff; font-size: 14px; line-height: 1.6;">
