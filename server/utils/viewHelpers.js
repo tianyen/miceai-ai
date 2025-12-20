@@ -367,6 +367,16 @@ function projectParticipantRow(participant) {
         notes: participant.notes || ''
     }));
 
+    // 報名時間 - GMT+8 格式
+    const createdAtDisplay = participant.created_at
+        ? formatDate(participant.created_at, 'datetime')
+        : '-';
+
+    // 報到時間 - GMT+8 格式
+    const checkedInAtDisplay = participant.checked_in_at
+        ? formatDate(participant.checked_in_at, 'datetime')
+        : '<span class="text-muted">未報到</span>';
+
     return `
         <tr data-participant-id="${participant.id}" ${participant.group_id ? `data-group-id="${safeText(participant.group_id)}"` : ''}>
             <td>${idDisplay}</td>
@@ -379,8 +389,8 @@ function projectParticipantRow(participant) {
             <td>${safeText(participant.submitter_email)}</td>
             <td>${safeText(participant.submitter_phone)}</td>
             <td>${childrenDisplay}</td>
-            <td>${participant.participation_level || 50}%</td>
-            <td>${checkinStatus}</td>
+            <td><small>${createdAtDisplay}</small></td>
+            <td><small>${checkedInAtDisplay}</small></td>
             <td>
                 <div class="btn-group">
                     ${!participant.checked_in_at

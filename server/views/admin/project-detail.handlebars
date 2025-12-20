@@ -145,8 +145,8 @@
                             <th>電子郵件</th>
                             <th>電話</th>
                             <th>小孩</th>
-                            <th>參與程度</th>
-                            <th>報到狀態</th>
+                            <th>報名時間</th>
+                            <th>報到時間</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -522,6 +522,7 @@
                         <thead>
                             <tr>
                                 <th style="width: 40px;"><input type="checkbox" id="select-all-reg" onchange="toggleSelectAllRegistration()"></th>
+                                <th>ID</th>
                                 <th>姓名</th>
                                 <th>Email</th>
                                 <th>電話</th>
@@ -532,7 +533,7 @@
                         </thead>
                         <tbody id="reg-email-tbody">
                             <tr>
-                                <td colspan="7" class="text-center">
+                                <td colspan="8" class="text-center">
                                     <div class="spinner"></div>
                                     <p>載入中...</p>
                                 </td>
@@ -738,6 +739,11 @@
         .type-group-primary {
             background-color: #e8f5e9;
             color: #2e7d32;
+        }
+
+        .type-child {
+            background-color: #fce4ec;
+            color: #c2185b;
         }
 
         .group-expand-btn {

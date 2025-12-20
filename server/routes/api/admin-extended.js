@@ -956,35 +956,41 @@ router.get('/projects/:id/registration-emails/recipients', authenticateSession, 
         const { search, groupOnly } = req.query;
         const submissionRepo = require('../../repositories/submission.repository');
 
-        // 基礎查詢
+        // 基礎查詢 - 包含小孩判斷所需欄位
         let sql = `
             SELECT
-                id,
-                trace_id,
-                submitter_name,
-                submitter_email,
-                submitter_phone,
-                group_id,
-                is_primary,
-                created_at
-            FROM form_submissions
-            WHERE project_id = ?
+                fs.id,
+                fs.user_id,
+                fs.trace_id,
+                fs.submitter_name,
+                fs.submitter_email,
+                fs.submitter_phone,
+                fs.group_id,
+                fs.is_primary,
+                fs.parent_submission_id,
+                fs.children_count,
+                fs.children_ages,
+                fs.created_at,
+                parent.submitter_name as parent_name
+            FROM form_submissions fs
+            LEFT JOIN form_submissions parent ON fs.parent_submission_id = parent.id
+            WHERE fs.project_id = ?
         `;
         const params = [projectId];
 
         // 搜尋過濾
         if (search && search.trim()) {
-            sql += ` AND (submitter_name LIKE ? OR submitter_email LIKE ?)`;
+            sql += ` AND (fs.submitter_name LIKE ? OR fs.submitter_email LIKE ?)`;
             const searchPattern = `%${search.trim()}%`;
             params.push(searchPattern, searchPattern);
         }
 
         // 僅顯示團體報名
         if (groupOnly === 'true') {
-            sql += ` AND group_id IS NOT NULL`;
+            sql += ` AND fs.group_id IS NOT NULL`;
         }
 
-        sql += ` ORDER BY created_at DESC`;
+        sql += ` ORDER BY fs.created_at DESC`;
 
         const recipients = await submissionRepo.rawAll(sql, params);
 

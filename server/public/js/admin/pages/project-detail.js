@@ -2049,18 +2049,58 @@ function loadRegistrationRecipients() {
 
                 // 渲染列表
                 if (recipients.length === 0) {
-                    tbody.html('<tr><td colspan="7" class="text-center text-muted">沒有符合條件的報名者</td></tr>');
+                    tbody.html('<tr><td colspan="8" class="text-center text-muted">沒有符合條件的報名者</td></tr>');
                 } else {
                     let html = '';
                     recipients.forEach(function(r) {
-                        const createdAt = r.created_at ? new Date(r.created_at).toLocaleString('zh-TW') : '-';
-                        const typeBadge = r.group_id
-                            ? (r.is_primary ? '<span class="type-badge type-group-primary">團體主報名</span>' : '<span class="type-badge type-group">團體同行</span>')
-                            : '<span class="type-badge type-individual">個人</span>';
+                        // 報名時間 - 確保 GMT+8 (台灣時區)
+                        let createdAt = '-';
+                        if (r.created_at) {
+                            const date = new Date(r.created_at);
+                            createdAt = date.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+                        }
+
+                        // ID 顯示 - 優先 user_id，否則 submission id
+                        const idDisplay = r.user_id
+                            ? `<span class="badge badge-info" title="User ID">U#${r.user_id}</span>`
+                            : `<span class="badge badge-secondary" title="Submission ID">#${r.id}</span>`;
+
+                        // 判斷類型標籤
+                        let typeBadge = '';
+                        if (!r.group_id) {
+                            // 個人報名
+                            typeBadge = '<span class="type-badge type-individual">個人</span>';
+                        } else if (r.is_primary) {
+                            // 團體主報名人
+                            typeBadge = '<span class="type-badge type-group-primary">團體主報名</span>';
+                        } else {
+                            // 團體成員（跟隨者）- 判斷是否為小孩
+                            let isChild = false;
+                            if (r.children_ages) {
+                                try {
+                                    const ages = typeof r.children_ages === 'string' ? JSON.parse(r.children_ages) : r.children_ages;
+                                    // 有任何年齡區間資料即為小孩
+                                    isChild = (ages.age_0_6 > 0 || ages.age_6_12 > 0 || ages.age_12_18 > 0);
+                                } catch (e) {}
+                            }
+
+                            if (isChild) {
+                                typeBadge = '<span class="type-badge type-child">👶 小孩</span>';
+                                if (r.parent_name) {
+                                    typeBadge += `<br><small class="text-muted">隨 ${escapeHtml(r.parent_name)}</small>`;
+                                }
+                            } else {
+                                typeBadge = '<span class="type-badge type-group">團體同行</span>';
+                                if (r.parent_name) {
+                                    typeBadge += `<br><small class="text-muted">隨 ${escapeHtml(r.parent_name)}</small>`;
+                                }
+                            }
+                        }
 
                         html += `
                             <tr>
                                 <td><input type="checkbox" class="reg-checkbox" data-id="${r.id}" data-trace="${r.trace_id}" onchange="updateResendSelectedCount()"></td>
+                                <td>${idDisplay}</td>
                                 <td>${escapeHtml(r.submitter_name || '-')}</td>
                                 <td>${escapeHtml(r.submitter_email || '-')}</td>
                                 <td>${escapeHtml(r.submitter_phone || '-')}</td>
@@ -2077,11 +2117,11 @@ function loadRegistrationRecipients() {
                     tbody.html(html);
                 }
             } else {
-                tbody.html('<tr><td colspan="7" class="text-center text-danger">載入失敗</td></tr>');
+                tbody.html('<tr><td colspan="8" class="text-center text-danger">載入失敗</td></tr>');
             }
         },
         error: function() {
-            tbody.html('<tr><td colspan="7" class="text-center text-danger">載入失敗</td></tr>');
+            tbody.html('<tr><td colspan="8" class="text-center text-danger">載入失敗</td></tr>');
         }
     });
 }
