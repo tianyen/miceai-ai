@@ -85,7 +85,14 @@ class CheckinService extends BaseService {
                     id: participant.id,
                     name: participant.submitter_name,
                     email: participant.submitter_email,
-                    traceId: participant.trace_id
+                    traceId: participant.trace_id,
+                    // Phase 2: 新增欄位 - 報到成功後顯示完整資訊
+                    phone: participant.submitter_phone,
+                    company: participant.company_name,
+                    children_count: participant.children_count || 0,
+                    children_ages: participant.children_ages ? JSON.parse(participant.children_ages) : null,
+                    notes: participant.notes,
+                    adult_age: participant.adult_age
                 }
             };
         }, 'performCheckin');

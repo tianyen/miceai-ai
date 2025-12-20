@@ -47,11 +47,10 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Webcam 掃描器獨立視窗（無 layout）
+// Webcam 掃描器獨立視窗 - 重定向到統一掃描器
+// Phase 1 整合：保持向後相容，舊連結自動導向新掃描器
 router.get('/camera-scanner', (req, res) => {
-    res.render('admin/checkin-camera-scanner', {
-        layout: false  // 不使用 admin layout，獨立頁面
-    });
+    res.redirect('/admin/qr-scanner');
 });
 
 // 搜尋參與者

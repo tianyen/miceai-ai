@@ -398,7 +398,14 @@ router.post('/qr-scanner/checkin', authenticateSession, async (req, res) => {
                 id: result.participant.id,
                 name: result.participant.name,
                 email: result.participant.email,
-                checkinTime: result.checkinTime
+                checkinTime: result.checkinTime,
+                // Phase 2: 新增欄位 - 報到成功後顯示完整資訊
+                phone: result.participant.phone,
+                company: result.participant.company,
+                children_count: result.participant.children_count,
+                children_ages: result.participant.children_ages,
+                notes: result.participant.notes,
+                adult_age: result.participant.adult_age
             }
         });
     } catch (error) {

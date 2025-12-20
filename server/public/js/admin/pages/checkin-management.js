@@ -547,16 +547,24 @@ window.generateQRForParticipant = function(participantId) {
 };
 
 /**
- * 開啟 Webcam 掃描器（獨立視窗）
+ * 開啟 QR Code 掃描器（統一掃描器）
+ * @description Phase 1 整合：統一使用 /admin/qr-scanner
  */
 window.openCameraScanner = function() {
-    var width = 800;
-    var height = 700;
+    var width = 900;
+    var height = 750;
     var left = (screen.width - width) / 2;
     var top = (screen.height - height) / 2;
 
+    // 統一使用 qr-scanner（支援 project_id、掃描歷史、今日統計）
+    var projectId = $('#project-select').val();
+    var scannerUrl = '/admin/qr-scanner';
+    if (projectId) {
+        scannerUrl += '?project_id=' + projectId;
+    }
+
     var features = 'width=' + width + ',height=' + height + ',left=' + left + ',top=' + top + ',resizable=yes,scrollbars=yes';
-    var scannerWindow = window.open('/admin/checkin-management/camera-scanner', 'CheckinCameraScanner', features);
+    var scannerWindow = window.open(scannerUrl, 'QRScanner', features);
 
     if (!scannerWindow) {
         showNotification('無法開啟掃描視窗，請檢查瀏覽器彈出視窗設定', 'error');
@@ -572,9 +580,8 @@ window.openCameraScanner = function() {
         if (event.data.type === 'CHECKIN_SUCCESS') {
             showNotification('報到成功！', 'success');
             var projectId = $('#project-select').val();
-            if (projectId) {
-                loadParticipants(projectId, 1);
-            }
+            loadParticipants(projectId, 1);
+            loadCheckinStats();
         }
     });
 };

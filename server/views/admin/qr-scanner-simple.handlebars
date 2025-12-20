@@ -283,7 +283,133 @@
                 </button>
             </div>
         </div>
+
+        <!-- 報到成功 Modal (Phase 3) -->
+        <div class="checkin-modal-overlay" id="checkin-modal" style="display: none;">
+            <div class="checkin-modal">
+                <div class="checkin-modal-header">
+                    <i class="fas fa-check-circle"></i>
+                    <h3>報到成功</h3>
+                </div>
+                <div class="checkin-modal-body">
+                    <div class="participant-info">
+                        <div class="info-row">
+                            <span class="label">姓名</span>
+                            <span class="value" id="modal-name">--</span>
+                        </div>
+                        <div class="info-row" id="company-row" style="display: none;">
+                            <span class="label">公司</span>
+                            <span class="value" id="modal-company">--</span>
+                        </div>
+                        <div class="info-row" id="children-row" style="display: none;">
+                            <span class="label">同行人數</span>
+                            <span class="value" id="modal-children">--</span>
+                        </div>
+                        <div class="info-row" id="notes-row" style="display: none;">
+                            <span class="label">備註</span>
+                            <span class="value" id="modal-notes">--</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">報到時間</span>
+                            <span class="value" id="modal-time">--</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="checkin-modal-footer">
+                    <button class="btn btn-success btn-lg" onclick="continueScanning()">
+                        <i class="fas fa-camera"></i> 繼續掃描
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <style>
+        /* 報到成功 Modal 樣式 */
+        .checkin-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .checkin-modal {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .checkin-modal-header {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            color: white;
+            padding: 25px;
+            text-align: center;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .checkin-modal-header i {
+            font-size: 48px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .checkin-modal-header h3 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .checkin-modal-body {
+            padding: 25px;
+        }
+
+        .participant-info .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .participant-info .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .participant-info .label {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .participant-info .value {
+            color: #2c3e50;
+            font-weight: 600;
+            font-size: 14px;
+            text-align: right;
+            max-width: 60%;
+        }
+
+        .checkin-modal-footer {
+            padding: 20px 25px 25px;
+            text-align: center;
+        }
+
+        .btn-lg {
+            padding: 15px 40px;
+            font-size: 16px;
+        }
+    </style>
 
 <script>
     const projectId = {{#if project_id}}{{project_id}}{{else}}null{{/if}};
@@ -394,11 +520,7 @@
             success: function(response) {
                 if (response.success) {
                     const participant = response.data.participant;
-                    const message = `✅ 報到成功！\n\n` +
-                                  `姓名：${participant.name}\n` +
-                                  `Email：${participant.email || '無'}\n` +
-                                  `報到時間：${new Date(participant.checkinTime).toLocaleString('zh-TW')}`;
-                    alert(message);
+                    showCheckinModal(participant);
                     clearResult();
                 } else {
                     alert('❌ 報到失敗：' + response.message);
@@ -422,6 +544,86 @@
                 $('#process-btn').prop('disabled', false).html('<i class="fas fa-check"></i> 確認報到');
             }
         });
+    }
+
+    // Phase 3: 顯示報到成功 Modal
+    function showCheckinModal(participant) {
+        // 姓名
+        $('#modal-name').text(participant.name);
+
+        // 公司
+        if (participant.company) {
+            $('#company-row').show();
+            $('#modal-company').text(participant.company);
+        } else {
+            $('#company-row').hide();
+        }
+
+        // 同行人數（小朋友）
+        if (participant.children_count > 0) {
+            $('#children-row').show();
+            let childrenText = `大人 1 位 + 小朋友 ${participant.children_count} 位`;
+
+            // 如果有年齡分布，顯示詳細資訊
+            if (participant.children_ages) {
+                const ages = participant.children_ages;
+                const ageDetails = [];
+                if (ages.age_0_6 > 0) ageDetails.push(`0-6歲 ${ages.age_0_6}位`);
+                if (ages.age_6_12 > 0) ageDetails.push(`6-12歲 ${ages.age_6_12}位`);
+                if (ages.age_12_18 > 0) ageDetails.push(`12-18歲 ${ages.age_12_18}位`);
+                if (ageDetails.length > 0) {
+                    childrenText += ` (${ageDetails.join('、')})`;
+                }
+            }
+            $('#modal-children').text(childrenText);
+        } else {
+            $('#children-row').hide();
+        }
+
+        // 備註
+        if (participant.notes) {
+            $('#notes-row').show();
+            $('#modal-notes').text(participant.notes);
+        } else {
+            $('#notes-row').hide();
+        }
+
+        // 報到時間
+        const checkinTime = new Date(participant.checkinTime).toLocaleString('zh-TW');
+        $('#modal-time').text(checkinTime);
+
+        // 顯示 Modal
+        $('#checkin-modal').fadeIn(200);
+
+        // 播放成功音效
+        playSuccessSound();
+    }
+
+    // 繼續掃描
+    function continueScanning() {
+        $('#checkin-modal').fadeOut(200);
+        startScanning();
+    }
+
+    // 播放成功音效
+    function playSuccessSound() {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 800;
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        } catch (e) {
+            // 忽略音效錯誤
+        }
     }
 
     // 頁面離開時清理資源
