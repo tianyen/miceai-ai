@@ -300,11 +300,6 @@ function openScannerWindow() {
     window.open(scannerUrl, 'qr-scanner', 'width=800,height=600,resizable=yes,scrollbars=yes');
 }
 
-// 開啟QR掃描器（嵌入式）
-function openQRScanner() {
-    switchTab('qr-scanner');
-}
-
 // 重新整理功能
 function refreshStats() {
     loadProjectStats();
