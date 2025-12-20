@@ -391,6 +391,9 @@ function projectParticipantRow(participant) {
                             <i class="fas fa-times"></i>
                         </button>`
                     }
+                    <button class="btn btn-sm btn-secondary" onclick='addDependentParticipant(${participantJson})' title="新增附屬報名人">
+                        <i class="fas fa-user-plus"></i>
+                    </button>
                     <button class="btn btn-sm btn-info" onclick="viewParticipantTracking('${participant.trace_id}')" title="追蹤">
                         <i class="fas fa-search"></i>
                     </button>

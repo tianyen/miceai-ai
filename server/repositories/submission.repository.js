@@ -381,16 +381,20 @@ class SubmissionRepository extends BaseRepository {
     async createRegistration(data) {
         const sql = `
             INSERT INTO form_submissions (
-                trace_id, project_id, submitter_name, submitter_email, submitter_phone,
+                trace_id, project_id, group_id, is_primary, parent_submission_id,
+                submitter_name, submitter_email, submitter_phone,
                 company_name, position, gender, title, notes,
                 adult_age, children_count, children_ages,
                 pass_code, data_consent, marketing_consent, activity_notifications, product_updates,
                 ip_address, user_agent, status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         `;
         return this.rawRun(sql, [
             data.traceId,
             data.projectId,
+            data.groupId || null,
+            data.isPrimary || 0,
+            data.parentSubmissionId || null,
             data.name,
             data.email,
             data.phone,

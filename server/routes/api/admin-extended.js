@@ -569,18 +569,60 @@ router.post('/participants/:id/cancel-checkin', authenticateSession, async (req,
     }
 });
 
-// 手動新增參加者 API
+// 手動新增參加者 API（支援主報名人和附屬報名人）
 router.post('/projects/:projectId/participants', authenticateSession, async (req, res) => {
     try {
         const projectId = parseInt(req.params.projectId);
-        const { name, email, phone, company, position, gender, notes, children_ages, participation_level } = req.body;
+        const {
+            name, email, phone, company, position, gender, notes,
+            children_ages, participation_level,
+            // 附屬報名人欄位
+            parent_submission_id, is_minor
+        } = req.body;
 
         // 驗證必填欄位
         if (!name || !name.trim()) {
             return responses.badRequest(res, '姓名不可為空');
         }
-        if (!email || !email.trim()) {
-            return responses.badRequest(res, '電子郵件不可為空');
+
+        const submissionRepository = require('../../repositories/submission.repository');
+        let finalEmail = email;
+        let finalPhone = phone;
+        let groupId = null;
+        let isPrimary = true;
+
+        // 處理附屬報名人邏輯
+        if (parent_submission_id) {
+            // 查詢主報名人
+            const parent = await submissionRepository.findById(parent_submission_id);
+            if (!parent) {
+                return responses.badRequest(res, '找不到主報名人');
+            }
+
+            // 使用主報名人的 group_id，若無則生成新的
+            groupId = parent.group_id || `GRP-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 4)}`;
+            isPrimary = false;
+
+            // 若主報名人尚無 group_id，更新之
+            if (!parent.group_id) {
+                await submissionRepository.update(parent_submission_id, {
+                    group_id: groupId,
+                    is_primary: 1
+                });
+            }
+
+            // 未成年或未填寫 email/phone 時繼承主報名人
+            if (is_minor || !email || !email.trim()) {
+                finalEmail = parent.submitter_email;
+            }
+            if (is_minor || !phone || !phone.trim()) {
+                finalPhone = parent.submitter_phone;
+            }
+        } else {
+            // 主報名人必須有 email
+            if (!email || !email.trim()) {
+                return responses.badRequest(res, '電子郵件不可為空');
+            }
         }
 
         // 生成 trace_id 和 pass_code
@@ -591,14 +633,13 @@ router.post('/projects/:projectId/participants', authenticateSession, async (req
         const ages = children_ages || {};
         const childrenCount = (parseInt(ages.age_0_6) || 0) + (parseInt(ages.age_6_12) || 0) + (parseInt(ages.age_12_18) || 0);
 
-        // 使用現有 Repository 方法
-        const submissionRepository = require('../../repositories/submission.repository');
+        // 建立參加者
         const result = await submissionRepository.createRegistration({
             traceId,
             projectId,
             name: name.trim(),
-            email: email.trim(),
-            phone: phone || '',
+            email: (finalEmail || '').trim(),
+            phone: finalPhone || '',
             company: company || '',
             position: position || '',
             gender: gender || null,
@@ -609,7 +650,11 @@ router.post('/projects/:projectId/participants', authenticateSession, async (req
             dataConsent: true,
             marketingConsent: false,
             ipAddress: req.ip,
-            userAgent: req.get('User-Agent')
+            userAgent: req.get('User-Agent'),
+            // 團體報名欄位
+            groupId: groupId,
+            isPrimary: isPrimary ? 1 : 0,
+            parentSubmissionId: parent_submission_id || null
         });
 
         // 自動生成 QR Code
@@ -621,20 +666,26 @@ router.post('/projects/:projectId/participants', authenticateSession, async (req
 
         // 記錄操作日誌
         const { logUserActivity } = require('../../middleware/auth');
+        const logDetails = { name: name.trim(), email: finalEmail, projectId };
+        if (parent_submission_id) {
+            logDetails.parentSubmissionId = parent_submission_id;
+            logDetails.isDependent = true;
+        }
         await logUserActivity(
             req.user.id,
             'create_participant',
             'participant',
             result.lastID,
-            { name: name.trim(), email: email.trim(), projectId },
+            logDetails,
             req.ip
         );
 
         responses.success(res, {
             id: result.lastID,
             traceId,
-            passCode
-        }, '參加者已新增');
+            passCode,
+            groupId
+        }, parent_submission_id ? '附屬報名人已新增' : '參加者已新增');
     } catch (error) {
         console.error('新增參加者失敗:', error);
         responses.error(res, '新增參加者失敗', 500);

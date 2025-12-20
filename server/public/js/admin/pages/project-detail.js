@@ -513,6 +513,103 @@ function saveParticipant() {
     }
 }
 
+// ========== 附屬報名人功能 ==========
+
+// 開啟附屬報名人 Modal
+function addDependentParticipant(parentData) {
+    const modal = $('#dependent-participant-modal');
+
+    // 填入主報名人資訊
+    $('#parent-name-display').text(parentData.submitter_name || '-');
+    $('#dependent-parent-id').val(parentData.id);
+    $('#dependent-parent-email').val(parentData.submitter_email || '');
+    $('#dependent-parent-phone').val(parentData.submitter_phone || '');
+
+    // 重置表單
+    $('#dependent-participant-form')[0].reset();
+    $('#dependent-is-minor').prop('checked', false);
+    toggleMinorMode();
+
+    modal.addClass('show');
+}
+
+// 切換未成年模式
+function toggleMinorMode() {
+    const isMinor = $('#dependent-is-minor').is(':checked');
+    if (isMinor) {
+        $('#adult-fields').hide();
+        // 清空成人欄位
+        $('#dependent-email, #dependent-phone, #dependent-company, #dependent-position').val('');
+    } else {
+        $('#adult-fields').show();
+    }
+}
+
+// 關閉附屬報名人 Modal
+function closeDependentModal() {
+    $('#dependent-participant-modal').removeClass('show');
+    $('#dependent-participant-form')[0].reset();
+}
+
+// 儲存附屬報名人
+function saveDependentParticipant() {
+    const parentId = $('#dependent-parent-id').val();
+    const parentEmail = $('#dependent-parent-email').val();
+    const parentPhone = $('#dependent-parent-phone').val();
+    const isMinor = $('#dependent-is-minor').is(':checked');
+
+    const name = $('#dependent-name').val().trim();
+    if (!name) {
+        showNotification('請輸入姓名', 'warning');
+        return;
+    }
+
+    // 組合資料
+    const data = {
+        name: name,
+        gender: $('#dependent-gender').val() || null,
+        notes: $('#dependent-notes').val().trim() || null,
+        parent_submission_id: parseInt(parentId),
+        is_minor: isMinor
+    };
+
+    // 未成年：繼承主報名人的 email/phone
+    if (isMinor) {
+        data.email = parentEmail;
+        data.phone = parentPhone;
+    } else {
+        // 成年：使用自己的或繼承
+        data.email = $('#dependent-email').val().trim() || parentEmail;
+        data.phone = $('#dependent-phone').val().trim() || parentPhone;
+        data.company = $('#dependent-company').val().trim() || null;
+        data.position = $('#dependent-position').val().trim() || null;
+    }
+
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/participants`,
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCsrfToken()
+        },
+        data: JSON.stringify(data),
+        success: function(response) {
+            if (response.success) {
+                showNotification('附屬報名人已新增', 'success');
+                closeDependentModal();
+                loadParticipants();
+                loadProjectStats();
+            } else {
+                showNotification(response.message || '新增失敗', 'error');
+            }
+        },
+        error: function(xhr) {
+            const msg = xhr.responseJSON?.message || '新增失敗，請稍後再試';
+            showNotification(msg, 'error');
+        }
+    });
+}
+
 // 刪除參加者
 function deleteParticipant(participantId, participantName) {
     if (!confirm(`確定要刪除參加者「${participantName}」嗎？\n\n此操作將同時刪除該參加者的：\n- 報到紀錄\n- QR Code\n- 相關互動紀錄\n\n此操作無法復原！`)) {
