@@ -215,8 +215,11 @@ class EmailService {
      * @private
      */
     _buildRegistrationEmailHtml({ name, eventName, eventDate, eventLocation, passCode, traceId }) {
-        // 解析日期和時間
-        const { dateStr, timeStr } = this._parseEventDateTime(eventDate);
+        // ⚠️ 寫死活動資訊（忽略傳入的參數）
+        eventName = '平安夜公益活動X沉浸式露天電影院';
+        eventLocation = '誠品生活松菸店 B1戶外空地';
+        const dateStr = '2025/12/24';
+        const timeStr = '17:30';
 
         // 格式化 Ticket ID 顯示
         const ticketIdDisplay = traceId ? `#${traceId.slice(-8).toUpperCase()}` : '';
@@ -407,8 +410,11 @@ class EmailService {
      * @private
      */
     _buildGroupRegistrationEmailHtml({ name, eventName, eventDate, eventLocation, passCode, traceId, totalCount, otherMembers }) {
-        // 解析日期和時間
-        const { dateStr, timeStr } = this._parseEventDateTime(eventDate);
+        // ⚠️ 寫死活動資訊（忽略傳入的參數）
+        eventName = '平安夜公益活動X沉浸式露天電影院';
+        eventLocation = '誠品生活松菸店 B1戶外空地';
+        const dateStr = '2025/12/24';
+        const timeStr = '17:30';
 
         // 格式化 Ticket ID 顯示
         const ticketIdDisplay = traceId ? `#${traceId.slice(-8).toUpperCase()}` : '';
@@ -629,8 +635,11 @@ class EmailService {
      * @private
      */
     _buildMemberEmailHtml({ name, eventName, eventDate, eventLocation, passCode, traceId, primaryName }) {
-        // 解析日期和時間
-        const { dateStr, timeStr } = this._parseEventDateTime(eventDate);
+        // ⚠️ 寫死活動資訊（忽略傳入的參數）
+        eventName = '平安夜公益活動X沉浸式露天電影院';
+        eventLocation = '誠品生活松菸店 B1戶外空地';
+        const dateStr = '2025/12/24';
+        const timeStr = '17:30';
 
         // 格式化 Ticket ID 顯示
         const ticketIdDisplay = traceId ? `#${traceId.slice(-8).toUpperCase()}` : '';

@@ -67,13 +67,18 @@ async function generate() {
             color: { dark: '#000000', light: '#ffffff' }
         });
 
+        // ⚠️ 寫死活動資訊
+        const eventName = '平安夜公益活動X沉浸式露天電影院';
+        const eventDate = '2025/12/24 17:30';
+        const eventLocation = '誠品生活松菸店 B1戶外空地';
+
         // 生成 HTML
         const html = `<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>報名成功 - ${row.project_name}</title>
+    <title>報名成功 - ${eventName}</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
         .card { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -95,7 +100,7 @@ async function generate() {
     <div class="card">
         <div class="header">
             <h1>🎉 報名成功</h1>
-            <p>${row.project_name}</p>
+            <p>${eventName}</p>
         </div>
         <div class="qr-container">
             <img src="${qrCodeDataUrl}" alt="QR Code">
@@ -107,8 +112,8 @@ async function generate() {
             <div class="info-row"><span class="info-label">電話</span><span class="info-value">${row.submitter_phone}</span></div>
             <div class="info-row"><span class="info-label">公司</span><span class="info-value">${row.company_name || '-'}</span></div>
             <div class="info-row"><span class="info-label">職位</span><span class="info-value">${row.position || '-'}</span></div>
-            <div class="info-row"><span class="info-label">活動日期</span><span class="info-value">${row.event_date}</span></div>
-            <div class="info-row"><span class="info-label">活動地點</span><span class="info-value">${row.event_location}</span></div>
+            <div class="info-row"><span class="info-label">活動日期</span><span class="info-value">${eventDate}</span></div>
+            <div class="info-row"><span class="info-label">活動地點</span><span class="info-value">${eventLocation}</span></div>
         </div>
         <div class="trace-id">Trace ID: ${row.trace_id}</div>
         <div class="footer">
