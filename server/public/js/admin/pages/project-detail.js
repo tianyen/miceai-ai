@@ -337,10 +337,34 @@ function bulkCheckin() {
     }
 }
 
-// ========== 參加者編輯/刪除功能 ==========
+// ========== 參加者新增/編輯/刪除功能 ==========
+
+// 新增參加者
+function addParticipant() {
+    const modal = $('#edit-participant-modal');
+    modal.attr('data-mode', 'add');
+    modal.find('.modal-header h3').text('新增參加者');
+
+    // 清空表單
+    $('#edit-participant-id').val('');
+    $('#edit-participant-form')[0].reset();
+
+    // 設定預設值
+    $('#edit-participation-level').val(50);
+    $('#edit-children-age-0-6').val(0);
+    $('#edit-children-age-6-12').val(0);
+    $('#edit-children-age-12-18').val(0);
+    $('#edit-children-count').val(0);
+
+    modal.addClass('show');
+}
 
 // 開啟編輯參加者 Modal
 function editParticipant(participant) {
+    const modal = $('#edit-participant-modal');
+    modal.attr('data-mode', 'edit');
+    modal.find('.modal-header h3').text('編輯參加者');
+
     // 填入表單資料
     $('#edit-participant-id').val(participant.id);
     $('#edit-name').val(participant.submitter_name || '');
@@ -388,11 +412,18 @@ function closeEditParticipantModal() {
 
 // 儲存參加者資料
 function saveParticipant() {
+    const mode = $('#edit-participant-modal').attr('data-mode') || 'edit';
     const participantId = $('#edit-participant-id').val();
     const name = $('#edit-name').val().trim();
+    const email = $('#edit-email').val().trim();
 
+    // 驗證必填欄位
     if (!name) {
         showNotification('請輸入姓名', 'warning');
+        return;
+    }
+    if (mode === 'add' && !email) {
+        showNotification('請輸入電子郵件', 'warning');
         return;
     }
 
@@ -404,41 +435,82 @@ function saveParticipant() {
     };
     const childrenCount = childrenAges.age_0_6 + childrenAges.age_6_12 + childrenAges.age_12_18;
 
-    const data = {
-        submitter_name: name,
-        submitter_email: $('#edit-email').val().trim(),
-        submitter_phone: $('#edit-phone').val().trim(),
-        company_name: $('#edit-company').val().trim(),
-        position: $('#edit-position').val().trim(),
-        gender: $('#edit-gender').val(),
-        participation_level: parseInt($('#edit-participation-level').val()) || 50,
-        children_count: childrenCount,
-        children_ages: JSON.stringify(childrenAges),
-        notes: $('#edit-notes').val().trim()
-    };
+    if (mode === 'add') {
+        // 新增參加者
+        const data = {
+            name: name,
+            email: email,
+            phone: $('#edit-phone').val().trim(),
+            company: $('#edit-company').val().trim(),
+            position: $('#edit-position').val().trim(),
+            gender: $('#edit-gender').val(),
+            participation_level: parseInt($('#edit-participation-level').val()) || 50,
+            children_count: childrenCount,
+            children_ages: childrenAges,
+            notes: $('#edit-notes').val().trim()
+        };
 
-    $.ajax({
-        url: `/api/admin/participants/${participantId}`,
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': getCsrfToken()
-        },
-        data: JSON.stringify(data),
-        success: function(response) {
-            if (response.success) {
-                showNotification('參加者資料已更新', 'success');
-                closeEditParticipantModal();
-                loadParticipants();
-            } else {
-                showNotification(response.message || '更新失敗', 'error');
+        $.ajax({
+            url: `/api/admin/projects/${projectId}/participants`,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': getCsrfToken()
+            },
+            data: JSON.stringify(data),
+            success: function(response) {
+                if (response.success) {
+                    showNotification('參加者已新增', 'success');
+                    closeEditParticipantModal();
+                    loadParticipants();
+                    loadProjectStats();
+                } else {
+                    showNotification(response.message || '新增失敗', 'error');
+                }
+            },
+            error: function(xhr) {
+                const msg = xhr.responseJSON?.message || '新增失敗，請稍後再試';
+                showNotification(msg, 'error');
             }
-        },
-        error: function(xhr) {
-            const msg = xhr.responseJSON?.message || '更新失敗，請稍後再試';
-            showNotification(msg, 'error');
-        }
-    });
+        });
+    } else {
+        // 編輯參加者
+        const data = {
+            submitter_name: name,
+            submitter_email: email,
+            submitter_phone: $('#edit-phone').val().trim(),
+            company_name: $('#edit-company').val().trim(),
+            position: $('#edit-position').val().trim(),
+            gender: $('#edit-gender').val(),
+            participation_level: parseInt($('#edit-participation-level').val()) || 50,
+            children_count: childrenCount,
+            children_ages: JSON.stringify(childrenAges),
+            notes: $('#edit-notes').val().trim()
+        };
+
+        $.ajax({
+            url: `/api/admin/participants/${participantId}`,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': getCsrfToken()
+            },
+            data: JSON.stringify(data),
+            success: function(response) {
+                if (response.success) {
+                    showNotification('參加者資料已更新', 'success');
+                    closeEditParticipantModal();
+                    loadParticipants();
+                } else {
+                    showNotification(response.message || '更新失敗', 'error');
+                }
+            },
+            error: function(xhr) {
+                const msg = xhr.responseJSON?.message || '更新失敗，請稍後再試';
+                showNotification(msg, 'error');
+            }
+        });
+    }
 }
 
 // 刪除參加者

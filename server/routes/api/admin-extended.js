@@ -569,6 +569,78 @@ router.post('/participants/:id/cancel-checkin', authenticateSession, async (req,
     }
 });
 
+// 手動新增參加者 API
+router.post('/projects/:projectId/participants', authenticateSession, async (req, res) => {
+    try {
+        const projectId = parseInt(req.params.projectId);
+        const { name, email, phone, company, position, gender, notes, children_ages, participation_level } = req.body;
+
+        // 驗證必填欄位
+        if (!name || !name.trim()) {
+            return responses.badRequest(res, '姓名不可為空');
+        }
+        if (!email || !email.trim()) {
+            return responses.badRequest(res, '電子郵件不可為空');
+        }
+
+        // 生成 trace_id 和 pass_code
+        const traceId = `MICE-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 8)}`;
+        const passCode = Math.random().toString().substr(2, 6);
+
+        // 計算 children_count
+        const ages = children_ages || {};
+        const childrenCount = (parseInt(ages.age_0_6) || 0) + (parseInt(ages.age_6_12) || 0) + (parseInt(ages.age_12_18) || 0);
+
+        // 使用現有 Repository 方法
+        const submissionRepository = require('../../repositories/submission.repository');
+        const result = await submissionRepository.createRegistration({
+            traceId,
+            projectId,
+            name: name.trim(),
+            email: email.trim(),
+            phone: phone || '',
+            company: company || '',
+            position: position || '',
+            gender: gender || null,
+            notes: notes || null,
+            childrenCount,
+            childrenAges: ages,
+            passCode,
+            dataConsent: true,
+            marketingConsent: false,
+            ipAddress: req.ip,
+            userAgent: req.get('User-Agent')
+        });
+
+        // 自動生成 QR Code
+        try {
+            await qrCodeService.generateForParticipant(result.lastID);
+        } catch (qrError) {
+            console.warn('QR Code 生成失敗，但參加者已建立:', qrError.message);
+        }
+
+        // 記錄操作日誌
+        const { logUserActivity } = require('../../middleware/auth');
+        await logUserActivity(
+            req.user.id,
+            'create_participant',
+            'participant',
+            result.lastID,
+            { name: name.trim(), email: email.trim(), projectId },
+            req.ip
+        );
+
+        responses.success(res, {
+            id: result.lastID,
+            traceId,
+            passCode
+        }, '參加者已新增');
+    } catch (error) {
+        console.error('新增參加者失敗:', error);
+        responses.error(res, '新增參加者失敗', 500);
+    }
+});
+
 // 更新參加者資料 API
 router.put('/participants/:id', authenticateSession, async (req, res) => {
     try {

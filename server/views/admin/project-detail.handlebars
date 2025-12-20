@@ -96,6 +96,9 @@
         <div class="section-header">
             <h3>參加者管理</h3>
             <div class="section-actions">
+                <button class="btn btn-primary" onclick="addParticipant()">
+                    <i class="fas fa-plus"></i> 新增參加者
+                </button>
                 <button class="btn btn-success" onclick="exportParticipants()">
                     <i class="fas fa-download"></i> 匯出參加者
                 </button>
@@ -528,8 +531,8 @@
     {{/if}}
 </div>
 
-<!-- 編輯參加者 Modal -->
-<div class="modal" id="edit-participant-modal">
+<!-- 編輯/新增參加者 Modal -->
+<div class="modal" id="edit-participant-modal" data-mode="edit">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
