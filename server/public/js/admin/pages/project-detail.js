@@ -1753,4 +1753,132 @@ $(document).ready(function() {
     $(document).on('input', '.children-age-input', function() {
         updateChildrenCount();
     });
+
+    // 監聽行前通知 Tab
+    $('.tab-btn').on('click', function() {
+        const tabName = $(this).data('tab');
+        if (tabName === 'pre-event-email') {
+            // 首次載入時才載入數據
+            if ($('#pre-event-total').text() === '-') {
+                loadPreEventEmailPreview();
+                loadPreEventRecipients();
+            }
+        }
+    });
 });
+
+// ========== 行前通知 Email 功能 ==========
+
+/**
+ * 載入行前通知 Email 預覽
+ */
+function loadPreEventEmailPreview() {
+    const previewUrl = `/api/admin/projects/${projectId}/pre-event-email/preview?name=參加者`;
+
+    const iframe = document.getElementById('pre-event-email-preview');
+    if (iframe) {
+        iframe.src = previewUrl;
+    }
+}
+
+/**
+ * 載入收件者列表
+ */
+function loadPreEventRecipients() {
+    const tbody = $('#pre-event-recipients-tbody');
+
+    tbody.html('<tr><td colspan="4" class="text-center"><div class="spinner"></div><p>載入中...</p></td></tr>');
+
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/pre-event-email/recipients`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success && response.data) {
+                const recipients = response.data.recipients;
+                const total = response.data.total;
+
+                // 更新統計
+                $('#pre-event-total').text(total);
+                $('#pre-event-has-email').text(total);
+
+                // 渲染列表
+                if (recipients.length === 0) {
+                    tbody.html('<tr><td colspan="4" class="text-center text-muted">沒有可發送的參加者</td></tr>');
+                } else {
+                    let html = '';
+                    recipients.forEach(function(r) {
+                        const createdAt = r.created_at ? new Date(r.created_at).toLocaleString('zh-TW') : '-';
+                        html += `
+                            <tr>
+                                <td>${escapeHtml(r.submitter_name || '-')}</td>
+                                <td>${escapeHtml(r.submitter_email || '-')}</td>
+                                <td>${escapeHtml(r.submitter_phone || '-')}</td>
+                                <td>${createdAt}</td>
+                            </tr>
+                        `;
+                    });
+                    tbody.html(html);
+                }
+            } else {
+                tbody.html('<tr><td colspan="4" class="text-center text-danger">載入失敗</td></tr>');
+            }
+        },
+        error: function() {
+            tbody.html('<tr><td colspan="4" class="text-center text-danger">載入失敗</td></tr>');
+        }
+    });
+}
+
+/**
+ * 發送行前通知給所有參加者
+ */
+function sendPreEventEmail() {
+    const total = $('#pre-event-total').text();
+
+    if (total === '-' || total === '0') {
+        alert('沒有可發送的參加者');
+        return;
+    }
+
+    if (!confirm(`確定要發送行前通知給 ${total} 位參加者嗎？\n\n此操作無法撤銷！`)) {
+        return;
+    }
+
+    const btn = $('#btn-send-pre-event-email');
+    const originalHtml = btn.html();
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 發送中...');
+
+    const csrfToken = window.__CSRF_TOKEN__ || $('meta[name="csrf-token"]').attr('content');
+
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/pre-event-email/send`,
+        method: 'POST',
+        headers: { 'X-CSRF-Token': csrfToken },
+        contentType: 'application/json',
+        success: function(response) {
+            if (response.success && response.data) {
+                const data = response.data;
+                alert(`✅ 發送完成！\n\n成功：${data.successCount} 封\n失敗：${data.failCount} 封`);
+            } else {
+                alert('❌ 發送失敗：' + (response.message || '未知錯誤'));
+            }
+        },
+        error: function(xhr) {
+            const msg = xhr.responseJSON?.message || '發送失敗';
+            alert('❌ 發送失敗：' + msg);
+        },
+        complete: function() {
+            btn.prop('disabled', false).html(originalHtml);
+        }
+    });
+}
+
+/**
+ * HTML 轉義工具函數
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}

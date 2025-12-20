@@ -947,4 +947,118 @@ router.get('/projects/:id/tracking', authenticateSession, async (req, res) => {
     }
 });
 
+// ========== 行前通知 Email APIs ==========
+
+// 預覽行前通知 Email
+router.get('/projects/:id/pre-event-email/preview', authenticateSession, async (req, res) => {
+    try {
+        const { emailService } = require('../../services');
+        const previewName = req.query.name || '參加者';
+        const html = emailService.generatePreEventEmailHtml(previewName);
+        responses.html(res, html);
+    } catch (error) {
+        console.error('預覽行前通知失敗:', error);
+        responses.error(res, '預覽失敗', 500);
+    }
+});
+
+// 取得專案參加者列表（用於行前通知）
+router.get('/projects/:id/pre-event-email/recipients', authenticateSession, async (req, res) => {
+    try {
+        const projectId = req.params.id;
+        const submissionRepo = require('../../repositories/submission.repository');
+
+        // 查詢有 email 的參加者
+        const sql = `
+            SELECT
+                id,
+                trace_id,
+                submitter_name,
+                submitter_email,
+                submitter_phone,
+                group_id,
+                is_primary,
+                created_at
+            FROM form_submissions
+            WHERE project_id = ?
+              AND submitter_email IS NOT NULL
+              AND submitter_email != ''
+            ORDER BY created_at DESC
+        `;
+
+        const recipients = await submissionRepo.rawAll(sql, [projectId]);
+
+        responses.success(res, {
+            total: recipients.length,
+            recipients: recipients
+        });
+    } catch (error) {
+        console.error('取得收件者列表失敗:', error);
+        responses.error(res, '取得收件者列表失敗', 500);
+    }
+});
+
+// 發送行前通知給所有參加者
+router.post('/projects/:id/pre-event-email/send', authenticateSession, async (req, res) => {
+    try {
+        const projectId = req.params.id;
+        const { emailService } = require('../../services');
+        const submissionRepo = require('../../repositories/submission.repository');
+
+        // 查詢有 email 的參加者
+        const sql = `
+            SELECT
+                id,
+                submitter_name,
+                submitter_email
+            FROM form_submissions
+            WHERE project_id = ?
+              AND submitter_email IS NOT NULL
+              AND submitter_email != ''
+        `;
+
+        const participants = await submissionRepo.rawAll(sql, [projectId]);
+
+        if (participants.length === 0) {
+            return responses.error(res, '沒有可發送的參加者', 400);
+        }
+
+        // 批量發送
+        const results = [];
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const p of participants) {
+            const result = await emailService.sendPreEventNotificationEmail({
+                name: p.submitter_name,
+                email: p.submitter_email
+            });
+
+            results.push({
+                id: p.id,
+                name: p.submitter_name,
+                email: p.submitter_email,
+                ...result
+            });
+
+            if (result.success) {
+                successCount++;
+            } else {
+                failCount++;
+            }
+        }
+
+        responses.success(res, {
+            message: `已發送 ${successCount} 封，失敗 ${failCount} 封`,
+            successCount,
+            failCount,
+            total: participants.length,
+            results
+        });
+    } catch (error) {
+        console.error('發送行前通知失敗:', error);
+        responses.error(res, '發送失敗', 500);
+    }
+});
+
 module.exports = router;

@@ -899,6 +899,274 @@ class EmailService {
             return false;
         }
     }
+
+
+    /**
+     * 生成行前通知 Email HTML（寫死內容，僅動態帶入名字）
+     * @param {string} name - 參加者名字
+     * @returns {string} HTML 內容
+     */
+    generatePreEventEmailHtml(name) {
+        return `
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>行前通知 - 平安夜公益活動</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.8;
+            color: #333;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+        .header h2 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: normal;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 30px;
+        }
+        .greeting {
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        .section {
+            margin-bottom: 25px;
+        }
+        .section-title {
+            color: #1a1a2e;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title::before {
+            content: "✦";
+            color: #f39c12;
+        }
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+        }
+        .info-box p {
+            margin: 5px 0;
+        }
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .schedule-table th,
+        .schedule-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .schedule-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #1a1a2e;
+        }
+        .highlight {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        .tips {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .tips ul {
+            margin: 10px 0 0 0;
+            padding-left: 20px;
+        }
+        .tips li {
+            margin-bottom: 5px;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        .moon-emoji {
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 行前通知</h1>
+            <h2>平安夜公益活動 X 沉浸式露天電影院</h2>
+        </div>
+        
+        <div class="content">
+            <div class="greeting">
+                親愛的 <strong>${name}</strong> 您好，<br><br>
+                感謝您報名參加 12/24（平安夜）《月光映像館》平安夜公益活動 X 沉浸式露天電影院，<br>
+                我們誠摯地期待，與您和孩子一起，在光影之中度過一個溫暖、有意義的夜晚。<br>
+                為了讓您當天能更安心、順利參與活動，以下為活動流程、地點與重要提醒，敬請於活動前詳閱。
+            </div>
+
+            <div class="section">
+                <div class="section-title">活動公益理念</div>
+                <p>
+                    這場活動不只是「看一場電影」。<br>
+                    我們希望透過<strong>光影文化與集體參與的力量</strong>，<br>
+                    讓每一個家庭在享受露天電影院的同時，<br>
+                    也能一起為孩子的未來帶來溫暖的改變。<br><br>
+                    將娛樂轉化為公益行動，<br>
+                    讓大人與小孩都能用最輕鬆的方式做善事、散播善意，<br>
+                    讓這個平安夜，多一份溫度，也多一份意義。
+                </p>
+            </div>
+
+            <div class="section">
+                <div class="section-title">活動資訊</div>
+                <div class="info-box">
+                    <p><strong>活動名稱：</strong>月光映像館｜平安夜公益活動 X 沉浸式露天電影院</p>
+                    <p><strong>日期：</strong>2025 年 12 月 24 日（星期三）</p>
+                    <p><strong>播放電影：</strong>《可可夜總會 Coco》</p>
+                    <p><strong>地點：</strong>誠品生活松菸店 B1 戶外空地</p>
+                    <p><strong>地址：</strong>臺北市信義區菸廠路 88 號 B1</p>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">活動流程表</div>
+                <table class="schedule-table">
+                    <tr>
+                        <th>時間</th>
+                        <th>活動內容</th>
+                    </tr>
+                    <tr>
+                        <td>17:20</td>
+                        <td>觀眾開始入場</td>
+                    </tr>
+                    <tr>
+                        <td>17:30–18:30</td>
+                        <td>暖場時光｜光影互動遊戲 × DJ 音樂演出</td>
+                    </tr>
+                    <tr>
+                        <td>18:30–18:40</td>
+                        <td>現場引導入座</td>
+                    </tr>
+                    <tr>
+                        <td>18:40–20:25</td>
+                        <td>電影放映：《可可夜總會 Coco》</td>
+                    </tr>
+                    <tr>
+                        <td>20:25–20:30</td>
+                        <td>感謝時間與觀眾退場</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="section">
+                <div class="section-title">現場貼心安排提醒</div>
+                <div class="highlight">
+                    <p>🍿 現場設有<strong>點心自助吧</strong>，歡迎大小朋友自由取用</p>
+                    <p>🍱 特別為小朋友準備<strong>餐盒</strong></p>
+                    <p style="margin-left: 20px;">➜ 將於電影開場前發放，讓孩子能邊吃邊安心觀影</p>
+                    <p>⏰ 建議您<strong>提前抵達</strong>，完整參與暖場活動與入座引導</p>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">溫馨小提醒</div>
+                <div class="tips">
+                    <ul>
+                        <li>本活動為露天放映，建議穿著<strong>保暖、舒適衣物</strong></li>
+                        <li>現場座位依工作人員引導安排</li>
+                        <li>請協助維護觀影品質與孩童安全，一起創造美好的夜晚回憶</li>
+                    </ul>
+                </div>
+            </div>
+
+            <p style="margin-top: 30px;">
+                謝謝您成為這場公益行動的一份子。<br>
+                期待在平安夜的月光下，與您和孩子相見 <span class="moon-emoji">🌙✨</span>
+            </p>
+
+            <p style="margin-top: 20px;">
+                祝 平安夜快樂<br>
+                <strong>月光映像館 by 天衍互動團隊</strong> 敬上
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>此郵件由系統自動發送，如有任何問題請聯繫主辦單位</p>
+        </div>
+    </div>
+</body>
+</html>`;
+    }
+
+    /**
+     * 發送行前通知 Email
+     * @param {Object} participant - 參加者資訊 { name, email }
+     * @returns {Promise<Object>} 發送結果
+     */
+    async sendPreEventNotificationEmail(participant) {
+        if (!this.enabled) {
+            console.log('[EmailService] Email 功能未啟用，跳過發送行前通知');
+            return { success: false, message: 'Email 功能未啟用' };
+        }
+
+        if (!participant.email) {
+            console.log(`[EmailService] 參加者 ${participant.name} 沒有 email，跳過發送`);
+            return { success: false, message: '參加者沒有 email' };
+        }
+
+        try {
+            const html = this.generatePreEventEmailHtml(participant.name || '朋友');
+
+            await this.transporter.sendMail({
+                from: config.from,
+                to: participant.email,
+                subject: '【行前通知】12/24 平安夜公益活動 X 沉浸式露天電影院',
+                html: html
+            });
+
+            console.log(`[EmailService] 行前通知已發送給: ${participant.email}`);
+            return { success: true, email: participant.email };
+        } catch (error) {
+            console.error(`[EmailService] 發送行前通知失敗 (${participant.email}):`, error);
+            return { success: false, message: error.message, email: participant.email };
+        }
+    }
 }
 
 module.exports = new EmailService();

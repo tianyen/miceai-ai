@@ -86,6 +86,7 @@
         <button class="tab-btn" data-tab="qr-scanner">QR掃描</button>
         <button class="tab-btn" data-tab="booths">攤位設定</button>
         <button class="tab-btn" data-tab="games">遊戲設定</button>
+        <button class="tab-btn" data-tab="pre-event-email">📧 行前通知</button>
         {{#if (eq project.project_code 'INFOMONTH2025')}}
         <button class="tab-btn" data-tab="wish-tree">🌳 許願樹</button>
         {{/if}}
@@ -458,6 +459,66 @@
                     <tbody id="project-games-table">
                         <tr>
                             <td colspan="7" class="text-center">
+                                <div class="spinner"></div>
+                                <p>載入中...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 行前通知 Tab -->
+    <div class="tab-content" id="pre-event-email-tab">
+        <div class="section-header">
+            <h3>📧 行前通知郵件</h3>
+            <div class="section-actions">
+                <button class="btn btn-primary" id="btn-send-pre-event-email" onclick="sendPreEventEmail()">
+                    <i class="fas fa-paper-plane"></i> 發送給所有參加者
+                </button>
+                <button class="btn btn-secondary" onclick="loadPreEventRecipients()">
+                    <i class="fas fa-sync-alt"></i> 重新整理
+                </button>
+            </div>
+        </div>
+
+        <!-- 統計資訊 -->
+        <div class="stats-grid-inline" style="margin-bottom: 1.5rem;">
+            <div class="stat-card-inline primary">
+                <div class="stat-value" id="pre-event-total">-</div>
+                <div class="stat-label">可發送人數</div>
+            </div>
+            <div class="stat-card-inline info">
+                <div class="stat-value" id="pre-event-has-email">-</div>
+                <div class="stat-label">有 Email</div>
+            </div>
+        </div>
+
+        <!-- 預覽區域 -->
+        <div class="preview-section" style="margin-bottom: 1.5rem;">
+            <h4 style="margin-bottom: 1rem;">📄 郵件預覽</h4>
+            <div class="email-preview-container" style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden; max-height: 500px; overflow-y: auto;">
+                <iframe id="pre-event-email-preview" style="width: 100%; height: 500px; border: none;"></iframe>
+            </div>
+        </div>
+
+        <!-- 收件者列表 -->
+        <div class="data-table-container">
+            <h4 style="margin-bottom: 1rem;">收件者列表</h4>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>姓名</th>
+                            <th>Email</th>
+                            <th>電話</th>
+                            <th>報名時間</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pre-event-recipients-tbody">
+                        <tr>
+                            <td colspan="4" class="text-center">
                                 <div class="spinner"></div>
                                 <p>載入中...</p>
                             </td>
