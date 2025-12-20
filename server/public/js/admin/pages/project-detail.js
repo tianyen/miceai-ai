@@ -538,10 +538,14 @@ function toggleMinorMode() {
     const isMinor = $('#dependent-is-minor').is(':checked');
     if (isMinor) {
         $('#adult-fields').hide();
+        $('#minor-fields').show();
         // 清空成人欄位
         $('#dependent-email, #dependent-phone, #dependent-company, #dependent-position').val('');
     } else {
         $('#adult-fields').show();
+        $('#minor-fields').hide();
+        // 清空未成年欄位
+        $('#dependent-age-0-6, #dependent-age-6-12, #dependent-age-12-18').val(0);
     }
 }
 
@@ -573,10 +577,26 @@ function saveDependentParticipant() {
         is_minor: isMinor
     };
 
-    // 未成年：繼承主報名人的 email/phone
+    // 未成年：繼承主報名人的 email/phone，並收集年齡區間
     if (isMinor) {
         data.email = parentEmail;
         data.phone = parentPhone;
+
+        // 收集小孩年齡區間
+        const childrenAges = {
+            age_0_6: parseInt($('#dependent-age-0-6').val()) || 0,
+            age_6_12: parseInt($('#dependent-age-6-12').val()) || 0,
+            age_12_18: parseInt($('#dependent-age-12-18').val()) || 0
+        };
+
+        // 驗證：至少選擇一個年齡區間
+        const totalAges = childrenAges.age_0_6 + childrenAges.age_6_12 + childrenAges.age_12_18;
+        if (totalAges === 0) {
+            showNotification('請選擇小孩年齡區間', 'warning');
+            return;
+        }
+
+        data.children_ages = childrenAges;
     } else {
         // 成年：使用自己的或繼承
         data.email = $('#dependent-email').val().trim() || parentEmail;

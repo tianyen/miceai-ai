@@ -130,9 +130,19 @@ $(document).ready(function () {
         var qrcodeContainer = document.createElement('div');
         qrcodeContainer.id = 'qrcode-container';
 
+        // 解析 qrToken 顯示有意義的資訊
+        var displayInfo = qrToken;
+        try {
+            var parsed = JSON.parse(qrToken);
+            displayInfo = parsed.attendeeName + ' (' + parsed.traceId + ')';
+        } catch (e) {
+            // 直接使用 qrToken
+        }
+
         var tokenText = document.createElement('p');
-        tokenText.className = 'mt-2';
-        tokenText.textContent = 'QR Token: ' + qrToken;
+        tokenText.className = 'mt-2 text-muted';
+        tokenText.style.fontSize = '0.875rem';
+        tokenText.textContent = displayInfo;
 
         modalBody.appendChild(qrcodeContainer);
         modalBody.appendChild(tokenText);
@@ -225,6 +235,7 @@ $(document).ready(function () {
 
 /**
  * QR Code 生成函數
+ * @param {string} qrToken - JSON 格式的 QR 資料字串或 traceId
  */
 function generateQRInModal(qrToken) {
     try {
@@ -232,13 +243,20 @@ function generateQRInModal(qrToken) {
         if (container) {
             container.textContent = '';
 
-            // 生成 JSON 格式的 QR Code 數據
-            var qrData = JSON.stringify({
-                traceId: qrToken
-            });
+            // 解析 qrToken 取得 traceId
+            var traceId = qrToken;
+            try {
+                var parsed = JSON.parse(qrToken);
+                if (parsed.traceId) {
+                    traceId = parsed.traceId;
+                }
+            } catch (e) {
+                // qrToken 本身就是 traceId 字串
+            }
 
+            // 使用 traceId 生成 QR Code（與掃描器期望的格式一致）
             new QRCode(container, {
-                text: qrData,
+                text: traceId,
                 width: 200,
                 height: 200,
                 colorDark: '#000000',

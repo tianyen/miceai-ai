@@ -11,6 +11,7 @@
  */
 const BaseService = require('./base.service');
 const qrCodeRepository = require('../repositories/qr-code.repository');
+const QRCode = require('qrcode');
 
 class QrCodeService extends BaseService {
     constructor() {
@@ -58,6 +59,14 @@ class QrCodeService extends BaseService {
 
         const qrDataString = JSON.stringify(qrData);
 
+        // 生成 QR Code 圖片 (base64)
+        const qrBase64 = await QRCode.toDataURL(participant.trace_id, {
+            type: 'image/png',
+            width: 300,
+            margin: 2,
+            color: { dark: '#000000', light: '#FFFFFF' }
+        });
+
         // 檢查是否已存在 QR Code
         const existingQr = await this.repository.findBySubmissionAndProject(
             participantId,
@@ -65,15 +74,16 @@ class QrCodeService extends BaseService {
         );
 
         if (existingQr) {
-            // 更新現有記錄
-            await this.repository.updateQrData(existingQr.id, qrDataString);
+            // 更新現有記錄（含 base64）
+            await this.repository.updateQrDataWithBase64(existingQr.id, qrDataString, qrBase64);
         } else {
-            // 創建新記錄
-            await this.repository.createQrCode({
+            // 創建新記錄（含 base64）
+            await this.repository.createQrCodeWithBase64({
                 projectId: participant.project_id,
                 submissionId: participantId,
                 qrCode: qrDataString,
-                qrData: qrDataString
+                qrData: qrDataString,
+                qrBase64: qrBase64
             });
         }
 

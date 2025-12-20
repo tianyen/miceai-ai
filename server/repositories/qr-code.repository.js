@@ -64,6 +64,22 @@ class QrCodeRepository extends BaseRepository {
     }
 
     /**
+     * 更新 QR Code 數據（含 Base64 圖片）
+     * @param {number} qrCodeId - QR Code ID
+     * @param {string} qrData - QR Code 數據
+     * @param {string} qrBase64 - QR Code Base64 圖片
+     * @returns {Promise<Object>}
+     */
+    async updateQrDataWithBase64(qrCodeId, qrData, qrBase64) {
+        const sql = `
+            UPDATE qr_codes
+            SET qr_code = ?, qr_data = ?, qr_base64 = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `;
+        return this.rawRun(sql, [qrData, qrData, qrBase64, qrCodeId]);
+    }
+
+    /**
      * 創建 QR Code 記錄
      * @param {Object} data - QR Code 資料
      * @returns {Promise<Object>}

@@ -332,6 +332,8 @@ class QRScanner {
 
 let qrScanner;
 
+// getCsrfToken() 由 /js/common/csrf.js 提供
+
 /**
  * 顯示通知 (使用安全的 DOM 操作)
  */
