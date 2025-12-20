@@ -39,12 +39,21 @@ router.get('/:id/detail', async (req, res) => {
             });
         }
 
+        // 功能模組開關
+        const features = {
+            questionnaires: process.env.FEATURE_QUESTIONNAIRES === 'true',
+            businessCards: process.env.FEATURE_BUSINESS_CARDS === 'true',
+            games: process.env.FEATURE_GAMES === 'true',
+            booths: process.env.FEATURE_BOOTHS === 'true'
+        };
+
         res.render('admin/project-detail', {
             layout: 'admin',
             pageTitle: `專案詳情 - ${project.project_name}`,
             currentPage: 'projects',
             user: req.user,
             project: project,
+            features: features,
             breadcrumbs: [
                 { name: '儀表板', url: '/admin/dashboard' },
                 { name: '專案管理', url: '/admin/projects' },

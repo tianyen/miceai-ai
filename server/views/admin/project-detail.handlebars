@@ -57,6 +57,11 @@
                         {{/if}}
                     </span>
                 </div>
+                <div class="info-item" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eee;">
+                    <button class="btn btn-success" onclick="openScannerWindow()" style="width: 100%;">
+                        <i class="fas fa-qrcode"></i> QR Code 掃描報到
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -78,15 +83,22 @@
 <div class="project-tabs">
     <nav class="tab-nav">
         <button class="tab-btn active" data-tab="participants">參加者管理</button>
+        <button class="tab-btn" data-tab="email-management">📧 郵件管理</button>
         <button class="tab-btn" data-tab="form-settings">報名設定</button>
-        <button class="tab-btn" data-tab="questionnaires">問卷狀況</button>
         <button class="tab-btn" data-tab="checkin">簽到管理</button>
         <button class="tab-btn" data-tab="tracking">參加者追蹤</button>
+        {{#if features.questionnaires}}
+        <button class="tab-btn" data-tab="questionnaires">問卷狀況</button>
+        {{/if}}
+        {{#if features.businessCards}}
         <button class="tab-btn" data-tab="business-cards">QR Code 名片</button>
-        <button class="tab-btn" data-tab="qr-scanner">QR掃描</button>
+        {{/if}}
+        {{#if features.booths}}
         <button class="tab-btn" data-tab="booths">攤位設定</button>
+        {{/if}}
+        {{#if features.games}}
         <button class="tab-btn" data-tab="games">遊戲設定</button>
-        <button class="tab-btn" data-tab="pre-event-email">📧 行前通知</button>
+        {{/if}}
         {{#if (eq project.project_code 'INFOMONTH2025')}}
         <button class="tab-btn" data-tab="wish-tree">🌳 許願樹</button>
         {{/if}}
@@ -246,6 +258,7 @@
         </div>
     </div>
 
+    {{#if features.questionnaires}}
     <!-- 問卷狀況 -->
     <div class="tab-content" id="questionnaires-tab">
         <div class="section-header">
@@ -261,6 +274,7 @@
             <div class="loading">載入問卷資料中...</div>
         </div>
     </div>
+    {{/if}}
 
     <!-- 簽到管理 -->
     <div class="tab-content" id="checkin-tab">
@@ -305,6 +319,7 @@
         </div>
     </div>
 
+    {{#if features.businessCards}}
     <!-- QR Code 名片 -->
     <div class="tab-content" id="business-cards-tab">
         <div class="section-header">
@@ -363,31 +378,9 @@
             <p>載入中...</p>
         </div>
     </div>
+    {{/if}}
 
-    <!-- QR掃描 -->
-    <div class="tab-content" id="qr-scanner-tab">
-        <div class="section-header">
-            <h3>QR Code 掃描器</h3>
-            <div class="section-actions">
-                <button class="btn btn-primary" onclick="openScannerWindow()">
-                    <i class="fas fa-external-link-alt"></i> 開啟掃描視窗
-                </button>
-            </div>
-        </div>
-
-        <div class="scanner-info">
-            <div class="info-box">
-                <h4>掃描說明</h4>
-                <ul>
-                    <li>點擊「開啟掃描視窗」開始掃描</li>
-                    <li>將參加者的 QR Code 對準攝影機</li>
-                    <li>系統會自動識別並處理簽到</li>
-                    <li>掃描結果會即時更新到簽到記錄中</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-
+    {{#if features.booths}}
     <!-- 攤位設定 -->
     <div class="tab-content" id="booths-tab">
         <div class="section-header">
@@ -428,7 +421,9 @@
             </div>
         </div>
     </div>
+    {{/if}}
 
+    {{#if features.games}}
     <!-- 遊戲設定 -->
     <div class="tab-content" id="games-tab">
         <div class="section-header">
@@ -468,66 +463,296 @@
             </div>
         </div>
     </div>
+    {{/if}}
 
-    <!-- 行前通知 Tab -->
-    <div class="tab-content" id="pre-event-email-tab">
+    <!-- 郵件管理 Tab -->
+    <div class="tab-content" id="email-management-tab">
         <div class="section-header">
-            <h3>📧 行前通知郵件</h3>
-            <div class="section-actions">
-                <button class="btn btn-primary" id="btn-send-pre-event-email" onclick="sendPreEventEmail()">
-                    <i class="fas fa-paper-plane"></i> 發送給所有參加者
+            <h3>📧 郵件管理</h3>
+        </div>
+
+        <!-- Sub-tabs 導航 -->
+        <div class="sub-tabs">
+            <button class="sub-tab-btn active" data-subtab="registration-email">📩 報名確認信</button>
+            <button class="sub-tab-btn" data-subtab="pre-event-email">📨 行前通知</button>
+            <button class="sub-tab-btn" data-subtab="email-templates">📋 Email 模板預覽</button>
+        </div>
+
+        <!-- Sub-tab 1: 報名確認信 -->
+        <div class="sub-tab-content active" id="registration-email-subtab">
+            <div class="subtab-header">
+                <h4>報名確認信（重寄邀請信）</h4>
+                <div class="section-actions">
+                    <button class="btn btn-success" id="btn-resend-selected" onclick="resendRegistrationEmailToSelected()" disabled>
+                        <i class="fas fa-paper-plane"></i> 重寄選取 (<span id="resend-selected-count">0</span>)
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadRegistrationRecipients()">
+                        <i class="fas fa-sync-alt"></i> 重新整理
+                    </button>
+                </div>
+            </div>
+
+            <!-- 統計資訊 -->
+            <div class="stats-grid-inline" style="margin-bottom: 1rem;">
+                <div class="stat-card-inline primary">
+                    <div class="stat-value" id="reg-email-total">-</div>
+                    <div class="stat-label">總報名人數</div>
+                </div>
+                <div class="stat-card-inline info">
+                    <div class="stat-value" id="reg-email-group-count">-</div>
+                    <div class="stat-label">團體報名組數</div>
+                </div>
+            </div>
+
+            <!-- 篩選器 -->
+            <div class="filter-bar-inline" style="margin-bottom: 1rem;">
+                <input type="text" id="reg-email-search" class="form-control" placeholder="搜尋姓名或 Email..." style="max-width: 250px;">
+                <label style="margin-left: 1rem;">
+                    <input type="checkbox" id="reg-email-group-only"> 僅顯示團體報名
+                </label>
+                <button class="btn btn-primary btn-sm" onclick="loadRegistrationRecipients()" style="margin-left: 0.5rem;">
+                    <i class="fas fa-search"></i> 查詢
                 </button>
-                <button class="btn btn-secondary" onclick="loadPreEventRecipients()">
-                    <i class="fas fa-sync-alt"></i> 重新整理
+            </div>
+
+            <!-- 收件者列表 -->
+            <div class="data-table-container">
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"><input type="checkbox" id="select-all-reg" onchange="toggleSelectAllRegistration()"></th>
+                                <th>姓名</th>
+                                <th>Email</th>
+                                <th>電話</th>
+                                <th>類型</th>
+                                <th>報名時間</th>
+                                <th style="width: 100px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reg-email-tbody">
+                            <tr>
+                                <td colspan="7" class="text-center">
+                                    <div class="spinner"></div>
+                                    <p>載入中...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sub-tab 2: 行前通知 -->
+        <div class="sub-tab-content" id="pre-event-email-subtab">
+            <div class="subtab-header">
+                <h4>行前通知郵件</h4>
+                <div class="section-actions">
+                    <button class="btn btn-success" id="btn-send-selected" onclick="sendPreEventEmailToSelected()" disabled>
+                        <i class="fas fa-paper-plane"></i> 發送給選取 (<span id="selected-count">0</span>)
+                    </button>
+                    <button class="btn btn-primary" id="btn-send-pre-event-email" onclick="sendPreEventEmail()">
+                        <i class="fas fa-paper-plane"></i> 發送給全部
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadPreEventRecipients()">
+                        <i class="fas fa-sync-alt"></i> 重新整理
+                    </button>
+                </div>
+            </div>
+
+            <!-- 統計資訊 -->
+            <div class="stats-grid-inline" style="margin-bottom: 1.5rem;">
+                <div class="stat-card-inline primary">
+                    <div class="stat-value" id="pre-event-total">-</div>
+                    <div class="stat-label">可發送人數</div>
+                </div>
+                <div class="stat-card-inline info">
+                    <div class="stat-value" id="pre-event-has-email">-</div>
+                    <div class="stat-label">有 Email</div>
+                </div>
+            </div>
+
+            <!-- 預覽區域 -->
+            <div class="preview-section" style="margin-bottom: 1.5rem;">
+                <h4 style="margin-bottom: 1rem;">📄 郵件預覽</h4>
+                <div class="email-preview-container" style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden; max-height: 400px; overflow-y: auto;">
+                    <iframe id="pre-event-email-preview" style="width: 100%; height: 400px; border: none;"></iframe>
+                </div>
+            </div>
+
+            <!-- 收件者列表 -->
+            <div class="data-table-container">
+                <h4 style="margin-bottom: 1rem;">收件者列表 <small class="text-muted">（勾選後可單獨發送）</small></h4>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"><input type="checkbox" id="select-all-recipients" onchange="toggleSelectAllRecipients()"></th>
+                                <th>姓名</th>
+                                <th>Email</th>
+                                <th>電話</th>
+                                <th>報名時間</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pre-event-recipients-tbody">
+                            <tr>
+                                <td colspan="5" class="text-center">
+                                    <div class="spinner"></div>
+                                    <p>載入中...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sub-tab 3: Email 模板預覽 -->
+        <div class="sub-tab-content" id="email-templates-subtab">
+            <div class="subtab-header">
+                <h4>Email 模板預覽</h4>
+                <p class="text-muted">預覽系統發送的各種 Email 模板完整樣式</p>
+            </div>
+
+            <!-- 模板選擇按鈕 -->
+            <div class="template-selector" style="margin-bottom: 1.5rem;">
+                <button class="btn btn-outline-primary template-btn active" data-template="individual" onclick="previewEmailTemplate('individual')">
+                    <i class="fas fa-user"></i> 個人報名確認
+                </button>
+                <button class="btn btn-outline-primary template-btn" data-template="group-primary" onclick="previewEmailTemplate('group-primary')">
+                    <i class="fas fa-user-tie"></i> 團體主報名人
+                </button>
+                <button class="btn btn-outline-primary template-btn" data-template="group-member" onclick="previewEmailTemplate('group-member')">
+                    <i class="fas fa-users"></i> 團體同行者
+                </button>
+                <button class="btn btn-outline-primary template-btn" data-template="pre-event" onclick="previewEmailTemplate('pre-event')">
+                    <i class="fas fa-bell"></i> 行前通知
                 </button>
             </div>
-        </div>
 
-        <!-- 統計資訊 -->
-        <div class="stats-grid-inline" style="margin-bottom: 1.5rem;">
-            <div class="stat-card-inline primary">
-                <div class="stat-value" id="pre-event-total">-</div>
-                <div class="stat-label">可發送人數</div>
-            </div>
-            <div class="stat-card-inline info">
-                <div class="stat-value" id="pre-event-has-email">-</div>
-                <div class="stat-label">有 Email</div>
-            </div>
-        </div>
-
-        <!-- 預覽區域 -->
-        <div class="preview-section" style="margin-bottom: 1.5rem;">
-            <h4 style="margin-bottom: 1rem;">📄 郵件預覽</h4>
-            <div class="email-preview-container" style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden; max-height: 500px; overflow-y: auto;">
-                <iframe id="pre-event-email-preview" style="width: 100%; height: 500px; border: none;"></iframe>
-            </div>
-        </div>
-
-        <!-- 收件者列表 -->
-        <div class="data-table-container">
-            <h4 style="margin-bottom: 1rem;">收件者列表</h4>
-            <div class="table-responsive">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>姓名</th>
-                            <th>Email</th>
-                            <th>電話</th>
-                            <th>報名時間</th>
-                        </tr>
-                    </thead>
-                    <tbody id="pre-event-recipients-tbody">
-                        <tr>
-                            <td colspan="4" class="text-center">
-                                <div class="spinner"></div>
-                                <p>載入中...</p>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <!-- 模板預覽區 -->
+            <div class="email-template-preview" style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                <div class="preview-header" style="background: #f8f9fa; padding: 0.75rem 1rem; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+                    <span id="template-preview-title">個人報名確認信</span>
+                    <span class="badge badge-secondary" id="template-preview-type">registration</span>
+                </div>
+                <iframe id="email-template-iframe" style="width: 100%; height: 600px; border: none;"></iframe>
             </div>
         </div>
     </div>
+
+    <!-- Sub-tabs 樣式 -->
+    <style>
+        .sub-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 0;
+        }
+
+        .sub-tab-btn {
+            padding: 0.75rem 1.25rem;
+            border: none;
+            background: transparent;
+            color: #6c757d;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+
+        .sub-tab-btn:hover {
+            color: #495057;
+            background: #f8f9fa;
+        }
+
+        .sub-tab-btn.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+        }
+
+        .sub-tab-content {
+            display: none;
+        }
+
+        .sub-tab-content.active {
+            display: block;
+        }
+
+        .subtab-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .subtab-header h4 {
+            margin: 0;
+        }
+
+        .filter-bar-inline {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .template-selector {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .template-btn {
+            transition: all 0.2s;
+        }
+
+        .template-btn.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .type-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .type-individual {
+            background-color: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .type-group {
+            background-color: #fff3e0;
+            color: #e65100;
+        }
+
+        .type-group-primary {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .group-expand-btn {
+            background: none;
+            border: none;
+            color: #007bff;
+            cursor: pointer;
+            padding: 0.25rem;
+            font-size: 0.875rem;
+        }
+
+        .group-expand-btn:hover {
+            text-decoration: underline;
+        }
+    </style>
 
     {{#if (eq project.project_code 'INFOMONTH2025')}}
     <!-- 許願樹 Tab -->

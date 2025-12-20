@@ -72,6 +72,12 @@ function switchTab(tabName) {
         case 'form-settings':
             loadFormConfig();
             break;
+        case 'email-management':
+            // 首次載入報名確認信 sub-tab
+            if ($('#reg-email-total').text() === '-') {
+                loadRegistrationRecipients();
+            }
+            break;
     }
 }
 
@@ -1787,7 +1793,7 @@ function loadPreEventEmailPreview() {
 function loadPreEventRecipients() {
     const tbody = $('#pre-event-recipients-tbody');
 
-    tbody.html('<tr><td colspan="4" class="text-center"><div class="spinner"></div><p>載入中...</p></td></tr>');
+    tbody.html('<tr><td colspan="5" class="text-center"><div class="spinner"></div><p>載入中...</p></td></tr>');
 
     $.ajax({
         url: `/api/admin/projects/${projectId}/pre-event-email/recipients`,
@@ -1801,15 +1807,20 @@ function loadPreEventRecipients() {
                 $('#pre-event-total').text(total);
                 $('#pre-event-has-email').text(total);
 
+                // 重置全選 checkbox
+                $('#select-all-recipients').prop('checked', false);
+                updateSelectedCount();
+
                 // 渲染列表
                 if (recipients.length === 0) {
-                    tbody.html('<tr><td colspan="4" class="text-center text-muted">沒有可發送的參加者</td></tr>');
+                    tbody.html('<tr><td colspan="5" class="text-center text-muted">沒有可發送的參加者</td></tr>');
                 } else {
                     let html = '';
                     recipients.forEach(function(r) {
                         const createdAt = r.created_at ? new Date(r.created_at).toLocaleString('zh-TW') : '-';
                         html += `
                             <tr>
+                                <td><input type="checkbox" class="recipient-checkbox" data-id="${r.id}" onchange="updateSelectedCount()"></td>
                                 <td>${escapeHtml(r.submitter_name || '-')}</td>
                                 <td>${escapeHtml(r.submitter_email || '-')}</td>
                                 <td>${escapeHtml(r.submitter_phone || '-')}</td>
@@ -1820,11 +1831,82 @@ function loadPreEventRecipients() {
                     tbody.html(html);
                 }
             } else {
-                tbody.html('<tr><td colspan="4" class="text-center text-danger">載入失敗</td></tr>');
+                tbody.html('<tr><td colspan="5" class="text-center text-danger">載入失敗</td></tr>');
             }
         },
         error: function() {
-            tbody.html('<tr><td colspan="4" class="text-center text-danger">載入失敗</td></tr>');
+            tbody.html('<tr><td colspan="5" class="text-center text-danger">載入失敗</td></tr>');
+        }
+    });
+}
+
+/**
+ * 全選/取消全選收件者
+ */
+function toggleSelectAllRecipients() {
+    const isChecked = $('#select-all-recipients').is(':checked');
+    $('.recipient-checkbox').prop('checked', isChecked);
+    updateSelectedCount();
+}
+
+/**
+ * 更新選取人數
+ */
+function updateSelectedCount() {
+    const count = $('.recipient-checkbox:checked').length;
+    $('#selected-count').text(count);
+    $('#btn-send-selected').prop('disabled', count === 0);
+}
+
+/**
+ * 發送行前通知給選取的參加者
+ */
+function sendPreEventEmailToSelected() {
+    const selectedIds = [];
+    $('.recipient-checkbox:checked').each(function() {
+        selectedIds.push(parseInt($(this).data('id')));
+    });
+
+    if (selectedIds.length === 0) {
+        alert('請先選取要發送的參加者');
+        return;
+    }
+
+    if (!confirm(`確定要發送行前通知給 ${selectedIds.length} 位選取的參加者嗎？\n\n每封信間隔 1.5 秒發送`)) {
+        return;
+    }
+
+    const btn = $('#btn-send-selected');
+    const originalHtml = btn.html();
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 發送中...');
+
+    const csrfToken = window.__CSRF_TOKEN__ || $('meta[name="csrf-token"]').attr('content');
+
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/pre-event-email/send`,
+        method: 'POST',
+        headers: { 'X-CSRF-Token': csrfToken },
+        contentType: 'application/json',
+        data: JSON.stringify({ participantIds: selectedIds }),
+        success: function(response) {
+            if (response.success && response.data) {
+                const data = response.data;
+                alert(`✅ 發送完成！\n\n成功：${data.successCount} 封\n失敗：${data.failCount} 封`);
+                // 取消選取
+                $('.recipient-checkbox').prop('checked', false);
+                $('#select-all-recipients').prop('checked', false);
+                updateSelectedCount();
+            } else {
+                alert('❌ 發送失敗：' + (response.message || '未知錯誤'));
+            }
+        },
+        error: function(xhr) {
+            const msg = xhr.responseJSON?.message || '發送失敗';
+            alert('❌ 發送失敗：' + msg);
+        },
+        complete: function() {
+            btn.prop('disabled', false).html(originalHtml);
+            updateSelectedCount();
         }
     });
 }
@@ -1840,7 +1922,13 @@ function sendPreEventEmail() {
         return;
     }
 
-    if (!confirm(`確定要發送行前通知給 ${total} 位參加者嗎？\n\n此操作無法撤銷！`)) {
+    // 計算預估時間（每封 1.5 秒）
+    const estimatedTime = Math.ceil(parseInt(total) * 1.5);
+    const minutes = Math.floor(estimatedTime / 60);
+    const seconds = estimatedTime % 60;
+    const timeStr = minutes > 0 ? `約 ${minutes} 分 ${seconds} 秒` : `約 ${seconds} 秒`;
+
+    if (!confirm(`確定要發送行前通知給 ${total} 位參加者嗎？\n\n⏱ 預估時間：${timeStr}\n📧 每封信間隔 1.5 秒發送（避免被 Gmail 判定為垃圾郵件）`)) {
         return;
     }
 
@@ -1855,6 +1943,7 @@ function sendPreEventEmail() {
         method: 'POST',
         headers: { 'X-CSRF-Token': csrfToken },
         contentType: 'application/json',
+        data: JSON.stringify({}),
         success: function(response) {
             if (response.success && response.data) {
                 const data = response.data;
@@ -1881,4 +1970,247 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ========== 郵件管理 Sub-tabs 功能 ==========
+
+/**
+ * 初始化 Sub-tabs 事件
+ */
+$(document).ready(function() {
+    // Sub-tab 切換
+    $('.sub-tab-btn').on('click', function() {
+        const subtabName = $(this).data('subtab');
+        switchSubTab(subtabName);
+    });
+});
+
+/**
+ * 切換 Sub-tab
+ */
+function switchSubTab(subtabName) {
+    // 切換按鈕 active 狀態
+    $('.sub-tab-btn').removeClass('active');
+    $(`.sub-tab-btn[data-subtab="${subtabName}"]`).addClass('active');
+
+    // 切換內容區塊
+    $('.sub-tab-content').removeClass('active');
+    $(`#${subtabName}-subtab`).addClass('active');
+
+    // 根據 sub-tab 載入資料
+    switch (subtabName) {
+        case 'registration-email':
+            if ($('#reg-email-total').text() === '-') {
+                loadRegistrationRecipients();
+            }
+            break;
+        case 'pre-event-email':
+            if ($('#pre-event-total').text() === '-') {
+                loadPreEventEmailPreview();
+                loadPreEventRecipients();
+            }
+            break;
+        case 'email-templates':
+            // 預設載入個人報名確認模板
+            if ($('#email-template-iframe').attr('src') === '' || !$('#email-template-iframe').attr('src')) {
+                previewEmailTemplate('individual');
+            }
+            break;
+    }
+}
+
+// ========== Sub-tab 1: 報名確認信 ==========
+
+/**
+ * 載入報名確認信收件者列表
+ */
+function loadRegistrationRecipients() {
+    const tbody = $('#reg-email-tbody');
+    const search = $('#reg-email-search').val() || '';
+    const groupOnly = $('#reg-email-group-only').is(':checked');
+
+    tbody.html('<tr><td colspan="7" class="text-center"><div class="spinner"></div><p>載入中...</p></td></tr>');
+
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/registration-emails/recipients`,
+        method: 'GET',
+        data: { search, groupOnly },
+        success: function(response) {
+            if (response.success && response.data) {
+                const { recipients, stats } = response.data;
+
+                // 更新統計
+                $('#reg-email-total').text(stats.total || 0);
+                $('#reg-email-group-count').text(stats.groupCount || 0);
+
+                // 重置全選
+                $('#select-all-reg').prop('checked', false);
+                updateResendSelectedCount();
+
+                // 渲染列表
+                if (recipients.length === 0) {
+                    tbody.html('<tr><td colspan="7" class="text-center text-muted">沒有符合條件的報名者</td></tr>');
+                } else {
+                    let html = '';
+                    recipients.forEach(function(r) {
+                        const createdAt = r.created_at ? new Date(r.created_at).toLocaleString('zh-TW') : '-';
+                        const typeBadge = r.group_id
+                            ? (r.is_primary ? '<span class="type-badge type-group-primary">團體主報名</span>' : '<span class="type-badge type-group">團體同行</span>')
+                            : '<span class="type-badge type-individual">個人</span>';
+
+                        html += `
+                            <tr>
+                                <td><input type="checkbox" class="reg-checkbox" data-id="${r.id}" data-trace="${r.trace_id}" onchange="updateResendSelectedCount()"></td>
+                                <td>${escapeHtml(r.submitter_name || '-')}</td>
+                                <td>${escapeHtml(r.submitter_email || '-')}</td>
+                                <td>${escapeHtml(r.submitter_phone || '-')}</td>
+                                <td>${typeBadge}</td>
+                                <td>${createdAt}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="resendSingleRegistrationEmail('${r.trace_id}')" title="重寄邀請信">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    tbody.html(html);
+                }
+            } else {
+                tbody.html('<tr><td colspan="7" class="text-center text-danger">載入失敗</td></tr>');
+            }
+        },
+        error: function() {
+            tbody.html('<tr><td colspan="7" class="text-center text-danger">載入失敗</td></tr>');
+        }
+    });
+}
+
+/**
+ * 全選/取消全選報名確認信收件者
+ */
+function toggleSelectAllRegistration() {
+    const isChecked = $('#select-all-reg').is(':checked');
+    $('.reg-checkbox').prop('checked', isChecked);
+    updateResendSelectedCount();
+}
+
+/**
+ * 更新重寄選取人數
+ */
+function updateResendSelectedCount() {
+    const count = $('.reg-checkbox:checked').length;
+    $('#resend-selected-count').text(count);
+    $('#btn-resend-selected').prop('disabled', count === 0);
+}
+
+/**
+ * 重寄單一報名確認信
+ */
+function resendSingleRegistrationEmail(traceId) {
+    if (!confirm('確定要重寄邀請信給此報名者嗎？')) return;
+
+    const csrfToken = getCsrfToken();
+
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/registration-emails/resend`,
+        method: 'POST',
+        headers: { 'X-CSRF-Token': csrfToken },
+        contentType: 'application/json',
+        data: JSON.stringify({ traceIds: [traceId] }),
+        success: function(response) {
+            if (response.success) {
+                showNotification('邀請信已重寄', 'success');
+            } else {
+                showNotification(response.message || '重寄失敗', 'error');
+            }
+        },
+        error: function(xhr) {
+            showNotification(xhr.responseJSON?.message || '重寄失敗', 'error');
+        }
+    });
+}
+
+/**
+ * 重寄選取的報名確認信
+ */
+function resendRegistrationEmailToSelected() {
+    const selectedTraceIds = [];
+    $('.reg-checkbox:checked').each(function() {
+        selectedTraceIds.push($(this).data('trace'));
+    });
+
+    if (selectedTraceIds.length === 0) {
+        alert('請先選取要重寄的報名者');
+        return;
+    }
+
+    // 計算預估時間
+    const estimatedTime = Math.ceil(selectedTraceIds.length * 1.5);
+    const minutes = Math.floor(estimatedTime / 60);
+    const seconds = estimatedTime % 60;
+    const timeStr = minutes > 0 ? `約 ${minutes} 分 ${seconds} 秒` : `約 ${seconds} 秒`;
+
+    if (!confirm(`確定要重寄邀請信給 ${selectedTraceIds.length} 位選取的報名者嗎？\n\n⏱ 預估時間：${timeStr}\n📧 每封信間隔 1.5 秒發送`)) {
+        return;
+    }
+
+    const btn = $('#btn-resend-selected');
+    const originalHtml = btn.html();
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 發送中...');
+
+    const csrfToken = getCsrfToken();
+
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/registration-emails/resend`,
+        method: 'POST',
+        headers: { 'X-CSRF-Token': csrfToken },
+        contentType: 'application/json',
+        data: JSON.stringify({ traceIds: selectedTraceIds }),
+        success: function(response) {
+            if (response.success && response.data) {
+                const data = response.data;
+                alert(`✅ 發送完成！\n\n成功：${data.successCount} 封\n失敗：${data.failCount} 封`);
+                // 取消選取
+                $('.reg-checkbox').prop('checked', false);
+                $('#select-all-reg').prop('checked', false);
+                updateResendSelectedCount();
+            } else {
+                alert('❌ 發送失敗：' + (response.message || '未知錯誤'));
+            }
+        },
+        error: function(xhr) {
+            alert('❌ 發送失敗：' + (xhr.responseJSON?.message || '發送失敗'));
+        },
+        complete: function() {
+            btn.prop('disabled', false).html(originalHtml);
+            updateResendSelectedCount();
+        }
+    });
+}
+
+// ========== Sub-tab 3: Email 模板預覽 ==========
+
+/**
+ * 預覽 Email 模板
+ * @param {string} templateType - 'individual' | 'group-primary' | 'group-member' | 'pre-event'
+ */
+function previewEmailTemplate(templateType) {
+    // 更新按鈕 active 狀態
+    $('.template-btn').removeClass('active');
+    $(`.template-btn[data-template="${templateType}"]`).addClass('active');
+
+    // 更新標題
+    const titles = {
+        'individual': '個人報名確認信',
+        'group-primary': '團體主報名人確認信',
+        'group-member': '團體同行者通知信',
+        'pre-event': '行前通知信'
+    };
+    $('#template-preview-title').text(titles[templateType] || '模板預覽');
+    $('#template-preview-type').text(templateType);
+
+    // 載入模板預覽
+    const previewUrl = `/api/admin/projects/${projectId}/email-templates/preview?type=${templateType}`;
+    $('#email-template-iframe').attr('src', previewUrl);
 }

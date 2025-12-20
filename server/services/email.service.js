@@ -1140,15 +1140,20 @@ class EmailService {
      * @returns {Promise<Object>} 發送結果
      */
     async sendPreEventNotificationEmail(participant) {
+        const timestamp = new Date().toISOString();
+        const logPrefix = `[EmailService][${timestamp}]`;
+
         if (!this.enabled) {
-            console.log('[EmailService] Email 功能未啟用，跳過發送行前通知');
+            console.log(`${logPrefix} [SKIP] Email 功能未啟用 | to: ${participant.email || 'N/A'}`);
             return { success: false, message: 'Email 功能未啟用' };
         }
 
         if (!participant.email) {
-            console.log(`[EmailService] 參加者 ${participant.name} 沒有 email，跳過發送`);
+            console.log(`${logPrefix} [SKIP] 無 email | name: ${participant.name}`);
             return { success: false, message: '參加者沒有 email' };
         }
+
+        const subject = '【行前通知】12/24 平安夜公益活動 X 沉浸式露天電影院';
 
         try {
             const html = this.generatePreEventEmailHtml(participant.name || '朋友');
@@ -1156,14 +1161,14 @@ class EmailService {
             await this.transporter.sendMail({
                 from: config.from,
                 to: participant.email,
-                subject: '【行前通知】12/24 平安夜公益活動 X 沉浸式露天電影院',
+                subject: subject,
                 html: html
             });
 
-            console.log(`[EmailService] 行前通知已發送給: ${participant.email}`);
+            console.log(`${logPrefix} [SUCCESS] 行前通知 | from: ${config.from} | to: ${participant.email} | name: ${participant.name} | subject: ${subject}`);
             return { success: true, email: participant.email };
         } catch (error) {
-            console.error(`[EmailService] 發送行前通知失敗 (${participant.email}):`, error);
+            console.error(`${logPrefix} [FAILED] 行前通知 | from: ${config.from} | to: ${participant.email} | name: ${participant.name} | error: ${error.message}`);
             return { success: false, message: error.message, email: participant.email };
         }
     }

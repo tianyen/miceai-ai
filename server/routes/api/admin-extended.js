@@ -947,6 +947,186 @@ router.get('/projects/:id/tracking', authenticateSession, async (req, res) => {
     }
 });
 
+// ========== 報名確認信 APIs ==========
+
+// 取得報名確認信收件者列表
+router.get('/projects/:id/registration-emails/recipients', authenticateSession, async (req, res) => {
+    try {
+        const projectId = req.params.id;
+        const { search, groupOnly } = req.query;
+        const submissionRepo = require('../../repositories/submission.repository');
+
+        // 基礎查詢
+        let sql = `
+            SELECT
+                id,
+                trace_id,
+                submitter_name,
+                submitter_email,
+                submitter_phone,
+                group_id,
+                is_primary,
+                created_at
+            FROM form_submissions
+            WHERE project_id = ?
+        `;
+        const params = [projectId];
+
+        // 搜尋過濾
+        if (search && search.trim()) {
+            sql += ` AND (submitter_name LIKE ? OR submitter_email LIKE ?)`;
+            const searchPattern = `%${search.trim()}%`;
+            params.push(searchPattern, searchPattern);
+        }
+
+        // 僅顯示團體報名
+        if (groupOnly === 'true') {
+            sql += ` AND group_id IS NOT NULL`;
+        }
+
+        sql += ` ORDER BY created_at DESC`;
+
+        const recipients = await submissionRepo.rawAll(sql, params);
+
+        // 統計
+        const statsSql = `
+            SELECT
+                COUNT(*) as total,
+                COUNT(DISTINCT group_id) as groupCount
+            FROM form_submissions
+            WHERE project_id = ?
+        `;
+        const statsResult = await submissionRepo.rawGet(statsSql, [projectId]);
+
+        responses.success(res, {
+            recipients,
+            stats: {
+                total: statsResult?.total || 0,
+                groupCount: statsResult?.groupCount || 0
+            }
+        });
+    } catch (error) {
+        console.error('取得報名確認信收件者失敗:', error);
+        responses.error(res, '取得收件者列表失敗', 500);
+    }
+});
+
+// 重寄報名確認信
+router.post('/projects/:id/registration-emails/resend', authenticateSession, async (req, res) => {
+    try {
+        const projectId = req.params.id;
+        const { traceIds } = req.body;
+        const { registrationService } = require('../../services');
+
+        if (!traceIds || !Array.isArray(traceIds) || traceIds.length === 0) {
+            return responses.badRequest(res, '請指定要重寄的報名者');
+        }
+
+        console.log(`[RegistrationEmail] 開始重寄邀請信，共 ${traceIds.length} 位`);
+
+        // 延遲函數（避免 Gmail SMTP spam 偵測）
+        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        let successCount = 0;
+        let failCount = 0;
+        const results = [];
+
+        for (let i = 0; i < traceIds.length; i++) {
+            const traceId = traceIds[i];
+
+            // 發送前延遲（第一封除外）
+            if (i > 0) {
+                await delay(1500);
+            }
+
+            console.log(`[RegistrationEmail] 發送 ${i + 1}/${traceIds.length}: ${traceId}`);
+
+            try {
+                const result = await registrationService.resendInvitationEmail(traceId);
+                results.push({ traceId, success: true });
+                successCount++;
+            } catch (err) {
+                console.error(`[RegistrationEmail] 發送失敗 ${traceId}:`, err.message);
+                results.push({ traceId, success: false, error: err.message });
+                failCount++;
+            }
+        }
+
+        console.log(`[RegistrationEmail] 發送完成：成功 ${successCount}，失敗 ${failCount}`);
+
+        responses.success(res, {
+            message: `已發送 ${successCount} 封，失敗 ${failCount} 封`,
+            successCount,
+            failCount,
+            total: traceIds.length,
+            results
+        });
+    } catch (error) {
+        console.error('重寄報名確認信失敗:', error);
+        responses.error(res, '重寄失敗', 500);
+    }
+});
+
+// ========== Email 模板預覽 APIs ==========
+
+// 預覽 Email 模板
+router.get('/projects/:id/email-templates/preview', authenticateSession, async (req, res) => {
+    try {
+        const { type } = req.query;
+        const { emailService } = require('../../services');
+
+        let html = '';
+
+        switch (type) {
+            case 'individual':
+                html = emailService._buildRegistrationEmailHtml({
+                    name: '王小明',
+                    email: 'example@email.com',
+                    traceId: 'MICE-SAMPLE-001',
+                    passCode: '123456',
+                    eventName: '平安夜公益活動',
+                    eventLocation: '誠品生活松菸店',
+                    eventDate: '2025/12/24'
+                });
+                break;
+            case 'group-primary':
+                html = emailService._buildGroupRegistrationEmailHtml({
+                    name: '王大明',
+                    traceId: 'MICE-GRP-001',
+                    passCode: '654321',
+                    eventName: '平安夜公益活動',
+                    eventLocation: '誠品生活松菸店',
+                    eventDate: '2025/12/24',
+                    totalCount: 3,
+                    otherMembers: ['王小華', '王小弟']
+                });
+                break;
+            case 'group-member':
+                html = emailService._buildMemberEmailHtml({
+                    name: '王小華',
+                    traceId: 'MICE-MEM-001',
+                    passCode: '111111',
+                    eventName: '平安夜公益活動',
+                    eventLocation: '誠品生活松菸店',
+                    eventDate: '2025/12/24',
+                    primaryName: '王大明',
+                    primaryEmail: 'primary@email.com'
+                });
+                break;
+            case 'pre-event':
+                html = emailService.generatePreEventEmailHtml('王小明');
+                break;
+            default:
+                html = '<p>請選擇模板類型</p>';
+        }
+
+        responses.html(res, html);
+    } catch (error) {
+        console.error('預覽 Email 模板失敗:', error);
+        responses.html(res, `<p style="color: red;">載入模板失敗: ${error.message}</p>`);
+    }
+});
+
 // ========== 行前通知 Email APIs ==========
 
 // 預覽行前通知 Email
@@ -998,15 +1178,16 @@ router.get('/projects/:id/pre-event-email/recipients', authenticateSession, asyn
     }
 });
 
-// 發送行前通知給所有參加者
+// 發送行前通知給參加者（支援全部或選取）
 router.post('/projects/:id/pre-event-email/send', authenticateSession, async (req, res) => {
     try {
         const projectId = req.params.id;
+        const { participantIds } = req.body; // 可選：指定發送對象
         const { emailService } = require('../../services');
         const submissionRepo = require('../../repositories/submission.repository');
 
         // 查詢有 email 的參加者
-        const sql = `
+        let sql = `
             SELECT
                 id,
                 submitter_name,
@@ -1016,19 +1197,41 @@ router.post('/projects/:id/pre-event-email/send', authenticateSession, async (re
               AND submitter_email IS NOT NULL
               AND submitter_email != ''
         `;
+        const params = [projectId];
 
-        const participants = await submissionRepo.rawAll(sql, [projectId]);
+        // 如果有指定 participantIds，只發送給選取的人
+        if (participantIds && Array.isArray(participantIds) && participantIds.length > 0) {
+            const placeholders = participantIds.map(() => '?').join(',');
+            sql += ` AND id IN (${placeholders})`;
+            params.push(...participantIds);
+        }
+
+        const participants = await submissionRepo.rawAll(sql, params);
 
         if (participants.length === 0) {
             return responses.error(res, '沒有可發送的參加者', 400);
         }
 
-        // 批量發送
+        console.log(`[PreEventEmail] 開始發送行前通知，共 ${participants.length} 位參加者`);
+
+        // 延遲函數（避免 Gmail SMTP spam 偵測）
+        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        // 逐一發送，每封間隔 1.5 秒
         const results = [];
         let successCount = 0;
         let failCount = 0;
 
-        for (const p of participants) {
+        for (let i = 0; i < participants.length; i++) {
+            const p = participants[i];
+
+            // 發送前延遲（第一封除外）
+            if (i > 0) {
+                await delay(1500);
+            }
+
+            console.log(`[PreEventEmail] 發送 ${i + 1}/${participants.length}: ${p.submitter_email}`);
+
             const result = await emailService.sendPreEventNotificationEmail({
                 name: p.submitter_name,
                 email: p.submitter_email
@@ -1047,6 +1250,8 @@ router.post('/projects/:id/pre-event-email/send', authenticateSession, async (re
                 failCount++;
             }
         }
+
+        console.log(`[PreEventEmail] 發送完成：成功 ${successCount}，失敗 ${failCount}`);
 
         responses.success(res, {
             message: `已發送 ${successCount} 封，失敗 ${failCount} 封`,
