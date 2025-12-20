@@ -14,6 +14,10 @@
     <!-- jsQR 庫 -->
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{csrfToken}}">
+    <script>window.__CSRF_TOKEN__ = '{{csrfToken}}';</script>
+
     <!-- CSRF Token Utility -->
     <script src="/js/common/csrf.js"></script>
 
@@ -503,6 +507,8 @@
         scannedData = null;
         $('#result-section').removeClass('show');
         $('#result-data').text('');
+        // 重置按鈕狀態
+        $('#process-btn').prop('disabled', false).html('<i class="fas fa-check"></i> 確認報到');
     }
 
     function processCheckin() {

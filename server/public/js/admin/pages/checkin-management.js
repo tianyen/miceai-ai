@@ -564,45 +564,6 @@ window.generateQRForParticipant = function(participantId) {
     });
 };
 
-/**
- * 開啟 QR Code 掃描器（統一掃描器）
- * @description Phase 1 整合：統一使用 /admin/qr-scanner
- */
-window.openCameraScanner = function() {
-    var width = 900;
-    var height = 750;
-    var left = (screen.width - width) / 2;
-    var top = (screen.height - height) / 2;
-
-    // 統一使用 qr-scanner（支援 project_id、掃描歷史、今日統計）
-    var projectId = $('#project-select').val();
-    var scannerUrl = '/admin/qr-scanner';
-    if (projectId) {
-        scannerUrl += '?project_id=' + projectId;
-    }
-
-    var features = 'width=' + width + ',height=' + height + ',left=' + left + ',top=' + top + ',resizable=yes,scrollbars=yes';
-    var scannerWindow = window.open(scannerUrl, 'QRScanner', features);
-
-    if (!scannerWindow) {
-        showNotification('無法開啟掃描視窗，請檢查瀏覽器彈出視窗設定', 'error');
-        return;
-    }
-
-    // 監聽來自掃描視窗的訊息
-    window.addEventListener('message', function(event) {
-        if (event.origin !== window.location.origin) {
-            return;
-        }
-
-        if (event.data.type === 'CHECKIN_SUCCESS') {
-            showNotification('報到成功！', 'success');
-            var projectId = $('#project-select').val();
-            loadParticipants(projectId, 1);
-            loadCheckinStats();
-        }
-    });
-};
 
 // ========== 通知系統 ==========
 

@@ -405,7 +405,10 @@ router.post('/qr-scanner/checkin', authenticateSession, async (req, res) => {
                 children_count: result.participant.children_count,
                 children_ages: result.participant.children_ages,
                 notes: result.participant.notes,
-                adult_age: result.participant.adult_age
+                adult_age: result.participant.adult_age,
+                // Phase 3: 性別和小孩標識
+                gender: result.participant.gender,
+                is_child: result.participant.is_child
             }
         });
     } catch (error) {

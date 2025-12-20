@@ -92,7 +92,10 @@ class CheckinService extends BaseService {
                     children_count: participant.children_count || 0,
                     children_ages: participant.children_ages ? JSON.parse(participant.children_ages) : null,
                     notes: participant.notes,
-                    adult_age: participant.adult_age
+                    adult_age: participant.adult_age,
+                    // Phase 3: 性別和小孩標識
+                    gender: participant.gender,
+                    is_child: !!participant.parent_submission_id
                 }
             };
         }, 'performCheckin');
