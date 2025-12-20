@@ -1,9 +1,15 @@
 /**
  * 安全配置
+ *
+ * 使用 config/index.js 的環境變數配置
+ * - CORS_ORIGIN: 允許的來源（逗號分隔）
+ * - API_RATE_LIMIT_*: API 限流配置
+ * - FRONTEND_API_RATE_LIMIT_*: 前端 API 限流配置
  */
 const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const config = require('./index');
 
 // Helmet 安全配置
 const helmetConfig = helmet({
@@ -23,25 +29,23 @@ const helmetConfig = helmet({
 });
 
 // CORS 配置
-const allowedOrigins = [
-    'http://localhost:3000',
-    'https://localhost:3000',
-    'http://localhost:9999',
-    'http://localhost:9998',
-    'https://localhost:3443',
-    'https://tianyen-service.com:4037',
-    'https://moon2025.tianyen-service.com',
-    'https://backend-0032.miceai.ai',
-    'https://event-0032.miceai.ai'
-];
+// 所有允許的來源都從 CORS_ORIGIN 環境變數讀取（逗號分隔）
+const allowedOrigins = config.security.corsOrigin
+    ? config.security.corsOrigin.split(',').map(o => o.trim()).filter(o => o)
+    : ['http://localhost:3000'];
 
 const corsConfig = cors({
     origin: function (origin, callback) {
         // 允許沒有 origin 的請求（例如 Postman 或服務器到服務器）
         if (!origin) return callback(null, true);
 
-        // 檢查是否在允許列表中
-        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+        // 開發環境允許所有來源
+        if (config.server.env !== 'production') {
+            return callback(null, true);
+        }
+
+        // 生產環境檢查是否在允許列表中
+        if (allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
@@ -49,29 +53,29 @@ const corsConfig = cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token']
 });
 
-// API 限流配置
+// API 限流配置（使用環境變數）
 const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 分鐘
-    max: 500, // 每個 IP 最多 500 次請求（增加限制）
+    windowMs: config.security.apiRateLimit.windowMs,
+    max: config.security.apiRateLimit.maxRequests,
     message: {
         success: false,
         message: 'Too many requests, please try again later'
     },
-    validate: { trustProxy: false } // 禁用 trust proxy 验证
+    validate: { trustProxy: false }
 });
 
-// 前端 API 限流配置（更寬鬆）
+// 前端 API 限流配置（使用環境變數，更寬鬆）
 const frontendApiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 分鐘
-    max: 1000, // 每個 IP 最多 1000 次請求
+    windowMs: config.security.frontendApiRateLimit.windowMs,
+    max: config.security.frontendApiRateLimit.maxRequests,
     message: {
         success: false,
         message: 'Too many requests, please try again later'
     },
-    validate: { trustProxy: false } // 禁用 trust proxy 验证
+    validate: { trustProxy: false }
 });
 
 // 登入限流配置

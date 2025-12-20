@@ -11,10 +11,15 @@ const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+// 載入環境變數和配置
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const config = require('../config');
+
 console.log('🔧 Pre-Setup: 檢查環境...\n');
 
-// 取得資料庫路徑
-const dbPath = path.resolve(__dirname, '../data/mice_ai.db');
+// 從配置取得資料庫路徑（遵守 DATABASE_PATH 環境變數）
+const dbPath = path.resolve(config.database.path);
+console.log(`📁 資料庫路徑: ${dbPath}\n`);
 const walPath = dbPath + '-wal';
 
 /**

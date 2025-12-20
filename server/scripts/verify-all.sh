@@ -98,6 +98,12 @@ if ! check_and_start_server; then
     exit 1
 fi
 
+# 0. 資料庫路徑配置驗證
+run_test "資料庫路徑配置驗證" "node scripts/verify-db-paths.js"
+
+# 0.5. 資料庫 Schema 驗證
+run_test "資料庫 Schema 驗證" "node scripts/verify-schema.js"
+
 # 1. API v1 端點測試
 run_test "API v1 端點測試" "node scripts/test-api-v1-endpoints.js"
 

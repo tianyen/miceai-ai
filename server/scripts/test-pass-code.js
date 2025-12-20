@@ -7,8 +7,14 @@ const http = require('http');
 const sqlite3 = require('better-sqlite3');
 const path = require('path');
 
+// 載入環境變數和配置
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const config = require('../config');
+
 const API_BASE = 'http://localhost:3000/api/v1';
-const DB_PATH = path.join(__dirname, '../data/mice_ai.db');
+
+// 從配置取得資料庫路徑（遵守 DATABASE_PATH 環境變數）
+const DB_PATH = path.resolve(config.database.path);
 
 async function httpRequest(url, options = {}) {
     return new Promise((resolve, reject) => {

@@ -6,7 +6,13 @@
 const path = require('path');
 const Database = require('better-sqlite3');
 
-const dbPath = path.join(__dirname, '../data/mice_ai.db');
+// 載入環境變數和配置
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const config = require('../config');
+
+// 從配置取得資料庫路徑（遵守 DATABASE_PATH 環境變數）
+const dbPath = path.resolve(config.database.path);
+console.log(`📁 資料庫路徑: ${dbPath}\n`);
 const db = new Database(dbPath);
 
 function query(sql, params = []) {

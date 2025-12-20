@@ -82,15 +82,17 @@ const scriptFiles = fs.readdirSync(scriptsDir)
     .filter(file => file.endsWith('.js') && file !== 'verify-db-paths.js');
 
 const pathPatterns = {
-    config: /const\s+dbPath\s*=\s*path\.resolve\(config\.database\.path\)/,
+    config: /const\s+(dbPath|DB_PATH)\s*=\s*path\.resolve\(config\.database\.path\)/i,
     dbPathModule: /const\s+{\s*getDbPath\s*}\s*=\s*require\(['"]\.\/db-path['"]\)/,
-    hardcoded: /const\s+dbPath\s*=\s*path\.join\(__dirname,\s*['"]\.\.\/data\/mice_ai\.db['"]\)/,
+    utilsDbModule: /const\s+{\s*(createDb|getDbPath)[^}]*}\s*=\s*require\(['"]\.\/utils\/db['"]\)/,
+    hardcoded: /const\s+(dbPath|DB_PATH)\s*=\s*path\.join\(__dirname,\s*['"]\.\.\/data\/mice_ai\.db['"]\)/i,
     wrong: /new\s+sqlite3\.Database\(['"](?!.*mice_ai\.db)/
 };
 
 const results = {
     config: [],
     dbPathModule: [],
+    utilsDbModule: [],
     hardcoded: [],
     unknown: [],
     noDb: []
@@ -99,18 +101,20 @@ const results = {
 scriptFiles.forEach(file => {
     const filePath = path.join(scriptsDir, file);
     const content = fs.readFileSync(filePath, 'utf8');
-    
-    // 檢查是否使用 sqlite3
-    if (!content.includes('sqlite3')) {
+
+    // 檢查是否使用 sqlite3 或 better-sqlite3
+    if (!content.includes('sqlite3') && !content.includes('better-sqlite3')) {
         results.noDb.push(file);
         return;
     }
-    
+
     // 檢查路徑配置方式
     if (pathPatterns.config.test(content)) {
         results.config.push(file);
     } else if (pathPatterns.dbPathModule.test(content)) {
         results.dbPathModule.push(file);
+    } else if (pathPatterns.utilsDbModule.test(content)) {
+        results.utilsDbModule.push(file);
     } else if (pathPatterns.hardcoded.test(content)) {
         results.hardcoded.push(file);
     } else {
@@ -123,6 +127,9 @@ results.config.forEach(file => console.log(`      ✅ ${file}`));
 
 console.log(`\n   使用 db-path 模組: ${results.dbPathModule.length} 個`);
 results.dbPathModule.forEach(file => console.log(`      ✅ ${file}`));
+
+console.log(`\n   使用 utils/db 模組: ${results.utilsDbModule.length} 個`);
+results.utilsDbModule.forEach(file => console.log(`      ✅ ${file}`));
 
 console.log(`\n   使用硬編碼（正確路徑）: ${results.hardcoded.length} 個`);
 results.hardcoded.forEach(file => console.log(`      ⚠️  ${file}`));
@@ -139,8 +146,8 @@ console.log('\n' + '='.repeat(60));
 console.log('📊 驗證總結');
 console.log('='.repeat(60));
 
-const totalDbScripts = results.config.length + results.dbPathModule.length + results.hardcoded.length + results.unknown.length;
-const correctScripts = results.config.length + results.dbPathModule.length + results.hardcoded.length;
+const totalDbScripts = results.config.length + results.dbPathModule.length + results.utilsDbModule.length + results.hardcoded.length + results.unknown.length;
+const correctScripts = results.config.length + results.dbPathModule.length + results.utilsDbModule.length + results.hardcoded.length;
 
 console.log(`總共掃描: ${scriptFiles.length} 個腳本`);
 console.log(`使用資料庫: ${totalDbScripts} 個`);
