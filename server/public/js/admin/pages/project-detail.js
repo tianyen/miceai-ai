@@ -105,8 +105,8 @@ function loadProjectStats() {
                             <div class="stat-label">小孩總數</div>
                             <div class="stat-detail">
                                 <span class="age-tag">0-6歲: ${ageDist.age_0_6}</span>
-                                <span class="age-tag">6-12歲: ${ageDist.age_6_12}</span>
-                                <span class="age-tag">12-18歲: ${ageDist.age_12_18}</span>
+                                <span class="age-tag">7-12歲: ${ageDist.age_6_12}</span>
+                                <span class="age-tag">13-18歲: ${ageDist.age_12_18}</span>
                             </div>
                         </div>
                         <div class="stat-item">
@@ -197,6 +197,232 @@ function updateSortIcons() {
     const iconId = `#sort-icon-${currentParticipantsSort.field}`;
     const iconClass = currentParticipantsSort.order === 'asc' ? 'fa-sort-up' : 'fa-sort-down';
     $(iconId).removeClass('fa-sort').addClass(iconClass);
+}
+
+// 檢測重複報名
+function checkDuplicates() {
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/duplicate-participants`,
+        method: 'GET',
+        beforeSend: function() {
+            showNotification('正在檢測重複報名...', 'info');
+        },
+        success: function(response) {
+            if (response.success) {
+                showDuplicatesModal(response.data);
+            } else {
+                showNotification(response.message || '檢測失敗', 'error');
+            }
+        },
+        error: function() {
+            showNotification('檢測重複報名失敗', 'error');
+        }
+    });
+}
+
+// 顯示重複報名 Modal
+function showDuplicatesModal(data) {
+    const { nameOnlyDuplicates, nameEmailDuplicates, namePhoneDuplicates, allFieldsDuplicates, summary } = data;
+
+    // 使用安全的 DOM 方法建立 Modal
+    const modalContainer = document.getElementById('modal-container');
+
+    // 清空現有內容
+    while (modalContainer.firstChild) {
+        modalContainer.removeChild(modalContainer.firstChild);
+    }
+
+    // 建立 modal 結構
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.style.cssText = 'display: flex; align-items: center; justify-content: center;';
+
+    const modalDialog = document.createElement('div');
+    modalDialog.className = 'modal-dialog modal-xl';
+
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+
+    // Modal Header
+    const modalHeader = document.createElement('div');
+    modalHeader.className = 'modal-header';
+
+    const title = document.createElement('h4');
+    title.className = 'modal-title';
+    title.textContent = '🔍 重複報名檢測結果';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'close';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.onclick = closeModal;
+    closeBtn.textContent = '×';
+
+    modalHeader.appendChild(title);
+    modalHeader.appendChild(closeBtn);
+
+    // Modal Body
+    const modalBody = document.createElement('div');
+    modalBody.className = 'modal-body';
+    modalBody.style.maxHeight = '70vh';
+    modalBody.style.overflowY = 'auto';
+
+    // 摘要區塊（使用安全的 DOM 方法）
+    const summaryDiv = document.createElement('div');
+    summaryDiv.className = 'alert alert-info';
+
+    const summaryTitle = document.createElement('strong');
+    summaryTitle.textContent = '檢測摘要：';
+    summaryDiv.appendChild(summaryTitle);
+    summaryDiv.appendChild(document.createElement('br'));
+
+    const line0 = document.createTextNode('• 僅姓名重複：');
+    const count0 = document.createElement('strong');
+    count0.textContent = summary.nameOnly;
+    summaryDiv.appendChild(line0);
+    summaryDiv.appendChild(count0);
+    summaryDiv.appendChild(document.createTextNode(' 筆'));
+    summaryDiv.appendChild(document.createElement('br'));
+
+    const line1 = document.createTextNode('• 姓名 + Email 重複：');
+    const count1 = document.createElement('strong');
+    count1.textContent = summary.nameEmail;
+    summaryDiv.appendChild(line1);
+    summaryDiv.appendChild(count1);
+    summaryDiv.appendChild(document.createTextNode(' 筆'));
+    summaryDiv.appendChild(document.createElement('br'));
+
+    const line2 = document.createTextNode('• 姓名 + 手機 重複：');
+    const count2 = document.createElement('strong');
+    count2.textContent = summary.namePhone;
+    summaryDiv.appendChild(line2);
+    summaryDiv.appendChild(count2);
+    summaryDiv.appendChild(document.createTextNode(' 筆'));
+    summaryDiv.appendChild(document.createElement('br'));
+
+    const line3 = document.createTextNode('• 姓名 + 手機 + Email 完全重複：');
+    const count3 = document.createElement('strong');
+    count3.textContent = summary.allFields;
+    summaryDiv.appendChild(line3);
+    summaryDiv.appendChild(count3);
+    summaryDiv.appendChild(document.createTextNode(' 筆'));
+
+    modalBody.appendChild(summaryDiv);
+
+    // 無重複情況
+    if (summary.nameOnly === 0 && summary.nameEmail === 0 && summary.namePhone === 0 && summary.allFields === 0) {
+        const noData = document.createElement('div');
+        noData.className = 'alert alert-success';
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-check-circle';
+        noData.appendChild(icon);
+        noData.appendChild(document.createTextNode(' 未發現重複報名記錄！'));
+        modalBody.appendChild(noData);
+    } else {
+        // 建立各類重複的表格（從嚴格到寬鬆排序）
+        if (allFieldsDuplicates.length > 0) {
+            modalBody.appendChild(createDuplicateTable('姓名 + 手機 + Email 完全重複', allFieldsDuplicates));
+        }
+        if (nameEmailDuplicates.length > 0) {
+            modalBody.appendChild(createDuplicateTable('姓名 + Email 重複', nameEmailDuplicates));
+        }
+        if (namePhoneDuplicates.length > 0) {
+            modalBody.appendChild(createDuplicateTable('姓名 + 手機 重複', namePhoneDuplicates));
+        }
+        if (nameOnlyDuplicates.length > 0) {
+            modalBody.appendChild(createDuplicateTable('僅姓名重複（可能同名不同人）', nameOnlyDuplicates));
+        }
+    }
+
+    // Modal Footer
+    const modalFooter = document.createElement('div');
+    modalFooter.className = 'modal-footer';
+
+    const closeFooterBtn = document.createElement('button');
+    closeFooterBtn.type = 'button';
+    closeFooterBtn.className = 'btn btn-secondary';
+    closeFooterBtn.onclick = closeModal;
+    closeFooterBtn.textContent = '關閉';
+    modalFooter.appendChild(closeFooterBtn);
+
+    // 組裝 Modal
+    modalContent.appendChild(modalHeader);
+    modalContent.appendChild(modalBody);
+    modalContent.appendChild(modalFooter);
+    modalDialog.appendChild(modalContent);
+    modal.appendChild(modalDialog);
+    modalContainer.appendChild(modal);
+
+    $('body').addClass('modal-open');
+}
+
+// 建立重複資料表格
+function createDuplicateTable(title, duplicates) {
+    const container = document.createElement('div');
+    container.style.marginBottom = '1.5rem';
+
+    const h5 = document.createElement('h5');
+    const icon = document.createElement('i');
+    icon.className = 'fas fa-exclamation-triangle text-warning';
+    h5.appendChild(icon);
+    h5.appendChild(document.createTextNode(' ' + title + ' (' + duplicates.length + ' 筆)'));
+    container.appendChild(h5);
+
+    const tableWrapper = document.createElement('div');
+    tableWrapper.className = 'table-responsive';
+
+    const table = document.createElement('table');
+    table.className = 'table table-sm table-bordered';
+
+    // 表頭
+    const thead = document.createElement('thead');
+    thead.className = 'thead-light';
+    const headerRow = document.createElement('tr');
+    ['ID', '姓名', 'Email', '手機', '報名時間', '報到時間'].forEach(text => {
+        const th = document.createElement('th');
+        th.textContent = text;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    // 表身
+    const tbody = document.createElement('tbody');
+    duplicates.forEach(dup => {
+        const tr = document.createElement('tr');
+
+        const tdId = document.createElement('td');
+        tdId.textContent = dup.id;
+        tr.appendChild(tdId);
+
+        const tdName = document.createElement('td');
+        tdName.textContent = dup.submitter_name;
+        tr.appendChild(tdName);
+
+        const tdEmail = document.createElement('td');
+        tdEmail.textContent = dup.submitter_email || '-';
+        tr.appendChild(tdEmail);
+
+        const tdPhone = document.createElement('td');
+        tdPhone.textContent = dup.submitter_phone || '-';
+        tr.appendChild(tdPhone);
+
+        const tdCreated = document.createElement('td');
+        tdCreated.textContent = formatDateTime(dup.created_at);
+        tr.appendChild(tdCreated);
+
+        const tdCheckin = document.createElement('td');
+        tdCheckin.textContent = dup.checked_in_at ? formatDateTime(dup.checked_in_at) : '-';
+        tr.appendChild(tdCheckin);
+
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+
+    tableWrapper.appendChild(table);
+    container.appendChild(tableWrapper);
+
+    return container;
 }
 
 // 載入問卷資料
@@ -711,6 +937,8 @@ function viewQuestionnaireStats(questionnaireId) {
 
 // 格式化日期時間 (GMT+8 台北時區)
 // 使用共用 Utils.formatDate（從 admin layout 引入）
+// Utils.formatDate(date, 'date') - 僅日期
+// Utils.formatDate(date, 'datetime') - 日期時間
 function formatDateTime(dateString) {
     return Utils.formatDate(dateString, 'datetime');
 }

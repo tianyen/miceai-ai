@@ -639,6 +639,15 @@ class ProjectService extends BaseService {
     }
 
     /**
+     * 檢測專案中的重複報名
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Object>} 重複報名結果
+     */
+    async findDuplicateParticipants(projectId) {
+        return this.repository.findDuplicateParticipants(projectId);
+    }
+
+    /**
      * 取得專案問卷狀況
      * @param {number} projectId - 專案 ID
      * @returns {Promise<Array>} 問卷列表

@@ -242,14 +242,28 @@ class RegistrationService extends BaseService {
         registrations.push(primaryReg);
         qrCodes.push(await this._generateQrData(eventId, primaryTraceId));
 
-        // 5.2 處理同行者
+        // 5.2 處理同行者（包含成人和小孩）
         for (const p of participants) {
             const traceId = await this._generateUniqueTraceId();
             const passCode = Math.random().toString().slice(2, 8);
-            
+
+            // 處理小孩的年齡區間 -> childrenAges 格式
+            // 前端傳入 age_range: '0-6', '6-12', '12-18'
+            let childrenAges = null;
+            if (p.isMinor || p.is_minor) {
+                const ageRange = p.ageRange || p.age_range;
+                if (ageRange) {
+                    // 轉換格式：'6-12' -> { age_6_12: 1 }
+                    const key = `age_${ageRange.replace('-', '_')}`;
+                    childrenAges = { [key]: 1 };
+                }
+            }
+
             const reg = {
                 ...p,
                 email: p.email || primaryParticipant.email, // 若無 Email 則使用主報名人
+                phone: p.phone || primaryParticipant.phone, // 若無 Phone 則使用主報名人（小孩適用）
+                childrenAges: childrenAges || p.childrenAges, // 小孩的年齡區間
                 traceId,
                 passCode,
                 projectId: eventId,

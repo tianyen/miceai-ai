@@ -318,9 +318,45 @@ function projectParticipantRow(participant) {
         }
     }
 
+    // 貴賓標記（備註包含「貴賓」關鍵字）
+    let vipBadge = '';
+    if (participant.notes && participant.notes.includes('貴賓')) {
+        vipBadge = `<span class="badge badge-warning" style="margin-left: 0.3rem;" title="備註: ${safeText(participant.notes)}">
+            <i class="fas fa-star"></i> 貴賓
+        </span>`;
+    }
+
     // 處理小孩資訊（新格式：年齡區間人數物件）
+    // 顯示邏輯：
+    // - 附屬報名人（小孩）：顯示自己的年齡區間標籤（如「7-12歲」）
+    // - 舊格式團體小孩（有 group_id 但無 parent_submission_id 且非主報名人）：顯示自己的年齡區間
+    // - 獨立報名者（無 group_id，後台手動登記）：顯示 children_ages 統計
     let childrenDisplay = '-';
-    if (participant.children_count && participant.children_count > 0) {
+    const isDependent = participant.parent_submission_id != null;
+    const isGroupMember = participant.group_id != null;
+    // 舊格式團體小孩：有 group_id 但沒有 parent_submission_id 連結，且不是主報名人
+    const isOldFormatGroupChild = isGroupMember && !isDependent && participant.is_primary === 0;
+
+    if ((isDependent || isOldFormatGroupChild) && participant.children_ages) {
+        // 附屬報名人或舊格式團體小孩：顯示自己的年齡區間
+        try {
+            const ages = typeof participant.children_ages === 'string'
+                ? JSON.parse(participant.children_ages)
+                : (participant.children_ages || {});
+            if (ages && typeof ages === 'object') {
+                const parts = [];
+                if (ages.age_0_6) parts.push(`<span class="age-tag age-0-6">0-6歲</span>`);
+                if (ages.age_6_12) parts.push(`<span class="age-tag age-6-12">7-12歲</span>`);
+                if (ages.age_12_18) parts.push(`<span class="age-tag age-12-18">13-18歲</span>`);
+                if (parts.length > 0) {
+                    childrenDisplay = `<div class="age-distribution">${parts.join('')}</div>`;
+                }
+            }
+        } catch (e) {
+            // ignore parse error
+        }
+    } else if (!isGroupMember && participant.children_count && participant.children_count > 0) {
+        // 獨立報名者（無 group_id，後台手動登記）：顯示 children_ages 統計
         let agesHtml = '';
         try {
             const ages = typeof participant.children_ages === 'string'
@@ -329,8 +365,8 @@ function projectParticipantRow(participant) {
             if (ages && typeof ages === 'object') {
                 const parts = [];
                 if (ages.age_0_6) parts.push(`<span class="age-tag age-0-6">0-6歲:${ages.age_0_6}</span>`);
-                if (ages.age_6_12) parts.push(`<span class="age-tag age-6-12">6-12歲:${ages.age_6_12}</span>`);
-                if (ages.age_12_18) parts.push(`<span class="age-tag age-12-18">12-18歲:${ages.age_12_18}</span>`);
+                if (ages.age_6_12) parts.push(`<span class="age-tag age-6-12">7-12歲:${ages.age_6_12}</span>`);
+                if (ages.age_12_18) parts.push(`<span class="age-tag age-12-18">13-18歲:${ages.age_12_18}</span>`);
                 if (parts.length > 0) {
                     agesHtml = `<div class="age-distribution">${parts.join('')}</div>`;
                 }
@@ -371,7 +407,7 @@ function projectParticipantRow(participant) {
             <td>${idDisplay}</td>
             <td>
                 <div class="participant-name-cell">
-                    <strong>${safeText(participant.submitter_name)}</strong>
+                    <strong>${safeText(participant.submitter_name)}</strong>${vipBadge}
                     ${groupBadge}
                 </div>
             </td>

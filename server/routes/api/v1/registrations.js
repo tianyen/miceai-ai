@@ -634,6 +634,9 @@ router.post('/events/:eventId/registrations/batch', [
             notes: p.notes || null,
             adultAge: p.adult_age || null,
             childrenAges: p.children_ages || null,
+            // 新增：支援小孩參加者
+            isMinor: p.is_minor === true || p.is_minor === 'true',
+            ageRange: p.age_range || null,
             dataConsent: p.data_consent === true || p.data_consent === 'true' || p.data_consent === 1,
             marketingConsent: p.marketing_consent === true || p.marketing_consent === 'true' || p.marketing_consent === 1
         });

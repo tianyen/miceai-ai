@@ -96,39 +96,73 @@ class ProjectRepository extends BaseRepository {
                             (COUNT(DISTINCT CASE WHEN s.checked_in_at IS NOT NULL THEN s.id END) * 100.0) / COUNT(DISTINCT s.id)
                         ELSE 0
                     END
-                ) as checkin_rate,
-                COALESCE(SUM(s.children_count), 0) as total_children
+                ) as checkin_rate
             FROM form_submissions s
             LEFT JOIN questionnaire_responses qr ON s.trace_id = qr.trace_id
             WHERE s.project_id = ?
         `;
         const result = await this.rawGet(sql, [projectId]);
 
-        // 計算小孩年齡分佈
+        // 計算小孩年齡分佈（只統計附屬報名人記錄，避免雙重計算）
         const ageDistribution = await this.getChildrenAgeDistribution(projectId);
+        const totalChildren = ageDistribution.age_0_6 + ageDistribution.age_6_12 + ageDistribution.age_12_18;
 
         return {
             total_participants: result?.total_participants || 0,
             checked_in_count: result?.checked_in_count || 0,
             questionnaire_responses: result?.questionnaire_responses || 0,
             checkin_rate: result?.checkin_rate || 0,
-            total_children: result?.total_children || 0,
+            total_children: totalChildren,
             children_age_distribution: ageDistribution
         };
     }
 
     /**
      * 取得專案小孩年齡分佈統計
+     *
+     * 處理三種格式且避免雙重計算：
+     * 1. 新格式（12/20 後）：小孩有獨立記錄 parent_submission_id IS NOT NULL
+     * 2. 舊格式（12/20 前後台手動）：主報名人有 children_count 但無對應小孩記錄
+     * 3. 舊格式團體小孩：有 group_id 但沒有 parent_submission_id 且 is_primary = 0
+     *
      * @param {number} projectId - 專案 ID
      * @returns {Promise<Object>}
      */
     async getChildrenAgeDistribution(projectId) {
-        const sql = `
+        // 1. 統計新格式：有 parent_submission_id 的附屬報名人（小孩獨立記錄）
+        const newFormatSql = `
             SELECT children_ages
             FROM form_submissions
-            WHERE project_id = ? AND children_ages IS NOT NULL
+            WHERE project_id = ? AND parent_submission_id IS NOT NULL AND children_ages IS NOT NULL
         `;
-        const rows = await this.rawAll(sql, [projectId]);
+        const newFormatRows = await this.rawAll(newFormatSql, [projectId]);
+
+        // 2. 統計舊格式：主報名人有 children_count 但沒有對應小孩記錄
+        const oldFormatSql = `
+            SELECT p.children_ages
+            FROM form_submissions p
+            WHERE p.project_id = ?
+              AND p.children_count > 0
+              AND p.parent_submission_id IS NULL
+              AND p.children_ages IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM form_submissions c
+                  WHERE c.parent_submission_id = p.id
+              )
+        `;
+        const oldFormatRows = await this.rawAll(oldFormatSql, [projectId]);
+
+        // 3. 統計舊格式團體小孩：有 group_id 但沒有 parent_submission_id 連結，且不是主報名人
+        const oldFormatGroupChildSql = `
+            SELECT children_ages
+            FROM form_submissions
+            WHERE project_id = ?
+              AND group_id IS NOT NULL
+              AND parent_submission_id IS NULL
+              AND is_primary = 0
+              AND children_ages IS NOT NULL
+        `;
+        const oldFormatGroupChildRows = await this.rawAll(oldFormatGroupChildSql, [projectId]);
 
         const distribution = {
             age_0_6: 0,
@@ -136,7 +170,9 @@ class ProjectRepository extends BaseRepository {
             age_12_18: 0
         };
 
-        for (const row of rows) {
+        // 合併三種格式的數據
+        const allRows = [...newFormatRows, ...oldFormatRows, ...oldFormatGroupChildRows];
+        for (const row of allRows) {
             try {
                 const ages = typeof row.children_ages === 'string'
                     ? JSON.parse(row.children_ages)
@@ -169,10 +205,10 @@ class ProjectRepository extends BaseRepository {
         const queryParams = [projectId];
 
         if (search && search.trim()) {
-            whereClause += ' AND (fs.submitter_name LIKE ? OR fs.submitter_email LIKE ?)';
+            whereClause += ' AND (fs.submitter_name LIKE ? OR fs.submitter_email LIKE ? OR fs.submitter_phone LIKE ?)';
             const searchTerm = `%${search.trim()}%`;
-            countParams.push(searchTerm, searchTerm);
-            queryParams.push(searchTerm, searchTerm);
+            countParams.push(searchTerm, searchTerm, searchTerm);
+            queryParams.push(searchTerm, searchTerm, searchTerm);
         }
 
         // 驗證排序欄位和方向（防止 SQL 注入）
@@ -186,6 +222,10 @@ class ProjectRepository extends BaseRepository {
         const total = countResult?.total || 0;
 
         // 取得分頁資料（含團體報名資訊）
+        // 排序邏輯：
+        // 1. 先按團體分組（COALESCE 確保無 group_id 的獨立報名者各自分開）
+        // 2. 同一團體內，主報名人排在前面（is_primary DESC）
+        // 3. 然後按用戶選擇的排序欄位
         const sql = `
             SELECT
                 fs.id,
@@ -211,7 +251,10 @@ class ProjectRepository extends BaseRepository {
             FROM form_submissions fs
             LEFT JOIN form_submissions parent ON fs.parent_submission_id = parent.id
             ${whereClause}
-            ORDER BY ${sortField} ${sortOrder}
+            ORDER BY
+                COALESCE(fs.group_id, 'SOLO-' || fs.id) ${sortOrder},
+                fs.is_primary DESC,
+                ${sortField} ${sortOrder}
             LIMIT ? OFFSET ?
         `;
         queryParams.push(limit, offset);
@@ -226,6 +269,133 @@ class ProjectRepository extends BaseRepository {
                 totalPages: Math.ceil(total / limit),
                 hasNext: page * limit < total,
                 hasPrev: page > 1
+            }
+        };
+    }
+
+    /**
+     * 檢測專案中的重複報名
+     * 檢測條件：僅姓名、姓名+手機、姓名+Email、姓名+手機+Email
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Object>} 包含各種重複類型的結果
+     */
+    async findDuplicateParticipants(projectId) {
+        // 0. 僅姓名重複
+        const nameOnlyDuplicates = await this.rawAll(`
+            SELECT
+                fs.id,
+                fs.submitter_name,
+                fs.submitter_email,
+                fs.submitter_phone,
+                fs.created_at,
+                fs.checked_in_at,
+                fs.trace_id,
+                dup.duplicate_count
+            FROM form_submissions fs
+            INNER JOIN (
+                SELECT submitter_name, COUNT(*) as duplicate_count
+                FROM form_submissions
+                WHERE project_id = ?
+                    AND submitter_name IS NOT NULL
+                    AND submitter_name != ''
+                GROUP BY submitter_name
+                HAVING COUNT(*) > 1
+            ) dup ON fs.submitter_name = dup.submitter_name
+            WHERE fs.project_id = ?
+            ORDER BY fs.submitter_name, fs.created_at
+        `, [projectId, projectId]);
+
+        // 1. 姓名 + Email 重複
+        const nameEmailDuplicates = await this.rawAll(`
+            SELECT
+                fs.id,
+                fs.submitter_name,
+                fs.submitter_email,
+                fs.submitter_phone,
+                fs.created_at,
+                fs.checked_in_at,
+                fs.trace_id,
+                dup.duplicate_count
+            FROM form_submissions fs
+            INNER JOIN (
+                SELECT submitter_name, submitter_email, COUNT(*) as duplicate_count
+                FROM form_submissions
+                WHERE project_id = ?
+                    AND submitter_email IS NOT NULL
+                    AND submitter_email != ''
+                GROUP BY submitter_name, submitter_email
+                HAVING COUNT(*) > 1
+            ) dup ON fs.submitter_name = dup.submitter_name
+                 AND fs.submitter_email = dup.submitter_email
+            WHERE fs.project_id = ?
+            ORDER BY fs.submitter_name, fs.submitter_email, fs.created_at
+        `, [projectId, projectId]);
+
+        // 2. 姓名 + 手機 重複
+        const namePhoneDuplicates = await this.rawAll(`
+            SELECT
+                fs.id,
+                fs.submitter_name,
+                fs.submitter_email,
+                fs.submitter_phone,
+                fs.created_at,
+                fs.checked_in_at,
+                fs.trace_id,
+                dup.duplicate_count
+            FROM form_submissions fs
+            INNER JOIN (
+                SELECT submitter_name, submitter_phone, COUNT(*) as duplicate_count
+                FROM form_submissions
+                WHERE project_id = ?
+                    AND submitter_phone IS NOT NULL
+                    AND submitter_phone != ''
+                GROUP BY submitter_name, submitter_phone
+                HAVING COUNT(*) > 1
+            ) dup ON fs.submitter_name = dup.submitter_name
+                 AND fs.submitter_phone = dup.submitter_phone
+            WHERE fs.project_id = ?
+            ORDER BY fs.submitter_name, fs.submitter_phone, fs.created_at
+        `, [projectId, projectId]);
+
+        // 3. 姓名 + 手機 + Email 完全重複
+        const allFieldsDuplicates = await this.rawAll(`
+            SELECT
+                fs.id,
+                fs.submitter_name,
+                fs.submitter_email,
+                fs.submitter_phone,
+                fs.created_at,
+                fs.checked_in_at,
+                fs.trace_id,
+                dup.duplicate_count
+            FROM form_submissions fs
+            INNER JOIN (
+                SELECT submitter_name, submitter_email, submitter_phone, COUNT(*) as duplicate_count
+                FROM form_submissions
+                WHERE project_id = ?
+                    AND submitter_email IS NOT NULL
+                    AND submitter_email != ''
+                    AND submitter_phone IS NOT NULL
+                    AND submitter_phone != ''
+                GROUP BY submitter_name, submitter_email, submitter_phone
+                HAVING COUNT(*) > 1
+            ) dup ON fs.submitter_name = dup.submitter_name
+                 AND fs.submitter_email = dup.submitter_email
+                 AND fs.submitter_phone = dup.submitter_phone
+            WHERE fs.project_id = ?
+            ORDER BY fs.submitter_name, fs.created_at
+        `, [projectId, projectId]);
+
+        return {
+            nameOnlyDuplicates,
+            nameEmailDuplicates,
+            namePhoneDuplicates,
+            allFieldsDuplicates,
+            summary: {
+                nameOnly: nameOnlyDuplicates.length,
+                nameEmail: nameEmailDuplicates.length,
+                namePhone: namePhoneDuplicates.length,
+                allFields: allFieldsDuplicates.length
             }
         };
     }

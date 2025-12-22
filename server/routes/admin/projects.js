@@ -285,7 +285,7 @@ router.get('/new', async (req, res) => {
     }
 });
 
-// 编辑专案模态框 (使用 projectService)
+// 編輯專案模態框 (使用 projectService)
 router.get('/:id/edit', async (req, res) => {
     try {
         const projectId = req.params.id;
@@ -299,16 +299,16 @@ router.get('/:id/edit', async (req, res) => {
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
-                                <h4 class="modal-title">错误</h4>
+                                <h4 class="modal-title">錯誤</h4>
                                 <button type="button" class="close" onclick="closeModal()" aria-label="Close">
                                     <span aria-hidden="true">&times;</span>
                                 </button>
                             </div>
                             <div class="modal-body">
-                                <p>找不到指定的专案</p>
+                                <p>找不到指定的專案</p>
                             </div>
                             <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" onclick="closeModal()">关闭</button>
+                                <button type="button" class="btn btn-secondary" onclick="closeModal()">關閉</button>
                             </div>
                         </div>
                     </div>
@@ -316,12 +316,29 @@ router.get('/:id/edit', async (req, res) => {
             `);
         }
 
+        // 格式化 event_date 為 YYYY-MM-DD（HTML5 date input 需要的格式）
+        let formattedEventDate = '';
+        if (project.event_date) {
+            // 處理各種可能的日期格式
+            const dateStr = project.event_date.toString();
+            if (dateStr.includes('T')) {
+                // ISO 格式: 2025-01-15T10:00:00
+                formattedEventDate = dateStr.split('T')[0];
+            } else if (dateStr.includes(' ')) {
+                // SQLite 格式: 2025-01-15 10:00:00
+                formattedEventDate = dateStr.split(' ')[0];
+            } else if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                // 已經是正確格式
+                formattedEventDate = dateStr;
+            }
+        }
+
         const html = `
             <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h4 class="modal-title">编辑专案</h4>
+                            <h4 class="modal-title">編輯專案</h4>
                             <button type="button" class="close" onclick="closeModal()" aria-label="Close">
                                 <span aria-hidden="true">&times;</span>
                             </button>
@@ -329,59 +346,59 @@ router.get('/:id/edit', async (req, res) => {
                         <div class="modal-body">
                             <form id="edit-project-form">
                                 <div class="form-group">
-                                    <label for="project_name">专案名称 <span class="text-danger">*</span></label>
-                                    <input type="text" id="project_name" name="project_name" class="form-control" 
+                                    <label for="project_name">專案名稱 <span class="text-danger">*</span></label>
+                                    <input type="text" id="project_name" name="project_name" class="form-control"
                                            value="${project.project_name || ''}" required>
                                 </div>
-                                
+
                                 <div class="form-group">
-                                    <label for="project_code">专案代码 <span class="text-danger">*</span></label>
-                                    <input type="text" id="project_code" name="project_code" class="form-control" 
+                                    <label for="project_code">專案代碼 <span class="text-danger">*</span></label>
+                                    <input type="text" id="project_code" name="project_code" class="form-control"
                                            value="${project.project_code || ''}" required>
                                 </div>
-                                
+
                                 <div class="form-group">
-                                    <label for="description">专案描述</label>
+                                    <label for="description">專案描述</label>
                                     <textarea id="description" name="description" class="form-control" rows="3">${project.description || ''}</textarea>
                                 </div>
-                                
+
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group">
-                                            <label for="event_date">活动日期</label>
-                                            <input type="date" id="event_date" name="event_date" class="form-control" 
-                                                   value="${project.event_date || ''}">
+                                            <label for="event_date">活動日期</label>
+                                            <input type="date" id="event_date" name="event_date" class="form-control"
+                                                   value="${formattedEventDate}">
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-group">
-                                            <label for="event_location">活动地点</label>
-                                            <input type="text" id="event_location" name="event_location" class="form-control" 
+                                            <label for="event_location">活動地點</label>
+                                            <input type="text" id="event_location" name="event_location" class="form-control"
                                                    value="${project.event_location || ''}">
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group">
-                                            <label for="event_type">活动类型</label>
+                                            <label for="event_type">活動類型</label>
                                             <select id="event_type" name="event_type" class="form-control">
-                                                <option value="conference" ${project.event_type === 'conference' ? 'selected' : ''}>会议</option>
-                                                <option value="seminar" ${project.event_type === 'seminar' ? 'selected' : ''}>研讨会</option>
+                                                <option value="conference" ${project.event_type === 'conference' ? 'selected' : ''}>會議</option>
+                                                <option value="seminar" ${project.event_type === 'seminar' ? 'selected' : ''}>研討會</option>
                                                 <option value="workshop" ${project.event_type === 'workshop' ? 'selected' : ''}>工作坊</option>
-                                                <option value="exhibition" ${project.event_type === 'exhibition' ? 'selected' : ''}>展览</option>
-                                                <option value="party" ${project.event_type === 'party' ? 'selected' : ''}>聚会</option>
+                                                <option value="exhibition" ${project.event_type === 'exhibition' ? 'selected' : ''}>展覽</option>
+                                                <option value="party" ${project.event_type === 'party' ? 'selected' : ''}>聚會</option>
                                                 <option value="other" ${project.event_type === 'other' ? 'selected' : ''}>其他</option>
                                             </select>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-group">
-                                            <label for="status">状态</label>
+                                            <label for="status">狀態</label>
                                             <select id="status" name="status" class="form-control">
                                                 <option value="draft" ${project.status === 'draft' ? 'selected' : ''}>草稿</option>
-                                                <option value="active" ${project.status === 'active' ? 'selected' : ''}>进行中</option>
+                                                <option value="active" ${project.status === 'active' ? 'selected' : ''}>進行中</option>
                                                 <option value="completed" ${project.status === 'completed' ? 'selected' : ''}>已完成</option>
                                                 <option value="cancelled" ${project.status === 'cancelled' ? 'selected' : ''}>已取消</option>
                                             </select>
@@ -393,23 +410,23 @@ router.get('/:id/edit', async (req, res) => {
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
                             <button type="button" class="btn btn-primary" onclick="submitEditProject(${project.id})">
-                                <i class="fas fa-save"></i> 保存修改
+                                <i class="fas fa-save"></i> 儲存修改
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
-            
+
             <script>
                 function submitEditProject(id) {
                     const form = document.getElementById('edit-project-form');
                     const formData = new FormData(form);
                     const data = {};
-                    
+
                     for (let [key, value] of formData.entries()) {
                         data[key] = value;
                     }
-                    
+
                     $.ajax({
                         url: '/api/admin/projects/' + id,
                         method: 'PUT',
@@ -421,22 +438,26 @@ router.get('/:id/edit', async (req, res) => {
                         success: function(response) {
                             if (response.success) {
                                 closeModal();
-                                showNotification('专案已更新', 'success');
+                                showNotification('專案已更新', 'success');
                                 loadProjects();
                                 loadProjectsPagination();
                             } else {
-                                showNotification(response.message || '更新失败', 'error');
+                                showNotification(response.message || '更新失敗', 'error');
                             }
                         },
                         error: function(xhr) {
-                            console.error('更新专案失败:', xhr);
-                            showNotification('更新专案失败', 'error');
+                            console.error('更新專案失敗:', xhr);
+                            showNotification('更新專案失敗', 'error');
                         }
                     });
                 }
-                
+
                 function closeModal() {
-                    document.getElementById('modal-container').innerHTML = '';
+                    // 使用安全的 DOM 方法清空 modal container
+                    const container = document.getElementById('modal-container');
+                    while (container.firstChild) {
+                        container.removeChild(container.firstChild);
+                    }
                     $('body').removeClass('modal-open');
                 }
             </script>
@@ -444,22 +465,22 @@ router.get('/:id/edit', async (req, res) => {
 
         responses.html(res, html);
     } catch (error) {
-        console.error('获取编辑表单失败:', error);
+        console.error('取得編輯表單失敗:', error);
         res.status(500).send(`
             <div class="modal show" style="display: flex; align-items: center; justify-content: center;">
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h4 class="modal-title">错误</h4>
+                            <h4 class="modal-title">錯誤</h4>
                             <button type="button" class="close" onclick="closeModal()" aria-label="Close">
                                 <span aria-hidden="true">&times;</span>
                             </button>
                         </div>
                         <div class="modal-body">
-                            <p>加载编辑表单失败</p>
+                            <p>載入編輯表單失敗</p>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" onclick="closeModal()">关闭</button>
+                            <button type="button" class="btn btn-secondary" onclick="closeModal()">關閉</button>
                         </div>
                     </div>
                 </div>

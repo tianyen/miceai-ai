@@ -869,6 +869,17 @@ router.get('/projects/:id/participants', authenticateSession, async (req, res) =
     }
 });
 
+// API: 檢測專案重複報名
+router.get('/projects/:id/duplicate-participants', authenticateSession, async (req, res) => {
+    try {
+        const result = await projectService.findDuplicateParticipants(req.params.id);
+        responses.success(res, result, '重複報名檢測完成');
+    } catch (error) {
+        console.error('檢測重複報名失敗:', error);
+        responses.serverError(res, '檢測重複報名失敗');
+    }
+});
+
 // API: 獲取專案問卷狀況 (HTML)
 // @refactor: 使用 projectService + viewHelpers
 router.get('/projects/:id/questionnaires', authenticateSession, async (req, res) => {

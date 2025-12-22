@@ -401,6 +401,42 @@ TRACE{timestamp}{random}
 | Session 失效 | 檢查 `SESSION_SECRET` 是否設定 |
 | 找不到資料庫 | 確認 `server/data/mice_ai.db` 存在 |
 
+## 🖥️ VPS 資料庫 Debug
+
+### 連線資訊（內網安全）
+
+| 項目 | 值 |
+|------|---|
+| Host | tianyen-service.com |
+| Port | 2022 |
+| User | tianyen |
+| Password | TODO |
+| 專案路徑 | `/home/tianyen/projects/rd0010/rd0010-miceai_backend-refactor-mvc` |
+| 資料庫路徑 | `server/data/mice_ai.db` |
+
+### 使用 sshpass 查詢資料庫
+
+```bash
+# 安裝 sshpass (macOS)
+brew install sshpass
+
+# 執行 SQL 查詢
+sshpass -p 'TODO' ssh -o StrictHostKeyChecking=no tianyen@tianyen-service.com -p 2022 \
+  "cd /home/tianyen/projects/rd0010/rd0010-miceai_backend-refactor-mvc && sqlite3 -header -column server/data/mice_ai.db 'SELECT * FROM form_submissions LIMIT 10;'"
+```
+
+### 常用查詢
+
+```sql
+-- 查看報名資料
+SELECT id, submitter_name, group_id, is_primary, parent_submission_id, children_count
+FROM form_submissions WHERE project_id = 2 ORDER BY id DESC LIMIT 30;
+
+-- 統計小孩人數（只算獨立記錄）
+SELECT COUNT(*) FROM form_submissions
+WHERE project_id = 2 AND parent_submission_id IS NOT NULL;
+```
+
 
 ## 🎯 技術棧
 
