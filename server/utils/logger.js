@@ -253,7 +253,14 @@ class Logger {
      */
     consoleLog(level, message, data, error) {
         const config = LOG_LEVEL_CONFIG[level];
-        const timestamp = new Date().toLocaleTimeString('zh-TW');
+        // 使用 GMT+8 時區
+        const timestamp = new Date().toLocaleTimeString('zh-TW', {
+            timeZone: 'Asia/Taipei',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
 
         console.log(
             `${config.color}${config.emoji} [${timestamp}] [${level}]${RESET_COLOR}`,

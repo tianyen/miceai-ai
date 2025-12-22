@@ -266,10 +266,10 @@ function createUserRow(user) {
     statusCell.appendChild(statusSpan);
     row.appendChild(statusCell);
 
-    // Last login cell
+    // Last login cell (使用共用 Utils.formatDate)
     var lastLoginCell = document.createElement('td');
     lastLoginCell.className = 'last-login';
-    lastLoginCell.textContent = user.last_login ? new Date(user.last_login).toLocaleString('zh-TW') : '從未登入';
+    lastLoginCell.textContent = user.last_login ? Utils.formatDate(user.last_login, 'datetime') : '從未登入';
     row.appendChild(lastLoginCell);
 
     // Actions cell

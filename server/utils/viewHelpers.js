@@ -9,6 +9,8 @@
  * @description 從 admin-extended.js 抽取的 HTML 生成邏輯
  */
 
+const { formatGMT8Time } = require('./timezone');
+
 // ============================================================================
 // 通用組件
 // ============================================================================
@@ -61,26 +63,13 @@ function idBadge(id, type = 'secondary', prefix = '#') {
 
 /**
  * 格式化日期 (GMT+8 台北時區)
+ * 使用共用的 timezone.js 模組處理 UTC 時間解析
  * @param {string|Date} date - 日期
  * @param {string} format - 格式 ('date' | 'datetime')
  * @returns {string} 格式化的日期字串
  */
 function formatDate(date, format = 'date') {
-    if (!date) return '-';
-    const d = new Date(date);
-    const options = {
-        timeZone: 'Asia/Taipei',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    };
-    if (format === 'datetime') {
-        options.hour = '2-digit';
-        options.minute = '2-digit';
-        options.second = '2-digit';
-        options.hour12 = false;
-    }
-    return d.toLocaleString('zh-TW', options);
+    return formatGMT8Time(date, format);
 }
 
 /**

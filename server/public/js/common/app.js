@@ -81,9 +81,19 @@ window.App = {
     },
     
     // 格式化日期 (GMT+8 台北時區)
+    // 資料庫存的是 UTC 時間，需要明確標示後轉換
     formatDate: function(dateString, format = 'YYYY-MM-DD') {
         if (!dateString) return '';
-        const date = new Date(dateString);
+
+        // 確保時間字串被當作 UTC 解析
+        let dateStr = String(dateString);
+        if (!dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.includes('T')) {
+            dateStr = dateStr.replace(' ', 'T') + 'Z';
+        } else if (dateStr.includes('T') && !dateStr.includes('Z') && !dateStr.includes('+')) {
+            dateStr = dateStr + 'Z';
+        }
+
+        const date = new Date(dateStr);
         if (isNaN(date.getTime())) return '';
 
         // 轉換為台北時區

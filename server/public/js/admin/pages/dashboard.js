@@ -116,7 +116,7 @@
                             </h4>
                             <span class="badge badge-${statusInfo.class}">${statusInfo.text}</span>
                         </div>
-                        <div class="project-date">${project.created_at}</div>
+                        <div class="project-date">${Utils.formatDate(project.created_at, 'datetime')}</div>
                     </div>
                 `;
             });

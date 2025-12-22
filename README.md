@@ -319,6 +319,44 @@ const dbPath = './data/mice_ai.db';  // 不要這樣做！
 
 **外鍵欄位**: 使用 `_id` 後綴（如 `user_id`, `project_id`, `booth_id`）
 
+### 時區處理規範
+
+| 層級 | 時區 | 格式範例 |
+|------|------|----------|
+| **資料庫存儲** | UTC+0 | `2025-12-18 05:16:14` |
+| **UI 顯示** | GMT+8 (台北) | `2025/12/18 13:16:14` |
+| **Log 記錄** | GMT+8 (台北) | `2025-12-18 13:16:14` |
+
+**核心問題**：SQLite `CURRENT_TIMESTAMP` 存儲 UTC 時間但**無 timezone 標記**，JavaScript `new Date()` 會錯誤地當作本地時間解析。
+
+**解決方案**：使用統一的時區工具，明確將無 timezone 的時間當作 UTC 解析。
+
+#### 後端使用方式
+
+```javascript
+// 使用 server/utils/timezone.js
+const { formatGMT8Time, parseDbDate } = require('./utils/timezone');
+
+// 格式化資料庫時間為 GMT+8 顯示
+const displayTime = formatGMT8Time(row.created_at, 'datetime');
+
+// 解析資料庫時間為 Date 物件
+const date = parseDbDate(row.created_at);
+```
+
+#### 前端使用方式
+
+```javascript
+// 使用 Utils.formatDate（需引入 /js/common/utils.js）
+const displayTime = Utils.formatDate(created_at, 'datetime');
+```
+
+#### 驗證時區
+
+```bash
+npm run verify:timezone
+```
+
 ### user_id 與 registration_id 區分
 
 | 概念 | 表格 | 欄位 | 說明 |

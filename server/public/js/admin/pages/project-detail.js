@@ -678,18 +678,9 @@ function viewQuestionnaireStats(questionnaireId) {
 }
 
 // 格式化日期時間 (GMT+8 台北時區)
+// 使用共用 Utils.formatDate（從 admin layout 引入）
 function formatDateTime(dateString) {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleString('zh-TW', {
-        timeZone: 'Asia/Taipei',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    });
+    return Utils.formatDate(dateString, 'datetime');
 }
 
 // QR Code 名片管理功能
@@ -1584,7 +1575,7 @@ async function loadRecentWishes() {
                     <tr>
                         <td>${wish.id}</td>
                         <td class="wish-text-truncate">${escapeHtml(wish.wish_text)}</td>
-                        <td class="text-muted small">${wish.created_at}</td>
+                        <td class="text-muted small">${formatDateTime(wish.created_at)}</td>
                         <td class="text-muted small">${wish.ip_address || '-'}</td>
                     </tr>
                 `;
@@ -1812,7 +1803,7 @@ function loadPreEventRecipients() {
                 } else {
                     let html = '';
                     recipients.forEach(function(r) {
-                        const createdAt = r.created_at ? new Date(r.created_at).toLocaleString('zh-TW') : '-';
+                        const createdAt = r.created_at ? formatDateTime(r.created_at) : '-';
                         html += `
                             <tr>
                                 <td><input type="checkbox" class="recipient-checkbox" data-id="${r.id}" onchange="updateSelectedCount()"></td>
@@ -2048,12 +2039,8 @@ function loadRegistrationRecipients() {
                 } else {
                     let html = '';
                     recipients.forEach(function(r) {
-                        // 報名時間 - 確保 GMT+8 (台灣時區)
-                        let createdAt = '-';
-                        if (r.created_at) {
-                            const date = new Date(r.created_at);
-                            createdAt = date.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
-                        }
+                        // 報名時間 - 使用 formatDateTime 確保 GMT+8 (台灣時區)
+                        const createdAt = formatDateTime(r.created_at);
 
                         // ID 顯示 - 優先 user_id，否則 submission id
                         const idDisplay = r.user_id

@@ -15,7 +15,18 @@ window.Utils = {
     formatDate(date, format = 'date') {
         if (!date) return '';
 
-        const d = new Date(date);
+        // 資料庫存的是 UTC 時間（格式如 '2025-12-18 05:16:14'）
+        // 需要明確告訴 JavaScript 這是 UTC 時間
+        let dateStr = String(date);
+
+        // 如果時間字串不包含 timezone 資訊，加上 'Z' 表示 UTC
+        if (!dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.includes('T')) {
+            dateStr = dateStr.replace(' ', 'T') + 'Z';
+        } else if (dateStr.includes('T') && !dateStr.includes('Z') && !dateStr.includes('+')) {
+            dateStr = dateStr + 'Z';
+        }
+
+        const d = new Date(dateStr);
         if (isNaN(d.getTime())) return '';
 
         const options = {

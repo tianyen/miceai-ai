@@ -16,6 +16,7 @@
     "verify:batch-registration": "node scripts/verify-batch-registration.js",
     "verify:group-full-flow": "node scripts/verify-group-full-flow.js",
     "verify:children-stats": "node scripts/verify-children-stats.js",
+    "verify:timezone": "node scripts/verify-timezone.js",
     "test:api": "bash scripts/test-api-flow.sh",
     "test:setup": "bash scripts/test-setup.sh",
     "test:business-cards": "node scripts/test-business-cards.js",

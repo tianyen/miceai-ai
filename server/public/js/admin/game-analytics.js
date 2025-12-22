@@ -3,6 +3,12 @@ let allProjects = [];
 let allGames = [];
 let userSessionsChart = null;
 
+// 使用共用 Utils.formatDate（從 admin layout 引入）
+// 輔助函式：簡化呼叫
+function formatDateTimeGMT8(dateString) {
+    return Utils.formatDate(dateString, 'datetime');
+}
+
 // 頁面載入時執行
 document.addEventListener('DOMContentLoaded', function() {
     // 設定今天的日期
@@ -282,8 +288,8 @@ function renderUsersTable(users) {
     `;
 
     users.forEach(user => {
-        const registrationTime = user.registration_time ? new Date(user.registration_time).toLocaleString('zh-TW') : '-';
-        const checkinTime = user.checked_in_at ? new Date(user.checked_in_at).toLocaleString('zh-TW') : '-';
+        const registrationTime = formatDateTimeGMT8(user.registration_time);
+        const checkinTime = formatDateTimeGMT8(user.checked_in_at);
 
         html += `
             <tr>
@@ -362,8 +368,8 @@ function showJourneyModal(journeyData) {
                                 <p><strong>專案：</strong>${user_info.project_name || '-'}</p>
                             </div>
                         </div>
-                        <p><strong>報名時間：</strong>${new Date(user_info.registration_time).toLocaleString('zh-TW')}</p>
-                        <p><strong>報到時間：</strong>${user_info.checked_in_at ? new Date(user_info.checked_in_at).toLocaleString('zh-TW') : '未報到'}</p>
+                        <p><strong>報名時間：</strong>${formatDateTimeGMT8(user_info.registration_time)}</p>
+                        <p><strong>報到時間：</strong>${formatDateTimeGMT8(user_info.checked_in_at) !== '-' ? formatDateTimeGMT8(user_info.checked_in_at) : '未報到'}</p>
                     </div>
                     
                     <!-- 遊戲會話 -->
@@ -401,7 +407,7 @@ function renderGameSessions(sessions) {
     
     let html = '<div class="timeline">';
     sessions.forEach(session => {
-        const startTime = new Date(session.session_start).toLocaleString('zh-TW');
+        const startTime = formatDateTimeGMT8(session.session_start);
         const duration = session.total_play_time || 0;
         const score = session.final_score || 0;
         
@@ -430,8 +436,8 @@ function renderRedemptions(redemptions) {
     
     let html = '<div class="timeline">';
     redemptions.forEach(redemption => {
-        const redeemedTime = new Date(redemption.redeemed_at).toLocaleString('zh-TW');
-        const usedTime = redemption.used_at ? new Date(redemption.used_at).toLocaleString('zh-TW') : null;
+        const redeemedTime = formatDateTimeGMT8(redemption.redeemed_at);
+        const usedTime = redemption.used_at ? formatDateTimeGMT8(redemption.used_at) : null;
         
         html += `
             <div class="timeline-item">
@@ -457,7 +463,7 @@ function renderRedemptions(redemptions) {
 function renderInteractions(interactions) {
     let html = '<div class="timeline">';
     interactions.forEach(interaction => {
-        const time = new Date(interaction.timestamp).toLocaleString('zh-TW');
+        const time = formatDateTimeGMT8(interaction.timestamp);
         
         html += `
             <div class="timeline-item">

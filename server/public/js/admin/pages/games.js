@@ -153,9 +153,9 @@ function createGameRow(game) {
     statusCell.appendChild(statusSpan);
     row.appendChild(statusCell);
 
-    // Created at
+    // Created at (使用共用 Utils.formatDate)
     var createdCell = document.createElement('td');
-    createdCell.textContent = new Date(game.created_at).toLocaleString('zh-TW');
+    createdCell.textContent = Utils.formatDate(game.created_at, 'datetime');
     row.appendChild(createdCell);
 
     // Actions

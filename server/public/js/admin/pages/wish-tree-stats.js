@@ -178,7 +178,7 @@ async function loadRecentWishes() {
 
                 var timeText = document.createElement('div');
                 timeText.className = 'text-muted small';
-                timeText.textContent = wish.created_at;
+                timeText.textContent = Utils.formatDate(wish.created_at, 'datetime');
 
                 content.appendChild(wishText);
                 content.appendChild(timeText);

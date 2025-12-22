@@ -276,7 +276,7 @@ function showRegistrationModal(data) {
                                     <h5>${project.name}</h5>
                                     <p class="text-muted mb-1">
                                         <i class="fas fa-calendar me-1"></i>
-                                        ${project.event_date ? new Date(project.event_date).toLocaleDateString('zh-TW') : '未設定'}
+                                        ${project.event_date ? Utils.formatDate(project.event_date, 'date') : '未設定'}
                                     </p>
                                     <p class="text-muted mb-0">
                                         <i class="fas fa-map-marker-alt me-1"></i>
