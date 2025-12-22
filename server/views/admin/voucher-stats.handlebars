@@ -3,13 +3,30 @@
 <div class="page-header">
     <h1>🎫 兌換券統計分析</h1>
     <div class="page-actions">
-        <input type="date" id="date-filter" class="form-control" style="width: 200px;">
-        <button class="btn btn-secondary" onclick="loadStats()">
-            <i class="fas fa-sync-alt"></i> 重新整理
-        </button>
         <a href="/admin/vouchers" class="btn btn-primary">
             <i class="fas fa-ticket-alt"></i> 兌換券管理
         </a>
+    </div>
+</div>
+
+<!-- 篩選器 -->
+<div class="filter-section">
+    <div class="form-row">
+        <div class="form-group col-md-3">
+            <label>日期</label>
+            <input type="date" class="form-control" id="date-filter">
+        </div>
+        <div class="form-group col-md-3">
+            <label>專案篩選</label>
+            <select class="form-control" id="project-filter">
+                <option value="">全部專案</option>
+            </select>
+        </div>
+        <div class="form-group col-md-3 d-flex align-items-end">
+            <button class="btn btn-secondary" onclick="loadStats()">
+                <i class="fas fa-sync-alt"></i> 重新整理
+            </button>
+        </div>
     </div>
 </div>
 
@@ -211,6 +228,7 @@
 <script>
 let voucherChart = null;
 let dailyTrendChart = null;
+let allProjects = [];
 
 // 頁面載入時執行
 document.addEventListener('DOMContentLoaded', function() {
@@ -218,18 +236,56 @@ document.addEventListener('DOMContentLoaded', function() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('date-filter').value = today;
 
+    loadProjects();
     loadStats();
 
-    // 日期變更事件
+    // 篩選器變更事件
     document.getElementById('date-filter').addEventListener('change', loadStats);
+    document.getElementById('project-filter').addEventListener('change', loadStats);
 });
+
+// 載入專案列表
+async function loadProjects() {
+    try {
+        const response = await fetch('/api/admin/projects');
+        const data = await response.json();
+
+        if (data.success && data.data && data.data.projects) {
+            allProjects = data.data.projects;
+
+            const select = document.getElementById('project-filter');
+            // 清空並添加預設選項
+            select.length = 0;
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '全部專案';
+            select.appendChild(defaultOption);
+
+            if (allProjects && allProjects.length > 0) {
+                allProjects.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project.id;
+                    option.textContent = project.project_name;
+                    select.appendChild(option);
+                });
+            }
+        }
+    } catch (error) {
+        console.error('載入專案列表失敗:', error);
+    }
+}
 
 // 載入統計資料
 async function loadStats() {
     try {
         const date = document.getElementById('date-filter').value;
-        // P1-7: 更新 API 端點
-        const url = date ? `/api/admin/vouchers/stats?date=${date}` : '/api/admin/vouchers/stats';
+        const projectId = document.getElementById('project-filter').value;
+
+        let url = '/api/admin/vouchers/stats';
+        const params = [];
+        if (date) params.push(`date=${date}`);
+        if (projectId) params.push(`project_id=${projectId}`);
+        if (params.length > 0) url += '?' + params.join('&');
 
         const response = await fetch(url);
         const data = await response.json();

@@ -15,63 +15,120 @@ class VoucherService extends BaseService {
 
     /**
      * 獲取統計數據
-     * @param {Object} options - 選項
+     * @param {Object} options - 選項 (date, project_id)
      * @returns {Promise<Object>}
      */
     async getStats(options = {}) {
+        const { project_id } = options;
+
+        // 構建專案過濾條件（透過 game_sessions 關聯）
+        const projectJoin = project_id
+            ? 'INNER JOIN game_sessions gs ON vr.session_id = gs.id'
+            : '';
+        const projectWhere = project_id ? 'WHERE gs.project_id = ?' : '';
+        const projectWhereAnd = project_id ? 'AND gs.project_id = ?' : '';
+        const projectParams = project_id ? [project_id] : [];
+
         // 1. 總覽統計
-        const summary = await this.db.get(`
-            SELECT
+        const summaryQuery = project_id
+            ? `SELECT
+                COUNT(*) as total_redemptions,
+                SUM(CASE WHEN vr.is_used = 1 THEN 1 ELSE 0 END) as used_redemptions,
+                COUNT(DISTINCT vr.trace_id) as unique_users,
+                ROUND(CAST(SUM(CASE WHEN vr.is_used = 1 THEN 1 ELSE 0 END) AS FLOAT) /
+                      NULLIF(COUNT(*), 0) * 100, 1) as usage_rate
+               FROM voucher_redemptions vr
+               ${projectJoin}
+               ${projectWhere}`
+            : `SELECT
                 COUNT(*) as total_redemptions,
                 SUM(CASE WHEN is_used = 1 THEN 1 ELSE 0 END) as used_redemptions,
                 COUNT(DISTINCT trace_id) as unique_users,
                 ROUND(CAST(SUM(CASE WHEN is_used = 1 THEN 1 ELSE 0 END) AS FLOAT) /
                       NULLIF(COUNT(*), 0) * 100, 1) as usage_rate
-            FROM voucher_redemptions
-        `);
+               FROM voucher_redemptions`;
+
+        const summary = await this.db.get(summaryQuery, projectParams);
 
         // 2. 各兌換券發放統計
-        const voucherStats = await this.db.query(`
-            SELECT
+        const voucherStatsQuery = project_id
+            ? `SELECT
                 v.voucher_name,
                 v.category,
                 v.voucher_value,
                 COUNT(*) as redemption_count,
                 SUM(CASE WHEN vr.is_used = 1 THEN 1 ELSE 0 END) as used_count
-            FROM voucher_redemptions vr
-            JOIN vouchers v ON vr.voucher_id = v.id
-            GROUP BY vr.voucher_id
-            ORDER BY redemption_count DESC
-        `);
+               FROM voucher_redemptions vr
+               JOIN vouchers v ON vr.voucher_id = v.id
+               ${projectJoin}
+               ${projectWhere}
+               GROUP BY vr.voucher_id
+               ORDER BY redemption_count DESC`
+            : `SELECT
+                v.voucher_name,
+                v.category,
+                v.voucher_value,
+                COUNT(*) as redemption_count,
+                SUM(CASE WHEN vr.is_used = 1 THEN 1 ELSE 0 END) as used_count
+               FROM voucher_redemptions vr
+               JOIN vouchers v ON vr.voucher_id = v.id
+               GROUP BY vr.voucher_id
+               ORDER BY redemption_count DESC`;
+
+        const voucherStats = await this.db.query(voucherStatsQuery, projectParams);
 
         // 3. 每日兌換趨勢（最近 30 天）
-        const dailyTrend = await this.db.query(`
-            SELECT
+        const dailyTrendQuery = project_id
+            ? `SELECT
+                DATE(vr.redeemed_at) as date,
+                COUNT(*) as redemption_count,
+                SUM(CASE WHEN vr.is_used = 1 THEN 1 ELSE 0 END) as used_count
+               FROM voucher_redemptions vr
+               ${projectJoin}
+               WHERE vr.redeemed_at >= DATE('now', '-30 days') ${projectWhereAnd}
+               GROUP BY DATE(vr.redeemed_at)
+               ORDER BY date ASC`
+            : `SELECT
                 DATE(redeemed_at) as date,
                 COUNT(*) as redemption_count,
                 SUM(CASE WHEN is_used = 1 THEN 1 ELSE 0 END) as used_count
-            FROM voucher_redemptions
-            WHERE redeemed_at >= DATE('now', '-30 days')
-            GROUP BY DATE(redeemed_at)
-            ORDER BY date ASC
-        `);
+               FROM voucher_redemptions
+               WHERE redeemed_at >= DATE('now', '-30 days')
+               GROUP BY DATE(redeemed_at)
+               ORDER BY date ASC`;
+
+        const dailyTrend = await this.db.query(dailyTrendQuery, projectParams);
 
         // 4. 熱門兌換券排行榜 TOP 10
-        const topVouchers = await this.db.query(`
-            SELECT
+        const topVouchersQuery = project_id
+            ? `SELECT
                 v.voucher_name,
                 v.category,
                 v.voucher_value,
                 COUNT(*) as redemption_count,
                 SUM(CASE WHEN vr.is_used = 1 THEN 1 ELSE 0 END) as used_count
-            FROM voucher_redemptions vr
-            JOIN vouchers v ON vr.voucher_id = v.id
-            GROUP BY vr.voucher_id
-            ORDER BY redemption_count DESC
-            LIMIT 10
-        `);
+               FROM voucher_redemptions vr
+               JOIN vouchers v ON vr.voucher_id = v.id
+               ${projectJoin}
+               ${projectWhere}
+               GROUP BY vr.voucher_id
+               ORDER BY redemption_count DESC
+               LIMIT 10`
+            : `SELECT
+                v.voucher_name,
+                v.category,
+                v.voucher_value,
+                COUNT(*) as redemption_count,
+                SUM(CASE WHEN vr.is_used = 1 THEN 1 ELSE 0 END) as used_count
+               FROM voucher_redemptions vr
+               JOIN vouchers v ON vr.voucher_id = v.id
+               GROUP BY vr.voucher_id
+               ORDER BY redemption_count DESC
+               LIMIT 10`;
 
-        this.log('getStats', { date: options.date });
+        const topVouchers = await this.db.query(topVouchersQuery, projectParams);
+
+        this.log('getStats', { date: options.date, project_id });
 
         return {
             summary: summary || { total_redemptions: 0, used_redemptions: 0, unique_users: 0, usage_rate: 0 },

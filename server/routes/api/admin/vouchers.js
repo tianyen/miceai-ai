@@ -28,7 +28,7 @@ function handleServiceError(res, error, defaultMessage) {
  *   get:
  *     tags: [Admin - Vouchers]
  *     summary: 獲取兌換券統計
- *     description: 獲取兌換券的統計資訊
+ *     description: 獲取兌換券的統計資訊，可依專案篩選
  *     parameters:
  *       - in: query
  *         name: date
@@ -36,6 +36,11 @@ function handleServiceError(res, error, defaultMessage) {
  *           type: string
  *           format: date
  *         description: 統計日期（YYYY-MM-DD）
+ *       - in: query
+ *         name: project_id
+ *         schema:
+ *           type: integer
+ *         description: 專案 ID（篩選特定專案的統計）
  *     responses:
  *       200:
  *         description: 成功獲取統計資訊
@@ -43,7 +48,8 @@ function handleServiceError(res, error, defaultMessage) {
 router.get('/stats', async (req, res) => {
     try {
         const result = await voucherService.getStats({
-            date: req.query.date
+            date: req.query.date,
+            project_id: req.query.project_id
         });
 
         return responses.success(res, result, '成功獲取統計資訊');
