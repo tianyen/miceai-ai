@@ -161,11 +161,11 @@ class LogRepository extends BaseRepository {
     }
 
     /**
-     * 搜尋日誌（支援關鍵字、級別、日期過濾）
+     * 搜尋日誌（支援關鍵字、級別、操作類型、日期過濾）
      * @param {Object} params - 搜尋參數
      * @returns {Promise<Array>}
      */
-    async search({ search, level, dateFilter, limit = 50 } = {}) {
+    async search({ search, level, action, dateFilter, limit = 50 } = {}) {
         let sql = `
             SELECT l.*, u.full_name as user_name
             FROM system_logs l
@@ -175,9 +175,9 @@ class LogRepository extends BaseRepository {
         const params = [];
 
         if (search && search.trim()) {
-            sql += ` AND (l.action LIKE ? OR l.resource_type LIKE ? OR u.full_name LIKE ?)`;
+            sql += ` AND (l.action LIKE ? OR l.resource_type LIKE ? OR u.full_name LIKE ? OR l.details LIKE ?)`;
             const searchTerm = `%${search.trim()}%`;
-            params.push(searchTerm, searchTerm, searchTerm);
+            params.push(searchTerm, searchTerm, searchTerm, searchTerm);
         }
 
         if (level && level.trim()) {
@@ -188,6 +188,12 @@ class LogRepository extends BaseRepository {
             } else if (level === 'info') {
                 sql += ` AND l.action NOT LIKE '%error%' AND l.action NOT LIKE '%failed%' AND l.action NOT LIKE '%warning%'`;
             }
+        }
+
+        // 操作類型篩選（支援模糊匹配）
+        if (action && action.trim()) {
+            sql += ` AND l.action LIKE ?`;
+            params.push(`%${action.trim()}%`);
         }
 
         if (dateFilter && dateFilter.trim()) {

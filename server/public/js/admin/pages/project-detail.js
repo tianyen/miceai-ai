@@ -128,20 +128,28 @@ function loadProjectStats() {
     });
 }
 
-// 參加者搜尋狀態
+// 參加者搜尋和排序狀態
 let currentParticipantsSearch = '';
+let currentParticipantsSort = { field: 'id', order: 'desc' }; // 預設按 ID 降序
 
-// 載入參加者列表（支援分頁和搜尋）
+// 載入參加者列表（支援分頁、搜尋、排序）
 function loadParticipants(page = 1, search = currentParticipantsSearch) {
     currentParticipantsSearch = search;
     $.ajax({
         url: `/api/admin/projects/${projectId}/participants`,
         method: 'GET',
-        data: { page: page, limit: 20, search: search },
+        data: {
+            page: page,
+            limit: 20,
+            search: search,
+            sort: currentParticipantsSort.field,
+            order: currentParticipantsSort.order
+        },
         success: function(response) {
             if (response.success) {
                 $('#participants-list').html(response.tableHtml);
                 $('#participants-pagination').html(response.paginationHtml);
+                updateSortIcons();
             } else {
                 $('#participants-list').html('<tr><td colspan="8" class="text-center text-danger">載入參加者失敗</td></tr>');
                 $('#participants-pagination').empty();
@@ -165,6 +173,30 @@ function clearParticipantsSearch() {
     $('#participants-search').val('');
     currentParticipantsSearch = '';
     loadParticipants(1, '');
+}
+
+// 排序參加者
+function sortParticipants(field) {
+    // 如果點擊同一欄位，切換排序方向
+    if (currentParticipantsSort.field === field) {
+        currentParticipantsSort.order = currentParticipantsSort.order === 'asc' ? 'desc' : 'asc';
+    } else {
+        // 新欄位，預設降序
+        currentParticipantsSort.field = field;
+        currentParticipantsSort.order = 'desc';
+    }
+    loadParticipants(1);
+}
+
+// 更新排序圖示
+function updateSortIcons() {
+    // 重置所有圖示
+    $('.sort-icon').removeClass('fa-sort-up fa-sort-down').addClass('fa-sort');
+
+    // 設定當前排序欄位的圖示
+    const iconId = `#sort-icon-${currentParticipantsSort.field}`;
+    const iconClass = currentParticipantsSort.order === 'asc' ? 'fa-sort-up' : 'fa-sort-down';
+    $(iconId).removeClass('fa-sort').addClass(iconClass);
 }
 
 // 載入問卷資料

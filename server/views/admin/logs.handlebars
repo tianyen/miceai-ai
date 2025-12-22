@@ -40,6 +40,35 @@
     </div>
 
     <div class="filter-group">
+        <label for="action-filter">操作類型：</label>
+        <select id="action-filter" name="action-filter" class="form-control">
+            <option value="">所有操作</option>
+            <optgroup label="登入相關">
+                <option value="admin_login">登入操作</option>
+            </optgroup>
+            <optgroup label="用戶管理">
+                <option value="user_">用戶操作</option>
+                <option value="password_reset">重設密碼</option>
+            </optgroup>
+            <optgroup label="參加者管理">
+                <option value="_participant">參加者操作</option>
+            </optgroup>
+            <optgroup label="簽到管理">
+                <option value="checkin">簽到操作</option>
+            </optgroup>
+            <optgroup label="專案管理">
+                <option value="project_">專案操作</option>
+            </optgroup>
+            <optgroup label="問卷管理">
+                <option value="questionnaire_">問卷操作</option>
+            </optgroup>
+            <optgroup label="Email 相關">
+                <option value="email">郵件操作</option>
+            </optgroup>
+        </select>
+    </div>
+
+    <div class="filter-group">
         <label for="date-filter">日期範圍：</label>
         <select id="date-filter" name="date-filter" class="form-control">
             <option value="">所有時間</option>
@@ -224,7 +253,7 @@
         });
 
         // 篩選器變更事件
-        $('#level-filter, #date-filter').on('change', function () {
+        $('#level-filter, #action-filter, #date-filter').on('change', function () {
             searchLogs();
         });
 
@@ -282,6 +311,7 @@
     function searchLogs() {
         const searchTerm = $('#search-input').val();
         const levelFilter = $('#level-filter').val();
+        const actionFilter = $('#action-filter').val();
         const dateFilter = $('#date-filter').val();
 
         $.ajax({
@@ -290,6 +320,7 @@
             data: {
                 search: searchTerm,
                 level: levelFilter,
+                action: actionFilter,
                 'date-filter': dateFilter
             },
             success: function (data) {

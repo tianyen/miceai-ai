@@ -1,6 +1,6 @@
 # MICE AI Backend
 
-> Version: **v1.0** · Last updated: 2025-12-20
+> Version: **v1.0** · Last updated: 2025-12-22
 
 專業的 MICE (會議、獎勵旅遊、大型會議、展覽) 活動管理系統後端，提供完整的活動管理、報名系統、遊戲室、問卷、許願樹等功能。
 
@@ -459,6 +459,14 @@ pm2 startup
 **維護者**: MICE-AI Team
 
 ### 更新日誌
+
+#### 2025-12-22
+- 新增：系統日誌頁面操作類型篩選功能（登入/用戶/參加者/簽到/專案/問卷/郵件）
+- 新增：系統日誌操作類型中文化（ACTION_LABELS）和詳情格式化（formatLogDetails）
+- 新增：參加者管理表格排序功能（支援 ID、報名時間、報到時間）
+- 優化：日誌搜尋也支援 details 欄位內容
+- 移除：郵件管理「行前通知」sub-tab 中的郵件預覽區塊
+- 修復：logs/search API 改用 viewHelpers.logTableRow
 
 #### 2025-12-20
 - 修復：security.js 改用 config 讀取 CORS 和 Rate Limit 配置（不再硬編碼）

@@ -140,13 +140,19 @@
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th class="sortable" onclick="sortParticipants('id')" data-sort="id">
+                                ID <i class="fas fa-sort sort-icon" id="sort-icon-id"></i>
+                            </th>
                             <th>姓名</th>
                             <th>電子郵件</th>
                             <th>電話</th>
                             <th>小孩</th>
-                            <th>報名時間</th>
-                            <th>報到時間</th>
+                            <th class="sortable" onclick="sortParticipants('created_at')" data-sort="created_at">
+                                報名時間 <i class="fas fa-sort sort-icon" id="sort-icon-created_at"></i>
+                            </th>
+                            <th class="sortable" onclick="sortParticipants('checked_in_at')" data-sort="checked_in_at">
+                                報到時間 <i class="fas fa-sort sort-icon" id="sort-icon-checked_in_at"></i>
+                            </th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -570,14 +576,6 @@
                 </div>
             </div>
 
-            <!-- 預覽區域 -->
-            <div class="preview-section" style="margin-bottom: 1.5rem;">
-                <h4 style="margin-bottom: 1rem;">📄 郵件預覽</h4>
-                <div class="email-preview-container" style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden; max-height: 400px; overflow-y: auto;">
-                    <iframe id="pre-event-email-preview" style="width: 100%; height: 400px; border: none;"></iframe>
-                </div>
-            </div>
-
             <!-- 收件者列表 -->
             <div class="data-table-container">
                 <h4 style="margin-bottom: 1rem;">收件者列表 <small class="text-muted">（勾選後可單獨發送）</small></h4>
@@ -641,6 +639,28 @@
 
     <!-- Sub-tabs 樣式 -->
     <style>
+        /* 排序表頭樣式 */
+        th.sortable {
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        th.sortable:hover {
+            background-color: #e9ecef;
+        }
+
+        th.sortable .sort-icon {
+            margin-left: 0.25rem;
+            color: #adb5bd;
+            font-size: 0.875rem;
+        }
+
+        th.sortable .sort-icon.fa-sort-up,
+        th.sortable .sort-icon.fa-sort-down {
+            color: #007bff;
+        }
+
         .sub-tabs {
             display: flex;
             gap: 0.5rem;

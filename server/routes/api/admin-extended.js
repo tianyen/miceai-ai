@@ -819,15 +819,17 @@ router.get('/projects/:id/stats', authenticateSession, async (req, res) => {
     }
 });
 
-// API: 獲取專案參加者列表 (JSON，支援分頁)
+// API: 獲取專案參加者列表 (JSON，支援分頁和排序)
 // @refactor: 使用 projectService + viewHelpers
 router.get('/projects/:id/participants', authenticateSession, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const search = req.query.search || '';
+        const sort = req.query.sort || 'id';
+        const order = req.query.order || 'desc';
 
-        const result = await projectService.getParticipants(req.params.id, { page, limit, search });
+        const result = await projectService.getParticipants(req.params.id, { page, limit, search, sort, order });
         const { participants, pagination } = result;
 
         // 生成表格 HTML

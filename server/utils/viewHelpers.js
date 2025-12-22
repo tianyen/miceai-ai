@@ -409,6 +409,327 @@ function projectParticipantRow(participant) {
 }
 
 /**
+ * 操作類型對應表（用於日誌顯示）
+ */
+const ACTION_LABELS = {
+    // 登入相關
+    admin_login_success: '登入成功',
+    admin_login_failed: '登入失敗',
+    admin_logout: '登出',
+    // 用戶管理
+    user_created: '新增用戶',
+    user_updated: '更新用戶',
+    user_deleted: '刪除用戶',
+    user_status_changed: '變更用戶狀態',
+    user_marked_for_deletion: '標記刪除用戶',
+    password_reset: '重設密碼',
+    users_imported: '批量匯入用戶',
+    create_user: '新增用戶',
+    update_user: '更新用戶',
+    delete_user: '刪除用戶',
+    change_role: '變更權限',
+    reset_password: '重設密碼',
+    // 參加者管理
+    create_participant: '新增參加者',
+    update_participant: '更新參加者',
+    delete_participant: '刪除參加者',
+    // 簽到管理
+    checkin_created: '報到成功',
+    checkin_data_exported: '匯出報到數據',
+    manual_checkin: '手動簽到',
+    cancel_checkin: '取消簽到',
+    qr_checkin: 'QR 碼簽到',
+    bulk_checkin: '批量簽到',
+    // 專案管理
+    project_created: '新增專案',
+    project_updated: '更新專案',
+    project_deleted: '刪除專案',
+    project_duplicated: '複製專案',
+    project_status_changed: '變更專案狀態',
+    project_permission_added: '新增專案權限',
+    project_permission_updated: '更新專案權限',
+    project_permission_removed: '移除專案權限',
+    create_project: '新增專案',
+    update_project: '更新專案',
+    delete_project: '刪除專案',
+    // 問卷管理
+    questionnaire_created: '新增問卷',
+    questionnaire_updated: '更新問卷',
+    questionnaire_deleted: '刪除問卷',
+    questionnaire_exported: '匯出問卷',
+    // 模板管理
+    template_created: '新增模板',
+    template_updated: '更新模板',
+    template_deleted: '刪除模板',
+    // 提交管理
+    submission_created: '新增提交',
+    submission_updated: '更新提交',
+    submission_deleted: '刪除提交',
+    submission_bulk_deleted: '批量刪除提交',
+    // Email 相關
+    send_email: '發送郵件',
+    email_sent: '發送郵件',
+    invitation_email_resent: '重寄邀請信',
+    pre_event_email_sent: '發送行前通知',
+    // 其他
+    generate_qrcode: '生成 QR Code'
+};
+
+/**
+ * 欄位名稱對應表
+ */
+const FIELD_LABELS = {
+    submitter_name: '姓名',
+    submitter_email: '電子郵件',
+    submitter_phone: '電話',
+    company_name: '公司',
+    position: '職稱',
+    gender: '性別',
+    participation_level: '參與程度',
+    children_count: '兒童人數',
+    children_ages: '兒童年齡',
+    notes: '備註',
+    role: '角色',
+    status: '狀態',
+    name: '名稱',
+    email: '電子郵件',
+    phone: '電話'
+};
+
+/**
+ * 格式化操作類型為中文
+ * @param {string} action - 操作類型
+ * @returns {string} 中文操作名稱
+ */
+function formatActionLabel(action) {
+    return ACTION_LABELS[action] || action;
+}
+
+/**
+ * 格式化日誌詳情為易讀的中文
+ * @param {string} action - 操作類型
+ * @param {string|null} detailsJson - JSON 格式的詳情
+ * @returns {string} 易讀的詳情文字
+ */
+function formatLogDetails(action, detailsJson) {
+    if (!detailsJson) return '無詳細資訊';
+
+    try {
+        const details = typeof detailsJson === 'string' ? JSON.parse(detailsJson) : detailsJson;
+        const parts = [];
+
+        // 根據操作類型格式化
+        switch (action) {
+            // 登入相關
+            case 'admin_login_success':
+            case 'admin_login_failed':
+                if (details.login_method) {
+                    parts.push(`登入方式: ${details.login_method === 'admin_panel' ? '管理後台' : details.login_method}`);
+                }
+                break;
+
+            // 參加者管理
+            case 'create_participant':
+                if (details.name) parts.push(`姓名: ${details.name}`);
+                if (details.email) parts.push(`Email: ${details.email}`);
+                if (details.isDependent) parts.push('(附屬報名人)');
+                break;
+
+            case 'update_participant':
+                if (details.updatedFields && Array.isArray(details.updatedFields)) {
+                    const fieldLabels = details.updatedFields.map(f => FIELD_LABELS[f] || f);
+                    parts.push(`更新欄位: ${fieldLabels.join('、')}`);
+                }
+                if (details.updated_fields && Array.isArray(details.updated_fields)) {
+                    const fieldLabels = details.updated_fields.map(f => FIELD_LABELS[f] || f);
+                    parts.push(`更新欄位: ${fieldLabels.join('、')}`);
+                }
+                if (details.name) parts.push(`姓名: ${details.name}`);
+                break;
+
+            case 'delete_participant':
+                if (details.participantName) parts.push(`刪除: ${details.participantName}`);
+                if (details.participantEmail) parts.push(`(${details.participantEmail})`);
+                break;
+
+            // 簽到管理
+            case 'manual_checkin':
+            case 'qr_checkin':
+                if (details.participantName) parts.push(`報到: ${details.participantName}`);
+                if (details.method) parts.push(`方式: ${details.method}`);
+                break;
+
+            case 'cancel_checkin':
+                if (details.participantName) parts.push(`取消報到: ${details.participantName}`);
+                break;
+
+            case 'bulk_checkin':
+                if (details.count) parts.push(`簽到人數: ${details.count}`);
+                break;
+
+            // 用戶管理
+            case 'user_created':
+                if (details.username) parts.push(`用戶: ${details.username}`);
+                if (details.role) parts.push(`角色: ${details.role}`);
+                if (details.expires_at) parts.push(`到期: ${details.expires_at}`);
+                break;
+
+            case 'user_updated':
+                if (details.target_user) parts.push(`用戶: ${details.target_user}`);
+                if (details.updated_fields && Array.isArray(details.updated_fields)) {
+                    const fieldLabels = details.updated_fields.map(f => FIELD_LABELS[f] || f);
+                    parts.push(`更新欄位: ${fieldLabels.join('、')}`);
+                }
+                break;
+
+            case 'user_deleted':
+            case 'user_marked_for_deletion':
+                if (details.target_user) parts.push(`用戶: ${details.target_user}`);
+                break;
+
+            case 'user_status_changed':
+                if (details.target_user) parts.push(`用戶: ${details.target_user}`);
+                if (details.old_status && details.new_status) {
+                    parts.push(`狀態: ${details.old_status} → ${details.new_status}`);
+                }
+                if (details.reason) parts.push(`原因: ${details.reason}`);
+                break;
+
+            case 'password_reset':
+                if (details.target_user) parts.push(`用戶: ${details.target_user}`);
+                break;
+
+            case 'users_imported':
+                if (details.total) parts.push(`總數: ${details.total}`);
+                if (details.success) parts.push(`成功: ${details.success}`);
+                if (details.failures) parts.push(`失敗: ${details.failures}`);
+                break;
+
+            case 'create_user':
+            case 'update_user':
+            case 'delete_user':
+                if (details.username) parts.push(`用戶: ${details.username}`);
+                if (details.role) parts.push(`角色: ${details.role}`);
+                break;
+
+            case 'change_role':
+                if (details.username) parts.push(`用戶: ${details.username}`);
+                if (details.oldRole && details.newRole) {
+                    parts.push(`${details.oldRole} → ${details.newRole}`);
+                }
+                break;
+
+            // 簽到管理（擴展）
+            case 'checkin_created':
+                if (details.attendee_name) parts.push(`報到: ${details.attendee_name}`);
+                if (details.project_id) parts.push(`專案ID: ${details.project_id}`);
+                if (details.scanner_location) parts.push(`地點: ${details.scanner_location}`);
+                break;
+
+            case 'checkin_data_exported':
+                if (details.count) parts.push(`匯出筆數: ${details.count}`);
+                break;
+
+            // 專案管理
+            case 'project_created':
+                if (details.project_name) parts.push(`專案: ${details.project_name}`);
+                if (details.project_code) parts.push(`代碼: ${details.project_code}`);
+                break;
+
+            case 'project_updated':
+            case 'project_deleted':
+                if (details.project_name) parts.push(`專案: ${details.project_name}`);
+                if (details.name) parts.push(`專案: ${details.name}`);
+                break;
+
+            case 'project_duplicated':
+                if (details.from_project_id) parts.push(`原專案ID: ${details.from_project_id}`);
+                if (details.new_project_id) parts.push(`新專案ID: ${details.new_project_id}`);
+                break;
+
+            case 'project_status_changed':
+                if (details.project_name) parts.push(`專案: ${details.project_name}`);
+                if (details.old_status && details.new_status) {
+                    parts.push(`狀態: ${details.old_status} → ${details.new_status}`);
+                }
+                break;
+
+            case 'project_permission_added':
+            case 'project_permission_updated':
+            case 'project_permission_removed':
+                if (details.user_id) parts.push(`用戶ID: ${details.user_id}`);
+                if (details.permission_level) parts.push(`權限: ${details.permission_level}`);
+                break;
+
+            // 問卷管理
+            case 'questionnaire_created':
+            case 'questionnaire_updated':
+            case 'questionnaire_deleted':
+                if (details.questionnaire_title) parts.push(`問卷: ${details.questionnaire_title}`);
+                if (details.title) parts.push(`問卷: ${details.title}`);
+                break;
+
+            case 'questionnaire_exported':
+                if (details.questionnaire_title) parts.push(`匯出問卷: ${details.questionnaire_title}`);
+                if (details.count) parts.push(`回覆數: ${details.count}`);
+                break;
+
+            // Email 相關
+            case 'send_email':
+            case 'email_sent':
+                if (details.recipientCount) parts.push(`收件人數: ${details.recipientCount}`);
+                if (details.emailType) parts.push(`類型: ${details.emailType}`);
+                if (details.recipient) parts.push(`收件人: ${details.recipient}`);
+                break;
+
+            case 'invitation_email_resent':
+                if (details.count) parts.push(`重寄數量: ${details.count}`);
+                break;
+
+            case 'pre_event_email_sent':
+                if (details.count) parts.push(`發送數量: ${details.count}`);
+                break;
+
+            // 提交管理
+            case 'submission_created':
+            case 'submission_updated':
+            case 'submission_deleted':
+                if (details.submitter_name) parts.push(`提交者: ${details.submitter_name}`);
+                if (details.name) parts.push(`提交者: ${details.name}`);
+                break;
+
+            case 'submission_bulk_deleted':
+                if (details.count) parts.push(`刪除數量: ${details.count}`);
+                break;
+
+            // 模板管理
+            case 'template_created':
+            case 'template_updated':
+            case 'template_deleted':
+                if (details.template_name) parts.push(`模板: ${details.template_name}`);
+                if (details.name) parts.push(`模板: ${details.name}`);
+                break;
+
+            default:
+                // 通用處理：顯示所有鍵值對
+                for (const [key, value] of Object.entries(details)) {
+                    const label = FIELD_LABELS[key] || key;
+                    if (typeof value === 'object') {
+                        parts.push(`${label}: ${JSON.stringify(value)}`);
+                    } else {
+                        parts.push(`${label}: ${value}`);
+                    }
+                }
+        }
+
+        return parts.length > 0 ? parts.join(' | ') : '無詳細資訊';
+    } catch (e) {
+        // JSON 解析失敗，返回原始內容
+        return safeText(detailsJson, '無詳細資訊');
+    }
+}
+
+/**
  * 生成日誌表格列
  * @param {Object} log - 日誌資料
  * @returns {string} HTML
@@ -417,6 +738,8 @@ function logTableRow(log) {
     const timestamp = formatDate(log.created_at, 'datetime');
     const displayName = log.displayName || log.username || '系統';
     const initial = displayName.charAt(0);
+    const actionLabel = formatActionLabel(log.action);
+    const detailsText = formatLogDetails(log.action, log.details);
 
     return `
         <tr>
@@ -426,8 +749,8 @@ function logTableRow(log) {
                 <div class="log-user-avatar">${initial}</div>
                 <span>${safeText(displayName)}</span>
             </td>
-            <td class="log-action">${safeText(log.action)}</td>
-            <td class="log-details" onclick="viewLogDetails(${log.id})">${safeText(log.details, '無詳細資訊')}</td>
+            <td class="log-action">${safeText(actionLabel)}</td>
+            <td class="log-details" onclick="viewLogDetails(${log.id})" title="${safeText(log.details || '')}">${safeText(detailsText)}</td>
             <td class="log-ip">${safeText(log.ip_address, '未知')}</td>
             <td class="log-actions">
                 <button class="btn btn-sm btn-outline-primary" onclick="viewLogDetails(${log.id})">

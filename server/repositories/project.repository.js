@@ -160,7 +160,7 @@ class ProjectRepository extends BaseRepository {
      * @param {number} limit - 筆數限制
      * @returns {Promise<Array>}
      */
-    async getParticipants(projectId, { page = 1, limit = 20, search = '' } = {}) {
+    async getParticipants(projectId, { page = 1, limit = 20, search = '', sort = 'id', order = 'desc' } = {}) {
         const offset = (page - 1) * limit;
 
         // 構建搜尋條件
@@ -174,6 +174,11 @@ class ProjectRepository extends BaseRepository {
             countParams.push(searchTerm, searchTerm);
             queryParams.push(searchTerm, searchTerm);
         }
+
+        // 驗證排序欄位和方向（防止 SQL 注入）
+        const allowedSortFields = ['id', 'created_at', 'checked_in_at'];
+        const sortField = allowedSortFields.includes(sort) ? `fs.${sort}` : 'fs.id';
+        const sortOrder = order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
         // 取得總數
         const countSql = `SELECT COUNT(*) as total FROM form_submissions fs ${whereClause}`;
@@ -206,10 +211,7 @@ class ProjectRepository extends BaseRepository {
             FROM form_submissions fs
             LEFT JOIN form_submissions parent ON fs.parent_submission_id = parent.id
             ${whereClause}
-            ORDER BY
-                COALESCE(fs.group_id, fs.id) ASC,
-                fs.is_primary DESC,
-                fs.created_at ASC
+            ORDER BY ${sortField} ${sortOrder}
             LIMIT ? OFFSET ?
         `;
         queryParams.push(limit, offset);

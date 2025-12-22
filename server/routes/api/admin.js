@@ -389,48 +389,26 @@ router.get('/logs/pagination', authenticateSession, async (req, res) => {
 // 日誌搜尋 API
 router.get('/logs/search', authenticateSession, async (req, res) => {
     try {
-        const { search, level, 'date-filter': dateFilter } = req.query;
+        const { search, level, action, 'date-filter': dateFilter } = req.query;
 
-        // 使用 Repository 進行搜尋
-        const logs = await logRepository.search({ search, level, dateFilter, limit: 100 });
+        // 使用 Repository 進行搜尋（支援 action 篩選）
+        const logs = await logRepository.search({ search, level, action, dateFilter, limit: 100 });
 
-        let html = '';
-        if (logs.length === 0) {
-            html = `
-                <tr>
-                    <td colspan="6" class="empty-state">
-                        <div class="empty-icon">📋</div>
-                        <div class="empty-text">
-                            <h4>無符合條件的日誌</h4>
-                            <p>請調整搜尋條件</p>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        } else {
-            logs.forEach(log => {
-                const createdAt = new Date(log.created_at).toLocaleString('zh-TW');
-                html += `
-                    <tr>
-                        <td>${log.id}</td>
-                        <td>${log.action || '-'}</td>
-                        <td>${log.user_name || '系統'}</td>
-                        <td>${log.resource_type || '-'}</td>
-                        <td>${createdAt}</td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-info" onclick="viewLogDetails(${log.id})" title="查看詳情">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
+        // 使用 logService 格式化日誌
+        const { logService } = require('../../services');
+        const formattedLogs = logService.formatLogs(logs);
+
+        // 使用 viewHelpers 生成 HTML
+        const vh = require('../../utils/viewHelpers');
+        const html = formattedLogs.length === 0
+            ? vh.emptyTableRow('無符合條件的日誌', 7)
+            : formattedLogs.map(log => vh.logTableRow(log)).join('');
 
         res.send(html);
     } catch (error) {
         console.error('搜尋日誌失敗:', error);
-        res.status(500).send('<tr><td colspan="6" class="text-center text-danger">搜尋失敗</td></tr>');
+        const vh = require('../../utils/viewHelpers');
+        res.status(500).send(vh.errorTableRow('搜尋失敗', 7));
     }
 });
 
