@@ -1023,7 +1023,7 @@ class EmailService {
             <!-- 活動詳情 -->
             <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin-top: 30px;">
                 <tr>
-                    <td style="padding: 20px; background-color: #111111; border: 1px solid #333333;">
+                    <td style="padding: 20px; background-color: #131313; border: 1px solid #333333; border-top: 2px solid #FF5F00;">
                         <div style="color: #FF5F00; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin-bottom: 15px;">活動資訊</div>
                         <table border="0" cellpadding="0" cellspacing="0" width="100%">
                             <tr>
@@ -1054,7 +1054,7 @@ class EmailService {
             <!-- 活動流程表 -->
             <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin-top: 30px;">
                 <tr>
-                    <td style="padding: 20px; background-color: #111111; border: 1px solid #333333;">
+                    <td style="padding: 20px; background-color: #0f0f0f; border: 1px solid #333333; border-left: 3px solid #FF5F00;">
                         <div style="color: #FF5F00; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin-bottom: 15px;">活動流程表</div>
                         <table border="0" cellpadding="0" cellspacing="0" width="100%">
                             <tr style="border-bottom: 1px solid #333333;">
