@@ -1070,8 +1070,8 @@ class EmailService {
                                 <td style="padding: 12px 0; color: #ffffff; font-size: 14px; border-bottom: 1px solid #222222;">暖場時光｜光影互動遊戲 × DJ 音樂演出</td>
                             </tr>
                             <tr>
-                                <td style="padding: 12px 0; color: #FF5F00; font-size: 14px; font-weight: bold; border-bottom: 1px solid #222222;">18:30–18:40</td>
-                                <td style="padding: 12px 0; color: #ffffff; font-size: 14px; border-bottom: 1px solid #222222;">現場引導入座</td>
+                                <td style="padding: 12px 0; color: #FF5F00; font-size: 14px; font-weight: bold; border-bottom: 1px solid #222222;">18:25-18:40</td>
+                                <td style="padding: 12px 0; color: #ffffff; font-size: 14px; border-bottom: 1px solid #222222;">現場報到區 掃碼引導入座</td>
                             </tr>
                             <tr>
                                 <td style="padding: 12px 0; color: #FF5F00; font-size: 14px; font-weight: bold; border-bottom: 1px solid #222222;">18:40–20:25</td>
