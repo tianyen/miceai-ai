@@ -719,11 +719,41 @@ function formatLogDetails(action, detailsJson) {
                 break;
 
             case 'invitation_email_resent':
+                if (details.projectId) parts.push(`專案ID: ${details.projectId}`);
+                if (details.successCount !== undefined) parts.push(`成功: ${details.successCount}`);
+                if (details.failCount !== undefined) parts.push(`失敗: ${details.failCount}`);
+                if (details.total) parts.push(`總數: ${details.total}`);
                 if (details.count) parts.push(`重寄數量: ${details.count}`);
+                // 顯示成功的 traceId（前 5 筆）
+                if (details.successTraceIds && details.successTraceIds.length > 0) {
+                    const preview = details.successTraceIds.slice(0, 5).join(', ');
+                    const more = details.successTraceIds.length > 5 ? `... 等 ${details.successTraceIds.length} 筆` : '';
+                    parts.push(`✓ ${preview}${more}`);
+                }
+                // 顯示失敗的項目（含錯誤訊息）
+                if (details.failedItems && details.failedItems.length > 0) {
+                    const failedPreview = details.failedItems.slice(0, 3).map(f => `${f.traceId}(${f.error})`).join(', ');
+                    parts.push(`✗ ${failedPreview}`);
+                }
                 break;
 
             case 'pre_event_email_sent':
+                if (details.projectId) parts.push(`專案ID: ${details.projectId}`);
+                if (details.successCount !== undefined) parts.push(`成功: ${details.successCount}`);
+                if (details.failCount !== undefined) parts.push(`失敗: ${details.failCount}`);
+                if (details.total) parts.push(`總數: ${details.total}`);
                 if (details.count) parts.push(`發送數量: ${details.count}`);
+                // 顯示成功的收件人（前 5 筆）
+                if (details.successRecipients && details.successRecipients.length > 0) {
+                    const preview = details.successRecipients.slice(0, 5).map(r => r.name || r.email).join(', ');
+                    const more = details.successRecipients.length > 5 ? `... 等 ${details.successRecipients.length} 人` : '';
+                    parts.push(`✓ ${preview}${more}`);
+                }
+                // 顯示失敗的收件人（含錯誤訊息）
+                if (details.failedRecipients && details.failedRecipients.length > 0) {
+                    const failedPreview = details.failedRecipients.slice(0, 3).map(f => `${f.name || f.email}(${f.error})`).join(', ');
+                    parts.push(`✗ ${failedPreview}`);
+                }
                 break;
 
             // 提交管理

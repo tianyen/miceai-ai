@@ -11,7 +11,13 @@ $(document).ready(function() {
     // 載入初始數據
     loadProjectStats();
     loadParticipants();
-    
+
+    // 處理 URL hash 跳轉到對應 Tab
+    const hash = window.location.hash.slice(1);
+    if (hash && $(`.tab-btn[data-tab="${hash}"]`).length) {
+        switchTab(hash);
+    }
+
     // 選項卡切換
     $('.tab-btn').on('click', function() {
         const tabName = $(this).data('tab');

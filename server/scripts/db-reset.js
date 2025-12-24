@@ -68,6 +68,14 @@ const initialUsers = [
         password: 'Vndr4rfV',  // 8位數: 大寫V + 小寫ndr + 數字4 + 小寫rf + 大寫V
         full_name: '廠商用戶',
         role: 'vendor'
+    },
+    {
+        username: 'checkin-for-2',
+        email: 'checkin2@miceai.ai',
+        password: 'CheckIN_2-use',
+        full_name: '報到專員',
+        role: 'project_user',
+        preferences: JSON.stringify({ checkin_operator: true, allowed_projects: [2] })
     }
 ];
 
@@ -269,7 +277,7 @@ async function resetDatabase() {
                 passwordHash,
                 user.full_name,
                 null, // phone
-                null, // preferences
+                user.preferences || null, // preferences
                 user.role,
                 now,  // created_at (GMT+8)
                 now   // updated_at (GMT+8)

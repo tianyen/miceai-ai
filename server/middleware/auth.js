@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const database = require('../config/database');
+const { isCheckinOperator, getAllowedProjects } = require('./checkinOperator');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'mice-ai-secret-key-2025';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'mice-ai-session-secret-2025';
@@ -92,6 +93,12 @@ const authenticateSession = async (req, res, next) => {
 
         req.user = user;
         res.locals.user = user;
+
+        // 報到專員權限變數
+        const checkinOp = isCheckinOperator(user);
+        res.locals.isCheckinOperator = checkinOp;
+        res.locals.allowedProjects = checkinOp ? getAllowedProjects(user) : [];
+
         next();
     } catch (error) {
         console.error('Session 認證錯誤:', error);

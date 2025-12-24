@@ -5,7 +5,11 @@
         <p style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
             <span data-user="name">{{#if user.full_name}}{{user.full_name}}{{else}}{{#if
                 user.username}}{{user.username}}{{else}}載入中...{{/if}}{{/if}}</span>
+            {{#if isCheckinOperator}}
+            <span style="color: #f39c12;">(報到專員)</span>
+            {{else}}
             (<span data-user="role">{{#if user.role}}{{user.role}}{{else}}載入中...{{/if}}</span>)
+            {{/if}}
         </p>
         <button class="sidebar-toggle" onclick="toggleSidebar()" title="收合側邊欄">
             <i class="fas fa-chevron-left"></i>
@@ -13,6 +17,37 @@
     </div>
 
     <div class="sidebar-nav">
+        {{#if isCheckinOperator}}
+        {{!-- 報到專員簡化選單 --}}
+        <div class="nav-section">報到功能</div>
+
+        {{#each allowedProjects}}
+        <div class="nav-item">
+            <a href="/admin/projects/{{this}}/detail" class="nav-link" title="專案報到管理">
+                <i class="fas fa-clipboard-check"></i>
+                <span>手動報到</span>
+            </a>
+        </div>
+
+        <div class="nav-item">
+            <a href="/admin/qr-scanner?project_id={{this}}" class="nav-link" title="QR Code 掃描">
+                <i class="fas fa-qrcode"></i>
+                <span>QR 掃描報到</span>
+            </a>
+        </div>
+        {{/each}}
+
+        <div class="nav-section">其他</div>
+
+        <div class="nav-item">
+            <a href="/admin/logout" class="nav-link" title="登出">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>登出</span>
+            </a>
+        </div>
+
+        {{else}}
+        {{!-- 一般用戶完整選單 --}}
         <div class="nav-section">主要功能</div>
 
         <div class="nav-item">
@@ -184,5 +219,6 @@
                 <span>登出</span>
             </a>
         </div>
+        {{/if}}
     </div>
 </nav>

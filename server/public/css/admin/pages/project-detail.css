@@ -547,10 +547,21 @@
 
     .tab-nav {
         flex-wrap: wrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .tab-btn {
-        flex: 1 1 50%;
+        flex: 1 1 auto;
+        min-width: max-content;
+        padding: 0.75rem 0.5rem;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+    .tab-btn i {
+        display: block;
+        margin-bottom: 0.25rem;
     }
 
     .section-header {
@@ -561,6 +572,7 @@
 
     .section-actions {
         justify-content: center;
+        flex-wrap: wrap;
     }
 
     .stats-grid,
@@ -571,6 +583,121 @@
     .modal-dialog {
         max-width: 100%;
         margin: 0;
+    }
+
+    /* Tab content padding */
+    .tab-content {
+        padding: 1rem;
+    }
+
+    /* 表格響應式 */
+    .table-content {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .data-table {
+        min-width: 600px;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    /* 隱藏手機上不重要的欄位 */
+    .data-table .hide-mobile {
+        display: none;
+    }
+
+    /* 操作按鈕 */
+    .action-buttons {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+
+    .action-buttons .btn {
+        padding: 0.4rem 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    .action-buttons .btn span {
+        display: none;
+    }
+
+    /* 搜尋框 */
+    .search-box {
+        max-width: 100%;
+        flex-direction: column;
+    }
+
+    .search-box input {
+        width: 100%;
+    }
+
+    /* Card Header */
+    .card-header {
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: stretch;
+        padding: 1rem;
+    }
+
+    .card-header .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Info items */
+    .info-item {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .info-item label {
+        min-width: auto;
+    }
+
+    /* Card content */
+    .card-content {
+        padding: 1rem;
+    }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+    .tab-btn {
+        flex: 1 1 100%;
+        text-align: center;
+    }
+
+    .stats-grid,
+    .checkin-stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-item {
+        padding: 0.75rem;
+    }
+
+    .stat-value {
+        font-size: 1.25rem;
+    }
+
+    .field-options {
+        grid-template-columns: 1fr;
+    }
+
+    /* 更緊湊的表格 */
+    .data-table {
+        min-width: 500px;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 0.4rem;
+        font-size: 0.8rem;
     }
 }
 

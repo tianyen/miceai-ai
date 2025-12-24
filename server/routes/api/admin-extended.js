@@ -9,6 +9,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateSession } = require('../../middleware/auth');
+const { checkinOperatorGuard } = require('../../middleware/checkinOperator');
 const responses = require('../../utils/responses');
 
 // Services - 3-Tier Architecture Business Logic Layer
@@ -24,6 +25,9 @@ const {
 
 // View Helpers - HTML Generation Layer
 const vh = require('../../utils/viewHelpers');
+
+// Repositories (for logging)
+const logRepository = require('../../repositories/log.repository');
 
 // 項目分頁 API
 // @refactor: 使用 projectService + viewHelpers
@@ -1073,6 +1077,28 @@ router.post('/projects/:id/registration-emails/resend', authenticateSession, asy
 
         console.log(`[RegistrationEmail] 發送完成：成功 ${successCount}，失敗 ${failCount}`);
 
+        // 記錄到系統日誌（包含成功/失敗的詳細資訊）
+        const successResults = results.filter(r => r.success).map(r => r.traceId);
+        const failedResults = results.filter(r => !r.success).map(r => ({
+            traceId: r.traceId,
+            error: r.error
+        }));
+
+        await logRepository.createAdminLog({
+            userId: req.session.user.id,
+            action: 'invitation_email_resent',
+            details: {
+                projectId,
+                successCount,
+                failCount,
+                total: traceIds.length,
+                successTraceIds: successResults.slice(0, 20), // 成功的 traceId（最多 20 筆）
+                failedItems: failedResults.slice(0, 20)       // 失敗的項目含錯誤訊息
+            },
+            ipAddress: req.ip || req.connection.remoteAddress,
+            userAgent: req.get('User-Agent')
+        });
+
         responses.success(res, {
             message: `已發送 ${successCount} 封，失敗 ${failCount} 封`,
             successCount,
@@ -1271,6 +1297,32 @@ router.post('/projects/:id/pre-event-email/send', authenticateSession, async (re
         }
 
         console.log(`[PreEventEmail] 發送完成：成功 ${successCount}，失敗 ${failCount}`);
+
+        // 記錄到系統日誌（包含成功/失敗的詳細資訊）
+        const successEmails = results.filter(r => r.success).map(r => ({
+            name: r.name,
+            email: r.email
+        }));
+        const failedEmails = results.filter(r => !r.success).map(r => ({
+            name: r.name,
+            email: r.email,
+            error: r.error
+        }));
+
+        await logRepository.createAdminLog({
+            userId: req.session.user.id,
+            action: 'pre_event_email_sent',
+            details: {
+                projectId,
+                successCount,
+                failCount,
+                total: participants.length,
+                successRecipients: successEmails.slice(0, 20), // 成功的收件人（最多 20 筆）
+                failedRecipients: failedEmails.slice(0, 20)   // 失敗的收件人含錯誤訊息
+            },
+            ipAddress: req.ip || req.connection.remoteAddress,
+            userAgent: req.get('User-Agent')
+        });
 
         responses.success(res, {
             message: `已發送 ${successCount} 封，失敗 ${failCount} 封`,

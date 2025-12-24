@@ -9,9 +9,10 @@ const router = express.Router();
 const responses = require('../../utils/responses');
 const { projectService } = require('../../services');
 const boothRepository = require('../../repositories/booth.repository');
+const { blockCheckinOperator, checkinOperatorGuard } = require('../../middleware/checkinOperator');
 
-// 專案管理頁面
-router.get('/', (req, res) => {
+// 專案管理頁面（報到專員不可存取）
+router.get('/', blockCheckinOperator, (req, res) => {
     res.render('admin/projects', {
         layout: 'admin',
         pageTitle: '專案管理',
@@ -27,7 +28,8 @@ router.get('/', (req, res) => {
 });
 
 // 專案詳情頁面 (使用 projectService)
-router.get('/:id/detail', async (req, res) => {
+// 報到專員需驗證專案 ID 是否在允許列表中
+router.get('/:id/detail', checkinOperatorGuard, async (req, res) => {
     try {
         const projectId = req.params.id;
         const project = await projectService.getProjectDetail(projectId);

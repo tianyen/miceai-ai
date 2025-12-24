@@ -8,6 +8,7 @@ const { authService } = require('../services');
 const { generateToken, logUserActivity } = require('../middleware/auth');
 const { validationResult } = require('express-validator');
 const autoBind = require('../utils/autoBind');
+const { isCheckinOperator, getAllowedProjects } = require('../middleware/checkinOperator');
 
 class AuthController {
     /**
@@ -147,16 +148,27 @@ class AuthController {
                 ipAddress
             );
 
+            // 決定登入後跳轉頁面
+            let redirectUrl = '/admin/dashboard';
+
+            // 報到專員登入後跳轉到 QR Scanner
+            if (isCheckinOperator(result.user)) {
+                const allowedProjects = getAllowedProjects(result.user);
+                if (allowedProjects.length > 0) {
+                    redirectUrl = `/admin/qr-scanner?project_id=${allowedProjects[0]}`;
+                }
+            }
+
             // 根據請求類型返回響應
             if (this._isAjaxRequest(req)) {
                 return res.json({
                     success: true,
                     message: '登入成功',
-                    redirect: '/admin/dashboard'
+                    redirect: redirectUrl
                 });
             }
 
-            res.redirect('/admin/dashboard');
+            res.redirect(redirectUrl);
 
         } catch (error) {
             console.error('管理後台登入錯誤:', error);

@@ -40,26 +40,45 @@
             margin: 0 auto;
         }
         
-        .header {
-            background: white;
-            padding: 20px;
+        .project-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 24px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
-        
-        .header h1 {
-            color: #2c3e50;
+
+        .project-banner i {
             font-size: 24px;
-            margin: 0;
         }
-        
-        .header h1 i {
-            color: #3498db;
-            margin-right: 10px;
+
+        .project-banner .manual-checkin-link {
+            margin-left: auto;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s;
+        }
+
+        .project-banner .manual-checkin-link:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .project-banner .manual-checkin-link i {
+            font-size: 14px;
         }
         
         .btn {
@@ -236,18 +255,15 @@
 </head>
 <body>
     <div class="scanner-container">
-        <div class="header">
-            <h1><i class="fas fa-qrcode"></i> QR Code 掃描器</h1>
-            {{#if project_id}}
-            <a href="/admin/projects/{{project_id}}/detail" class="btn btn-primary">
-                <i class="fas fa-arrow-left"></i> 返回專案
+        {{#if project_name}}
+        <div class="project-banner">
+            <i class="fas fa-calendar-check"></i>
+            <span>{{project_name}}</span>
+            <a href="/admin/projects/{{project_id}}/detail#participants" class="manual-checkin-link">
+                <i class="fas fa-clipboard-check"></i> 手動報到
             </a>
-            {{else}}
-            <a href="/admin/checkin-management" class="btn btn-primary">
-                <i class="fas fa-arrow-left"></i> 返回報到管理
-            </a>
-            {{/if}}
         </div>
+        {{/if}}
 
         <div class="camera-section">
             <div class="camera-header">

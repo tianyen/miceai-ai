@@ -12,7 +12,7 @@ class AuthService extends BaseService {
     constructor() {
         super('AuthService');
         this.SALT_ROUNDS = 10;
-        this.ADMIN_ROLES = ['super_admin', 'project_manager', 'vendor'];
+        this.ADMIN_ROLES = ['super_admin', 'project_manager', 'vendor', 'project_user'];
     }
 
     /**

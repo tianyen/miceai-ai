@@ -4,6 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateSession } = require('../../middleware/auth');
+const { blockCheckinOperator, checkinOperatorGuard, isCheckinOperator, getAllowedProjects } = require('../../middleware/checkinOperator');
 const ProjectService = require('../../services/project.service');
 
 // 導入子路由
@@ -37,22 +38,25 @@ router.get('/', (req, res) => {
 router.use('/', authRoutes);
 
 // 需要認證的路由
-router.use('/dashboard', authenticateSession, dashboardRoutes);
-router.use('/projects', authenticateSession, projectsRoutes);
+// 報到專員可存取的路由（不加 blockCheckinOperator）
+router.use('/projects', authenticateSession, projectsRoutes);  // 由 projects.js 內部控制
+
+// 報到專員被阻擋的路由
+router.use('/dashboard', authenticateSession, blockCheckinOperator, dashboardRoutes);
 // P1-2: project-games 路由已移除，改用 /api/admin/booths/:boothId/games
-router.use('/templates', authenticateSession, templatesRoutes);
-router.use('/users', authenticateSession, usersRoutes);
-router.use('/submissions', authenticateSession, submissionsRoutes);
-router.use('/checkin-management', authenticateSession, checkinRoutes);
-router.use('/logs', authenticateSession, logsRoutes);
-router.use('/questionnaire', authenticateSession, questionnaireRoutes);
-router.use('/profile', authenticateSession, profileRoutes);
-router.use('/games', authenticateSession, gamesRoutes);
-router.use('/vouchers', authenticateSession, vouchersRoutes);
-router.use('/booths', authenticateSession, boothsRoutes);
-router.use('/game-analytics', authenticateSession, gameAnalyticsRoutes);
-router.use('/wish-tree', authenticateSession, wishTreeRoutes);
-router.use('/email-management', authenticateSession, emailManagementRoutes);
+router.use('/templates', authenticateSession, blockCheckinOperator, templatesRoutes);
+router.use('/users', authenticateSession, blockCheckinOperator, usersRoutes);
+router.use('/submissions', authenticateSession, blockCheckinOperator, submissionsRoutes);
+router.use('/checkin-management', authenticateSession, blockCheckinOperator, checkinRoutes);
+router.use('/logs', authenticateSession, blockCheckinOperator, logsRoutes);
+router.use('/questionnaire', authenticateSession, blockCheckinOperator, questionnaireRoutes);
+router.use('/profile', authenticateSession, blockCheckinOperator, profileRoutes);
+router.use('/games', authenticateSession, blockCheckinOperator, gamesRoutes);
+router.use('/vouchers', authenticateSession, blockCheckinOperator, vouchersRoutes);
+router.use('/booths', authenticateSession, blockCheckinOperator, boothsRoutes);
+router.use('/game-analytics', authenticateSession, blockCheckinOperator, gameAnalyticsRoutes);
+router.use('/wish-tree', authenticateSession, blockCheckinOperator, wishTreeRoutes);
+router.use('/email-management', authenticateSession, blockCheckinOperator, emailManagementRoutes);
 
 // 設定頁面
 router.get('/settings', authenticateSession, (req, res) => {
@@ -69,13 +73,28 @@ router.get('/settings', authenticateSession, (req, res) => {
 });
 
 // QR 掃描器頁面（獨立視窗，無 sidebar）
-router.get('/qr-scanner', authenticateSession, (req, res) => {
+// 報到專員需驗證 project_id 是否在允許列表中
+router.get('/qr-scanner', authenticateSession, checkinOperatorGuard, async (req, res) => {
+    const projectId = req.query.project_id || null;
+    let projectName = null;
+
+    // 查詢專案名稱
+    if (projectId) {
+        try {
+            const project = await ProjectService.getProjectDetail(projectId);
+            projectName = project?.project_name || null;
+        } catch (e) {
+            // 忽略錯誤，保持 projectName 為 null
+        }
+    }
+
     res.render('admin/qr-scanner-simple', {
-        layout: false,  // 不使用 admin layout，獨立頁面
-        pageTitle: 'QR Code 掃描器',
+        layout: false,
+        pageTitle: projectName ? `${projectName} - QR 報到` : 'QR Code 掃描器',
         currentPage: 'qr-scanner',
         user: req.user,
-        project_id: req.query.project_id || null,  // 從 query string 獲取 project_id
+        project_id: projectId,
+        project_name: projectName,
         breadcrumbs: [
             { name: '儀表板', url: '/admin/dashboard' },
             { name: '報到管理', url: '/admin/checkin-management' },
