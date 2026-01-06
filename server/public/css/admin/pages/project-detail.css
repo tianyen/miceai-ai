@@ -919,3 +919,223 @@ tr[data-group-id]:not(:has(.group-leader)) td:first-child::before {
     width: 3px;
     background-color: #ffcc80;
 }
+
+/* ========== 參加者管理 RWD 表格樣式 ========== */
+
+/* 桌面版：與 checkin-management 一致 */
+#participants-tab .data-table-container {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+#participants-tab .table {
+    margin-bottom: 0;
+    width: 100%;
+}
+
+#participants-tab .table thead th {
+    background-color: var(--gray-50);
+    border-bottom: 2px solid var(--gray-200);
+    font-weight: 600;
+    padding: 1rem 0.75rem;
+    text-align: center;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    color: var(--gray-700);
+}
+
+#participants-tab .table thead th.sortable {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+#participants-tab .table thead th.sortable:hover {
+    background-color: var(--gray-100);
+}
+
+#participants-tab .table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+#participants-tab .table tbody tr:hover {
+    background-color: var(--gray-50);
+}
+
+#participants-tab .table tbody td {
+    padding: 1rem 0.75rem;
+    border-bottom: 1px solid var(--gray-200);
+    vertical-align: middle;
+    text-align: center;
+}
+
+#participants-tab .table tbody td:first-child {
+    text-align: center;
+}
+
+#participants-tab .table tbody td[data-label="姓名"] {
+    text-align: left;
+}
+
+/* 操作按鈕群組 */
+#participants-tab .btn-group {
+    display: flex;
+    gap: 0.25rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+#participants-tab .btn-group .btn {
+    border-radius: var(--border-radius);
+    padding: 0.375rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+/* ========== 手機版：卡片模式 ========== */
+@media (max-width: 768px) {
+    /* 隱藏表頭 */
+    #participants-tab .table thead {
+        display: none;
+    }
+
+    #participants-tab .data-table-container {
+        background: transparent;
+        box-shadow: none;
+        border-radius: 0;
+    }
+
+    #participants-tab .table-responsive {
+        overflow: visible;
+    }
+
+    #participants-tab .table,
+    #participants-tab .table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    /* 每行變成卡片 */
+    #participants-tab .table tbody tr.participant-row {
+        display: block;
+        background: white;
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--shadow);
+        margin-bottom: 1rem;
+        padding: 1rem;
+        border-left: 4px solid var(--primary-color);
+    }
+
+    /* 每個 td 獨佔一行 */
+    #participants-tab .table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 0.5rem 0;
+        border: none;
+        border-bottom: 1px solid var(--gray-100);
+        text-align: right;
+    }
+
+    #participants-tab .table tbody td:last-child {
+        border-bottom: none;
+        padding-top: 0.75rem;
+    }
+
+    /* 使用 data-label 顯示欄位名稱 */
+    #participants-tab .table tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--gray-600);
+        text-align: left;
+        flex-shrink: 0;
+        margin-right: 1rem;
+        min-width: 70px;
+    }
+
+    /* ID 欄位特殊處理 - 防止截斷 */
+    #participants-tab .table tbody td[data-label="ID"] {
+        white-space: nowrap;
+    }
+
+    /* 姓名欄位特殊處理 */
+    #participants-tab .table tbody td[data-label="姓名"] {
+        border-bottom: 2px solid var(--primary-color);
+        padding-bottom: 0.75rem;
+        margin-bottom: 0.25rem;
+    }
+
+    #participants-tab .table tbody td[data-label="姓名"] .participant-name-cell {
+        text-align: right;
+    }
+
+    #participants-tab .table tbody td[data-label="姓名"] .participant-name-cell strong {
+        font-size: 1.1rem;
+        color: var(--gray-900);
+    }
+
+    /* 操作按鈕置中 */
+    #participants-tab .table tbody td.actions-cell {
+        justify-content: center;
+        padding-top: 1rem;
+    }
+
+    #participants-tab .table tbody td.actions-cell::before {
+        display: none;
+    }
+
+    #participants-tab .btn-group {
+        width: 100%;
+        justify-content: center;
+    }
+
+    #participants-tab .btn-group .btn {
+        flex: 1;
+        max-width: 60px;
+    }
+
+    /* 團體標記樣式調整 */
+    #participants-tab .group-badge {
+        margin-top: 0.5rem;
+    }
+
+    /* 分頁容器 */
+    #participants-tab #participants-pagination {
+        margin-top: 1rem;
+    }
+}
+
+/* ========== 超小螢幕 ========== */
+@media (max-width: 480px) {
+    #participants-tab .table tbody tr.participant-row {
+        padding: 0.75rem;
+    }
+
+    #participants-tab .table tbody td {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+        gap: 0.25rem;
+    }
+
+    #participants-tab .table tbody td::before {
+        font-size: 0.75rem;
+        color: var(--gray-500);
+        margin-bottom: 0.125rem;
+    }
+
+    #participants-tab .table tbody td[data-label="姓名"] .participant-name-cell {
+        text-align: left;
+    }
+
+    #participants-tab .btn-group .btn {
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    /* Email 和電話換行處理 */
+    #participants-tab .table tbody td[data-label="Email"],
+    #participants-tab .table tbody td[data-label="電話"] {
+        word-break: break-all;
+    }
+}

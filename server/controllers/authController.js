@@ -280,13 +280,14 @@ class AuthController {
             req.session.destroy((err) => {
                 if (err) {
                     console.error('Session 銷毀錯誤:', err);
+                    return res.status(500).json({ success: false, message: '登出失敗' });
                 }
-                res.redirect('/admin/login');
+                res.json({ success: true, message: '登出成功' });
             });
 
         } catch (error) {
             console.error('管理後台登出錯誤:', error);
-            res.redirect('/admin/login');
+            res.status(500).json({ success: false, message: '登出失敗' });
         }
     }
 

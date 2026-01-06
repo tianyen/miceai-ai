@@ -500,6 +500,10 @@ window.closeModal = function (modal) {
     AdminSystem.closeModal(modal);
 };
 
+window.logoutAdmin = function () {
+    AdminSystem.logout();
+};
+
 // jQuery AJAX 屬性處理器
 $(document).ready(function () {
     // 處理 data-ajax-* 屬性的點擊事件

@@ -22,7 +22,7 @@ router.get('/login', (req, res) => {
 // 登入處理
 router.post('/login', loginLimiter, authController.adminLogin);
 
-// 登出
-router.get('/logout', authController.adminLogout);
+// 登出 - 統一使用 POST (AJAX)
+router.post('/logout', authController.adminLogout);
 
 module.exports = router;

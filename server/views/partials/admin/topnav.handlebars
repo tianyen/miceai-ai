@@ -83,14 +83,22 @@
     }
     
     function logoutUser() {
-        if (confirm('確定要登出嗎？')) {
-            $.post('/admin/logout')
-                .done(function() {
+        // 統一使用 logoutAdmin() 函數
+        if (typeof logoutAdmin === 'function') {
+            logoutAdmin();
+        } else {
+            // fallback
+            if (confirm('確定要登出嗎？')) {
+                $.ajax({
+                    url: '/admin/logout',
+                    method: 'POST',
+                    headers: { 'X-CSRF-Token': $('meta[name="csrf-token"]').attr('content') }
+                }).done(function() {
                     window.location.href = '/admin/login';
-                })
-                .fail(function() {
+                }).fail(function() {
                     alert('登出失敗，請稍後再試');
                 });
+            }
         }
     }
     

@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS form_submissions (
     user_agent TEXT,
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'confirmed', 'cancelled')),
     checked_in_at TIMESTAMP,
-    checkin_method VARCHAR(20) DEFAULT 'manual' CHECK (checkin_method IN ('manual', 'qr_scanner', 'mobile_app')),
+    checkin_method VARCHAR(20) CHECK (checkin_method IN ('manual', 'qr_scanner', 'mobile_app')),  -- 預設 NULL，報到時才設定
     checkin_location VARCHAR(100),
     checkin_notes TEXT,
     -- 團體報名欄位

@@ -403,20 +403,20 @@ function projectParticipantRow(participant) {
         : '<span class="text-muted">未報到</span>';
 
     return `
-        <tr data-participant-id="${participant.id}" ${participant.group_id ? `data-group-id="${safeText(participant.group_id)}"` : ''}>
-            <td>${idDisplay}</td>
-            <td>
+        <tr class="participant-row" data-participant-id="${participant.id}" ${participant.group_id ? `data-group-id="${safeText(participant.group_id)}"` : ''}>
+            <td data-label="ID">${idDisplay}</td>
+            <td data-label="姓名">
                 <div class="participant-name-cell">
                     <strong>${safeText(participant.submitter_name)}</strong>${vipBadge}
                     ${groupBadge}
                 </div>
             </td>
-            <td>${safeText(participant.submitter_email)}</td>
-            <td>${safeText(participant.submitter_phone)}</td>
-            <td>${childrenDisplay}</td>
-            <td><small>${createdAtDisplay}</small></td>
-            <td><small>${checkedInAtDisplay}</small></td>
-            <td>
+            <td data-label="Email">${safeText(participant.submitter_email)}</td>
+            <td data-label="電話">${safeText(participant.submitter_phone)}</td>
+            <td data-label="小孩">${childrenDisplay}</td>
+            <td data-label="報名時間"><small>${createdAtDisplay}</small></td>
+            <td data-label="報到時間"><small>${checkedInAtDisplay}</small></td>
+            <td data-label="操作" class="actions-cell">
                 <div class="btn-group">
                     ${!participant.checked_in_at
                         ? `<button class="btn btn-sm btn-success" onclick="manualCheckin(${participant.id})" title="簽到">
