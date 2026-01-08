@@ -167,3 +167,6 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 server/database/README.md
+
+# CSV files (data exports, registration dumps, etc.)
+*.csv
