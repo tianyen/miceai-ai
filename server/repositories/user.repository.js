@@ -279,6 +279,466 @@ class UserRepository extends BaseRepository {
         `;
         return this.rawAll(sql, [userId, limit]);
     }
+
+    // ============================================================================
+    // 列表查詢方法
+    // ============================================================================
+
+    /**
+     * 取得用戶列表（含分頁和搜尋）
+     * @param {Object} options - 查詢選項
+     * @returns {Promise<Object>}
+     */
+    async getListWithPagination({ page = 1, limit = 20, search, role, status, managedBy } = {}) {
+        const offset = (page - 1) * limit;
+
+        let query = `
+            SELECT u.*,
+                   (SELECT full_name FROM users WHERE id = u.created_by) as creator_name
+            FROM users u
+            WHERE 1=1
+        `;
+        const countQuery = `SELECT COUNT(*) as count FROM users u WHERE 1=1`;
+        const queryParams = [];
+        const countParams = [];
+
+        if (search) {
+            const searchCondition = ` AND (u.username LIKE ? OR u.full_name LIKE ? OR u.email LIKE ?)`;
+            query += searchCondition;
+            countQuery += searchCondition;
+            const searchTerm = `%${search}%`;
+            queryParams.push(searchTerm, searchTerm, searchTerm);
+            countParams.push(searchTerm, searchTerm, searchTerm);
+        }
+
+        if (role) {
+            const roleCondition = ` AND u.role = ?`;
+            query += roleCondition;
+            countQuery += roleCondition;
+            queryParams.push(role);
+            countParams.push(role);
+        }
+
+        if (status) {
+            const statusCondition = ` AND u.status = ?`;
+            query += statusCondition;
+            countQuery += statusCondition;
+            queryParams.push(status);
+            countParams.push(status);
+        }
+
+        if (managedBy) {
+            const managedCondition = ` AND (u.managed_by = ? OR u.created_by = ?)`;
+            query += managedCondition;
+            countQuery += managedCondition;
+            queryParams.push(managedBy, managedBy);
+            countParams.push(managedBy, managedBy);
+        }
+
+        query += ` ORDER BY u.created_at DESC LIMIT ? OFFSET ?`;
+        const users = await this.rawAll(query, [...queryParams, limit, offset]);
+        const totalResult = await this.rawGet(countQuery, countParams);
+
+        return {
+            users,
+            pagination: {
+                page,
+                limit,
+                total: totalResult?.count || 0,
+                pages: Math.ceil((totalResult?.count || 0) / limit)
+            }
+        };
+    }
+
+    /**
+     * 取得管理的用戶列表
+     * @param {number} managerId - 管理者的用戶 ID
+     * @param {Object} options - 查詢選項
+     * @returns {Promise<Object>}
+     */
+    async getManagedUsers(managerId, { page = 1, limit = 20 } = {}) {
+        const offset = (page - 1) * limit;
+
+        const query = `
+            SELECT u.*,
+                   (SELECT full_name FROM users WHERE id = u.created_by) as creator_name
+            FROM users u
+            WHERE u.managed_by = ? OR u.created_by = ?
+            ORDER BY u.created_at DESC
+            LIMIT ? OFFSET ?
+        `;
+
+        const countQuery = `
+            SELECT COUNT(*) as count FROM users
+            WHERE managed_by = ? OR created_by = ?
+        `;
+
+        const users = await this.rawAll(query, [managerId, managerId, limit, offset]);
+        const totalResult = await this.rawGet(countQuery, [managerId, managerId]);
+
+        return {
+            users,
+            pagination: {
+                page,
+                limit,
+                total: totalResult?.count || 0,
+                pages: Math.ceil((totalResult?.count || 0) / limit)
+            }
+        };
+    }
+
+    /**
+     * 依條件查詢用戶（含分頁）
+     * @param {Object} conditions - 查詢條件
+     * @param {Object} options - 查詢選項
+     * @returns {Promise<Object>}
+     */
+    async findByWithPagination(conditions, { page = 1, limit = 20, orderBy = 'created_at', order = 'DESC' } = {}) {
+        const offset = (page - 1) * limit;
+
+        let whereClause = 'WHERE 1=1';
+        const params = [];
+
+        Object.entries(conditions).forEach(([key, value]) => {
+            whereClause += ` AND ${key} = ?`;
+            params.push(value);
+        });
+
+        const countResult = await this.rawGet(
+            `SELECT COUNT(*) as total FROM users ${whereClause}`,
+            params
+        );
+
+        const users = await this.rawAll(
+            `SELECT * FROM users ${whereClause} ORDER BY ${orderBy} ${order} LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
+
+        return {
+            users,
+            pagination: {
+                total: countResult?.total || 0,
+                page,
+                limit,
+                pages: Math.ceil((countResult?.total || 0) / limit)
+            }
+        };
+    }
+
+    // ============================================================================
+    // 檢查方法
+    // ============================================================================
+
+    /**
+     * 檢查用戶名是否存在
+     * @param {string} username - 用戶名
+     * @param {number} excludeId - 排除的用戶 ID
+     * @returns {Promise<boolean>}
+     */
+    async existsByUsername(username, excludeId = null) {
+        let sql = 'SELECT id FROM users WHERE username = ?';
+        const params = [username];
+
+        if (excludeId) {
+            sql += ' AND id != ?';
+            params.push(excludeId);
+        }
+
+        const result = await this.rawGet(sql, params);
+        return result !== null && result !== undefined;
+    }
+
+    /**
+     * 檢查 email 是否存在
+     * @param {string} email - 電子郵件
+     * @param {number} excludeId - 排除的用戶 ID
+     * @returns {Promise<boolean>}
+     */
+    async existsByEmail(email, excludeId = null) {
+        let sql = 'SELECT id FROM users WHERE email = ?';
+        const params = [email];
+
+        if (excludeId) {
+            sql += ' AND id != ?';
+            params.push(excludeId);
+        }
+
+        const result = await this.rawGet(sql, params);
+        return result !== null && result !== undefined;
+    }
+
+    /**
+     * 檢查用戶名或 email 是否存在
+     * @param {string} username - 用戶名
+     * @param {string} email - 電子郵件
+     * @returns {Promise<Object|null>}
+     */
+    async findByUsernameOrEmail(username, email) {
+        return this.rawGet(
+            'SELECT id FROM users WHERE username = ? OR email = ?',
+            [username, email]
+        );
+    }
+
+    /**
+     * 檢查用戶是否有創建的項目
+     * @param {number} userId - 用戶 ID
+     * @returns {Promise<number>}
+     */
+    async countProjectsByUser(userId) {
+        const result = await this.rawGet(
+            'SELECT COUNT(*) as count FROM event_projects WHERE created_by = ?',
+            [userId]
+        );
+        return result?.count || 0;
+    }
+
+    // ============================================================================
+    // 進階查詢方法
+    // ============================================================================
+
+    /**
+     * 取得用戶詳情（含創建者名稱）
+     * @param {number} userId - 用戶 ID
+     * @returns {Promise<Object|null>}
+     */
+    async getUserDetail(userId) {
+        const sql = `
+            SELECT u.*,
+                   (SELECT full_name FROM users WHERE id = u.created_by) as creator_name
+            FROM users u
+            WHERE u.id = ?
+        `;
+        return this.rawGet(sql, [userId]);
+    }
+
+    /**
+     * 取得當前用戶資訊
+     * @param {number} userId - 用戶 ID
+     * @returns {Promise<Object|null>}
+     */
+    async getCurrentUserInfo(userId) {
+        const sql = `
+            SELECT id, username, email, full_name, role, status,
+                   account_expires_at, last_login, created_at
+            FROM users
+            WHERE id = ?
+        `;
+        return this.rawGet(sql, [userId]);
+    }
+
+    /**
+     * 取得用戶的項目統計
+     * @param {number} userId - 用戶 ID
+     * @returns {Promise<Object>}
+     */
+    async getProjectStats(userId) {
+        const sql = `
+            SELECT
+                COUNT(*) as total_projects,
+                SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_projects,
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_projects
+            FROM event_projects
+            WHERE created_by = ?
+        `;
+        return this.rawGet(sql, [userId]);
+    }
+
+    /**
+     * 取得參與的項目數量
+     * @param {number} userId - 用戶 ID
+     * @returns {Promise<number>}
+     */
+    async countParticipatingProjects(userId) {
+        const result = await this.rawGet(
+            'SELECT COUNT(*) as count FROM user_project_permissions WHERE user_id = ?',
+            [userId]
+        );
+        return result?.count || 0;
+    }
+
+    // ============================================================================
+    // 創建方法
+    // ============================================================================
+
+    /**
+     * 創建用戶（完整版）
+     * @param {Object} data - 用戶資料
+     * @returns {Promise<Object>}
+     */
+    async createUser(data) {
+        const {
+            username,
+            email,
+            password_hash,
+            full_name,
+            phone,
+            role,
+            status,
+            managed_by,
+            preferences
+        } = data;
+
+        const sql = `
+            INSERT INTO users (
+                username, email, password_hash, full_name, phone, role, status,
+                managed_by, preferences, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `;
+
+        const result = await this.rawRun(sql, [
+            username,
+            email,
+            password_hash,
+            full_name,
+            phone,
+            role || 'project_user',
+            status || 'active',
+            managed_by,
+            preferences ? JSON.stringify(preferences) : null
+        ]);
+
+        return { id: result.lastID, username, email };
+    }
+
+    // ============================================================================
+    // 批量/特殊更新方法
+    // ============================================================================
+
+    /**
+     * 更新用戶（動態欄位）
+     * @param {number} userId - 用戶 ID
+     * @param {Object} updates - 更新資料
+     * @returns {Promise<Object>}
+     */
+    async updateDynamic(userId, updates) {
+        const allowedFields = [
+            'username', 'email', 'full_name', 'phone', 'role', 'status',
+            'managed_by', 'preferences', 'account_expires_at'
+        ];
+
+        const updateFields = [];
+        const updateValues = [];
+
+        Object.entries(updates).forEach(([key, value]) => {
+            if (allowedFields.includes(key) && value !== undefined) {
+                updateFields.push(`${key} = ?`);
+                if (key === 'preferences') {
+                    updateValues.push(JSON.stringify(value));
+                } else {
+                    updateValues.push(value);
+                }
+            }
+        });
+
+        if (updateFields.length === 0) {
+            return { changes: 0 };
+        }
+
+        updateValues.push(userId);
+        const query = `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`;
+        return this.rawRun(query, updateValues);
+    }
+
+    /**
+     * 批量更新狀態
+     * @param {number} userId - 用戶 ID
+     * @param {string} status - 新狀態
+     * @param {Object} options - 選項
+     * @returns {Promise<Object>}
+     */
+    async updateStatusWithHistory(userId, status, { changedBy, changeReason, expiresAt } = {}) {
+        // 更新狀態
+        const result = await this.rawRun(
+            'UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [status, userId]
+        );
+
+        // 記錄狀態歷史
+        if (changedBy) {
+            await this.rawRun(`
+                INSERT INTO user_status_history (
+                    user_id, old_status, new_status, changed_by, change_reason, expires_at, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            `, [userId, status, status, changedBy, changeReason, expiresAt]);
+        }
+
+        return result;
+    }
+
+    /**
+     * 軟刪除用戶
+     * @param {number} userId - 用戶 ID
+     * @returns {Promise<Object>}
+     */
+    async softDelete(userId) {
+        return this.rawRun(
+            'UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            ['pending_deletion', userId]
+        );
+    }
+
+    /**
+     * 檢查用戶名和郵箱唯一性
+     * @param {string} field - 欄位名稱
+     * @param {string} value - 值
+     * @param {number} excludeId - 排除的用戶 ID
+     * @returns {Promise<Object|null>}
+     */
+    async checkUnique(field, value, excludeId) {
+        return this.rawGet(
+            `SELECT id FROM users WHERE ${field} = ? AND id != ?`,
+            [value, excludeId]
+        );
+    }
+
+    // ============================================================================
+    // 管理員統計方法
+    // ============================================================================
+
+    /**
+     * 取得用戶統計（管理員儀表板用）
+     * @param {string} userRole - 用戶角色
+     * @param {number} userId - 用戶 ID
+     * @returns {Promise<Object>}
+     */
+    async getDashboardStats(userRole, userId) {
+        if (userRole === 'super_admin') {
+            const totalUsers = await this.rawGet('SELECT COUNT(*) as count FROM users');
+            const activeUsers = await this.rawGet("SELECT COUNT(*) as count FROM users WHERE status = 'active'");
+            const disabledUsers = await this.rawGet("SELECT COUNT(*) as count FROM users WHERE status = 'disabled'");
+            const newUsersThisMonth = await this.rawGet(`
+                SELECT COUNT(*) as count FROM users
+                WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')
+            `);
+
+            return {
+                totalUsers: totalUsers?.count || 0,
+                activeUsers: activeUsers?.count || 0,
+                disabledUsers: disabledUsers?.count || 0,
+                newUsersThisMonth: newUsersThisMonth?.count || 0
+            };
+        }
+
+        if (userRole === 'project_manager') {
+            const managedUsers = await this.rawGet(
+                'SELECT COUNT(*) as count FROM users WHERE managed_by = ? OR created_by = ?',
+                [userId, userId]
+            );
+            const activeManaged = await this.rawGet(
+                `SELECT COUNT(*) as count FROM users
+                 WHERE (managed_by = ? OR created_by = ?) AND status = 'active'`,
+                [userId, userId]
+            );
+
+            return {
+                totalUsers: managedUsers?.count || 0,
+                activeUsers: activeManaged?.count || 0
+            };
+        }
+
+        return { totalUsers: 0, activeUsers: 0 };
+    }
 }
 
 // 單例模式

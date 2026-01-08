@@ -4,8 +4,10 @@
  * @description 處理模板 CRUD、預覽、權限檢查
  * @refactor 2025-12-01: 從 admin/templates.js 提取業務邏輯
  * @refactor 2025-12-05: 從 templateController 抽取業務邏輯
+ * @refactor 2026-01-08: 使用 Repository Pattern 重構
  */
 const BaseService = require('./base.service');
+const { templateRepository } = require('../repositories');
 
 class TemplateService extends BaseService {
     constructor() {
@@ -46,7 +48,7 @@ class TemplateService extends BaseService {
         }
 
         // 檢查是否有項目使用此模板
-        const usage = await this.db.get(`
+        const usage = await templateRepository.rawGet(`
             SELECT COUNT(*) as count
             FROM event_projects
             WHERE template_config LIKE ?
@@ -65,7 +67,7 @@ class TemplateService extends BaseService {
      * @returns {Promise<Object|null>}
      */
     async getById(templateId) {
-        return this.db.get('SELECT * FROM invitation_templates WHERE id = ?', [templateId]);
+        return templateRepository.findById(templateId);
     }
 
     /**
@@ -74,49 +76,7 @@ class TemplateService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getList({ page = 1, limit = 20, search, category, status } = {}) {
-        const offset = (page - 1) * limit;
-
-        let whereClause = 'WHERE 1=1';
-        let params = [];
-
-        if (search) {
-            whereClause += ' AND (template_name LIKE ? OR description LIKE ?)';
-            params.push(`%${search}%`, `%${search}%`);
-        }
-
-        if (category) {
-            whereClause += ' AND category = ?';
-            params.push(category);
-        }
-
-        if (status) {
-            whereClause += ' AND status = ?';
-            params.push(status);
-        }
-
-        // 獲取總數
-        const countResult = await this.db.get(`
-            SELECT COUNT(*) as total FROM invitation_templates ${whereClause}
-        `, params);
-
-        // 獲取列表
-        const templates = await this.db.query(`
-            SELECT * FROM invitation_templates
-            ${whereClause}
-            ORDER BY created_at DESC
-            LIMIT ? OFFSET ?
-        `, [...params, limit, offset]);
-
-        const total = countResult.total;
-        return {
-            templates,
-            pagination: {
-                total,
-                page,
-                limit,
-                pages: Math.ceil(total / limit)
-            }
-        };
+        return templateRepository.getSimpleList({ page, limit, search, category });
     }
 
     /**
@@ -126,10 +86,7 @@ class TemplateService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getPagination(page = 1, limit = 20) {
-        const countResult = await this.db.get(
-            'SELECT COUNT(*) as count FROM invitation_templates'
-        );
-        const total = countResult?.count || 0;
+        const total = await templateRepository.count();
         return {
             total,
             pages: Math.ceil(total / limit)
@@ -163,32 +120,23 @@ class TemplateService extends BaseService {
             contentToStore = JSON.stringify({ html: html_content });
         }
 
-        const result = await this.db.run(`
-            INSERT INTO invitation_templates (
-                template_name, template_type, template_content,
-                special_guests, css_styles, js_scripts, is_default,
-                category, status, tags, description, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        `, [
+        const result = await templateRepository.createExtended({
             template_name,
-            template_type || category || 'email',
-            contentToStore,
-            special_guests || null,
-            css_styles || null,
-            js_scripts || null,
-            is_default ? 1 : 0,
-            category || null,
-            status || 'active',
-            tags || null,
-            description || null
-        ]);
+            template_type,
+            template_content: contentToStore,
+            special_guests,
+            css_styles,
+            js_scripts,
+            is_default,
+            category,
+            status,
+            tags,
+            description
+        });
 
-        this.log('create', { templateId: result.lastID, template_name });
+        this.log('create', { templateId: result.id, template_name });
 
-        return {
-            id: result.lastID,
-            template_name
-        };
+        return result;
     }
 
     /**
@@ -213,27 +161,15 @@ class TemplateService extends BaseService {
             is_default
         } = data;
 
-        await this.db.run(`
-            UPDATE invitation_templates SET
-                template_name = COALESCE(?, template_name),
-                template_type = COALESCE(?, template_type),
-                template_content = COALESCE(?, template_content),
-                special_guests = COALESCE(?, special_guests),
-                css_styles = COALESCE(?, css_styles),
-                js_scripts = COALESCE(?, js_scripts),
-                is_default = COALESCE(?, is_default),
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        `, [
+        await templateRepository.update(templateId, {
             template_name,
             template_type,
             template_content,
             special_guests,
             css_styles,
             js_scripts,
-            is_default !== undefined ? (is_default ? 1 : 0) : null,
-            templateId
-        ]);
+            is_default
+        });
 
         this.log('update', { templateId });
 
@@ -257,7 +193,7 @@ class TemplateService extends BaseService {
             return { success: false, error: 'FORBIDDEN', message: reason };
         }
 
-        await this.db.run('DELETE FROM invitation_templates WHERE id = ?', [templateId]);
+        await templateRepository.delete(templateId);
 
         this.log('delete', { templateId, template_name: template.template_name });
 
@@ -276,33 +212,7 @@ class TemplateService extends BaseService {
      * @returns {Promise<Object>}
      */
     async duplicateTemplate(templateId, newName, userId) {
-        const original = await this.getById(templateId);
-        if (!original) {
-            return { success: false, error: 'NOT_FOUND', message: '模板不存在' };
-        }
-
-        const result = await this.db.run(`
-            INSERT INTO invitation_templates (
-                template_name, template_type, template_content, css_styles,
-                js_scripts, is_default, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [
-            newName || `${original.template_name} (副本)`,
-            original.template_type,
-            original.template_content,
-            original.css_styles,
-            original.js_scripts,
-            0, // 副本不設為預設
-            userId
-        ]);
-
-        this.log('duplicate', { originalId: templateId, newId: result.lastID });
-
-        return {
-            success: true,
-            id: result.lastID,
-            template_name: newName || `${original.template_name} (副本)`
-        };
+        return templateRepository.duplicate(templateId, { newName, userId });
     }
 
     /**
@@ -316,27 +226,11 @@ class TemplateService extends BaseService {
             return { success: false, error: 'NOT_FOUND', message: '模板不存在' };
         }
 
-        await this.db.beginTransaction();
+        await templateRepository.setAsDefault(templateId);
 
-        try {
-            // 將所有模板設為非預設
-            await this.db.run('UPDATE invitation_templates SET is_default = 0');
+        this.log('setDefault', { templateId, template_name: template.template_name });
 
-            // 設置指定模板為預設
-            await this.db.run(
-                'UPDATE invitation_templates SET is_default = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-                [templateId]
-            );
-
-            await this.db.commit();
-
-            this.log('setDefault', { templateId, template_name: template.template_name });
-
-            return { success: true, template };
-        } catch (error) {
-            await this.db.rollback();
-            throw error;
-        }
+        return { success: true, template };
     }
 
     // ============================================================================
@@ -349,29 +243,7 @@ class TemplateService extends BaseService {
      * @returns {Promise<Array>}
      */
     async searchTemplates({ search, category, limit = 50 }) {
-        let query = `
-            SELECT t.*, u.full_name as creator_name
-            FROM invitation_templates t
-            LEFT JOIN users u ON t.created_by = u.id
-            WHERE 1=1
-        `;
-        const params = [];
-
-        if (search && search.trim()) {
-            query += ` AND (t.template_name LIKE ? OR t.description LIKE ?)`;
-            const searchTerm = `%${search.trim()}%`;
-            params.push(searchTerm, searchTerm);
-        }
-
-        if (category && category.trim() && category !== 'all') {
-            query += ` AND t.template_type = ?`;
-            params.push(category.trim());
-        }
-
-        query += ` ORDER BY t.is_default DESC, t.created_at DESC LIMIT ?`;
-        params.push(limit);
-
-        return this.db.query(query, params);
+        return templateRepository.search(search, { limit, category });
     }
 
     /**
@@ -380,17 +252,7 @@ class TemplateService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getTemplateUsage(templateId) {
-        const projects = await this.db.query(`
-            SELECT id, project_name, project_code, status, created_at
-            FROM event_projects
-            WHERE template_config LIKE ?
-            ORDER BY created_at DESC
-        `, [`%"template_id":${templateId}%`]);
-
-        return {
-            usage_count: projects.length,
-            projects
-        };
+        return templateRepository.getUsageStats(templateId);
     }
 
     /**
@@ -399,21 +261,7 @@ class TemplateService extends BaseService {
      * @returns {Promise<Array>}
      */
     async getTemplatesByType(templateType) {
-        let query = `
-            SELECT t.*, u.full_name as creator_name
-            FROM invitation_templates t
-            LEFT JOIN users u ON t.created_by = u.id
-        `;
-        const params = [];
-
-        if (templateType) {
-            query += ' WHERE t.template_type = ?';
-            params.push(templateType);
-        }
-
-        query += ' ORDER BY t.is_default DESC, t.created_at DESC';
-
-        return this.db.query(query, params);
+        return templateRepository.findByType(templateType);
     }
 
     // ============================================================================
@@ -426,37 +274,7 @@ class TemplateService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getTemplatesList({ page = 1, limit = 20, category = null }) {
-        const offset = (page - 1) * limit;
-
-        let query = `
-            SELECT t.*, u.full_name as creator_name
-            FROM invitation_templates t
-            LEFT JOIN users u ON t.created_by = u.id
-        `;
-        let countQuery = 'SELECT COUNT(*) as count FROM invitation_templates t';
-        const params = [];
-
-        if (category && category.trim()) {
-            const whereClause = ' WHERE t.template_type = ?';
-            query += whereClause;
-            countQuery += whereClause;
-            params.push(category.trim());
-        }
-
-        query += ' ORDER BY t.is_default DESC, t.created_at DESC LIMIT ? OFFSET ?';
-
-        const templates = await this.db.query(query, [...params, limit, offset]);
-        const totalResult = await this.db.get(countQuery, params);
-
-        return {
-            templates,
-            pagination: {
-                page,
-                limit,
-                total: totalResult.count,
-                pages: Math.ceil(totalResult.count / limit)
-            }
-        };
+        return templateRepository.getListWithPagination({ page, limit, category });
     }
 
     /**
@@ -465,12 +283,7 @@ class TemplateService extends BaseService {
      * @returns {Promise<Object|null>}
      */
     async getTemplateDetail(templateId) {
-        const template = await this.db.get(`
-            SELECT t.*, u.full_name as creator_name
-            FROM invitation_templates t
-            LEFT JOIN users u ON t.created_by = u.id
-            WHERE t.id = ?
-        `, [templateId]);
+        const template = await templateRepository.findByIdWithCreator(templateId);
 
         if (!template) return null;
 
@@ -535,14 +348,14 @@ class TemplateService extends BaseService {
 
         // 如果設置為預設模板，先將其他預設模板設為非預設
         if (updates.is_default) {
-            await this.db.run('UPDATE invitation_templates SET is_default = 0 WHERE id != ?', [templateId]);
+            await templateRepository.rawRun('UPDATE invitation_templates SET is_default = 0 WHERE id != ?', [templateId]);
         }
 
         updateFields.push('updated_at = CURRENT_TIMESTAMP');
         updateValues.push(templateId);
 
         const query = `UPDATE invitation_templates SET ${updateFields.join(', ')} WHERE id = ?`;
-        await this.db.run(query, updateValues);
+        await templateRepository.rawRun(query, updateValues);
 
         this.log('update', { templateId, fields: Object.keys(updates) });
 

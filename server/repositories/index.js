@@ -15,6 +15,8 @@ const BaseRepository = require('./base.repository');
 const projectRepository = require('./project.repository');
 const submissionRepository = require('./submission.repository');
 const userRepository = require('./user.repository');
+const templateRepository = require('./template.repository');
+const eventRepository = require('./event.repository');
 const checkinRepository = require('./checkin.repository');
 const qrCodeRepository = require('./qr-code.repository');
 const logRepository = require('./log.repository');
@@ -31,6 +33,8 @@ module.exports = {
     projectRepository,
     submissionRepository,
     userRepository,
+    templateRepository,
+    eventRepository,
     checkinRepository,
     qrCodeRepository,
     logRepository,

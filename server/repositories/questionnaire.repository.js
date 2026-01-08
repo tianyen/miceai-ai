@@ -360,6 +360,445 @@ class QuestionnaireRepository extends BaseRepository {
         `, [projectId, userId, userId]);
         return !!result;
     }
+
+    // ============================================================================
+    // 問卷詳情相關
+    // ============================================================================
+
+    /**
+     * 取得問卷詳情（含創建者和專案資訊）
+     * @param {number} questionnaireId - 問卷 ID
+     * @returns {Promise<Object|null>}
+     */
+    async getDetail(questionnaireId) {
+        const sql = `
+            SELECT q.*, u.full_name as creator_name, p.project_name
+            FROM questionnaires q
+            LEFT JOIN users u ON q.created_by = u.id
+            LEFT JOIN event_projects p ON q.project_id = p.id
+            WHERE q.id = ?
+        `;
+        return this.rawGet(sql, [questionnaireId]);
+    }
+
+    /**
+     * 取得問卷問題
+     * @param {number} questionnaireId - 問卷 ID
+     * @returns {Promise<Array>}
+     */
+    async getQuestions(questionnaireId) {
+        return this.rawAll(
+            'SELECT * FROM questionnaire_questions WHERE questionnaire_id = ? ORDER BY question_order',
+            [questionnaireId]
+        );
+    }
+
+    // ============================================================================
+    // 問卷操作 (CRUD)
+    // ============================================================================
+
+    /**
+     * 創建問卷
+     * @param {Object} data - 問卷資料
+     * @returns {Promise<Object>}
+     */
+    async createQuestionnaire(data) {
+        const {
+            project_id,
+            title,
+            description,
+            instructions,
+            is_active,
+            created_by
+        } = data;
+
+        const sql = `
+            INSERT INTO questionnaires (
+                project_id, title, description, instructions,
+                is_active, created_by, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `;
+
+        const result = await this.rawRun(sql, [
+            project_id,
+            title,
+            description || null,
+            instructions || null,
+            is_active ? 1 : 0,
+            created_by
+        ]);
+
+        return { id: result.lastID, title };
+    }
+
+    /**
+     * 創建問卷問題
+     * @param {Object} data - 問題資料
+     * @returns {Promise<Object>}
+     */
+    async createQuestion(data) {
+        const {
+            questionnaire_id,
+            question_text,
+            question_type,
+            options,
+            is_required,
+            question_order
+        } = data;
+
+        const sql = `
+            INSERT INTO questionnaire_questions (
+                questionnaire_id, question_text, question_type,
+                options, is_required, question_order
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        `;
+
+        return this.rawRun(sql, [
+            questionnaire_id,
+            question_text,
+            question_type,
+            options ? JSON.stringify(options) : null,
+            is_required ? 1 : 0,
+            question_order
+        ]);
+    }
+
+    /**
+     * 批量創建問題
+     * @param {number} questionnaireId - 問卷 ID
+     * @param {Array} questions - 問題陣列
+     * @returns {Promise<void>}
+     */
+    async createQuestionsBulk(questionnaireId, questions) {
+        for (let i = 0; i < questions.length; i++) {
+            await this.createQuestion({
+                questionnaire_id: questionnaireId,
+                ...questions[i],
+                question_order: i + 1
+            });
+        }
+    }
+
+    /**
+     * 更新問卷
+     * @param {number} questionnaireId - 問卷 ID
+     * @param {Object} data - 更新資料
+     * @returns {Promise<Object>}
+     */
+    async updateQuestionnaire(questionnaireId, data) {
+        const { title, description, instructions, is_active } = data;
+
+        const sql = `
+            UPDATE questionnaires
+            SET title = ?, description = ?, instructions = ?,
+                is_active = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `;
+
+        return this.rawRun(sql, [
+            title,
+            description || null,
+            instructions || null,
+            is_active ? 1 : 0,
+            questionnaireId
+        ]);
+    }
+
+    /**
+     * 刪除問卷問題
+     * @param {number} questionnaireId - 問卷 ID
+     * @returns {Promise<Object>}
+     */
+    async deleteQuestions(questionnaireId) {
+        return this.rawRun(
+            'DELETE FROM questionnaire_questions WHERE questionnaire_id = ?',
+            [questionnaireId]
+        );
+    }
+
+    /**
+     * 刪除問卷回應
+     * @param {number} questionnaireId - 問卷 ID
+     * @returns {Promise<Object>}
+     */
+    async deleteResponses(questionnaireId) {
+        return this.rawRun(
+            'DELETE FROM questionnaire_responses WHERE questionnaire_id = ?',
+            [questionnaireId]
+        );
+    }
+
+    /**
+     * 刪除問卷瀏覽記錄
+     * @param {number} questionnaireId - 問卷 ID
+     * @returns {Promise<Object>}
+     */
+    async deleteViews(questionnaireId) {
+        return this.rawRun(
+            'DELETE FROM questionnaire_views WHERE questionnaire_id = ?',
+            [questionnaireId]
+        );
+    }
+
+    /**
+     * 徹底刪除問卷（ cascade delete）
+     * @param {number} questionnaireId - 問卷 ID
+     * @returns {Promise<Object>}
+     */
+    async deleteCascade(questionnaireId) {
+        await this.deleteResponses(questionnaireId);
+        await this.deleteViews(questionnaireId);
+        await this.deleteQuestions(questionnaireId);
+        return this.rawRun('DELETE FROM questionnaires WHERE id = ?', [questionnaireId]);
+    }
+
+    /**
+     * 切換問卷狀態
+     * @param {number} questionnaireId - 問卷 ID
+     * @param {boolean} isActive - 是否啟用
+     * @returns {Promise<Object>}
+     */
+    async toggleActive(questionnaireId, isActive) {
+        return this.rawRun(
+            'UPDATE questionnaires SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [isActive ? 1 : 0, questionnaireId]
+        );
+    }
+
+    // ============================================================================
+    // 問卷複製
+    // ============================================================================
+
+    /**
+     * 複製問卷
+     * @param {number} questionnaireId - 原始問卷 ID
+     * @param {Object} data - 新問卷資料
+     * @returns {Promise<Object>}
+     */
+    async duplicate(questionnaireId, { newTitle, projectId, createdBy }) {
+        const original = await this.findById(questionnaireId);
+        if (!original) {
+            return { success: false, error: 'NOT_FOUND', message: '問卷不存在' };
+        }
+
+        // 創建新問卷
+        const result = await this.createQuestionnaire({
+            project_id: projectId || original.project_id,
+            title: newTitle || `${original.title} (複製)`,
+            description: original.description,
+            instructions: original.instructions,
+            is_active: 0,
+            created_by: createdBy
+        });
+
+        // 複製問題
+        const questions = await this.getQuestions(questionnaireId);
+        if (questions.length > 0) {
+            await this.createQuestionsBulk(result.id, questions.map(q => ({
+                question_text: q.question_text,
+                question_type: q.question_type,
+                options: q.options,
+                is_required: q.is_required
+            })));
+        }
+
+        return { success: true, id: result.id, title: newTitle || `${original.title} (複製)` };
+    }
+
+    // ============================================================================
+    // 公開問卷相關
+    // ============================================================================
+
+    /**
+     * 取得公開問卷
+     * @param {number} questionnaireId - 問卷 ID
+     * @returns {Promise<Object|null>}
+     */
+    async getPublicQuestionnaire(questionnaireId) {
+        return this.rawGet(
+            'SELECT * FROM questionnaires WHERE id = ? AND is_active = 1',
+            [questionnaireId]
+        );
+    }
+
+    /**
+     * 檢查是否允許重複提交
+     * @param {number} questionnaireId - 問卷 ID
+     * @param {string} traceId - 追蹤 ID
+     * @returns {Promise<Object|null>}
+     */
+    async checkExistingSubmission(questionnaireId, traceId) {
+        return this.rawGet(`
+            SELECT id FROM questionnaire_responses
+            WHERE questionnaire_id = ? AND trace_id = ? AND is_completed = 1
+        `, [questionnaireId, traceId]);
+    }
+
+    // ============================================================================
+    // 問卷回應提交
+    // ============================================================================
+
+    /**
+     * 創建問卷回應
+     * @param {Object} data - 回應資料
+     * @returns {Promise<Object>}
+     */
+    async submitResponse(data) {
+        const {
+            questionnaire_id,
+            trace_id,
+            submission_id,
+            respondent_name,
+            respondent_email,
+            response_data,
+            is_completed
+        } = data;
+
+        const sql = `
+            INSERT INTO questionnaire_responses (
+                questionnaire_id, trace_id, submission_id,
+                respondent_name, respondent_email, response_data,
+                is_completed, submitted_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `;
+
+        const result = await this.rawRun(sql, [
+            questionnaire_id,
+            trace_id,
+            submission_id,
+            respondent_name || null,
+            respondent_email || null,
+            JSON.stringify(response_data),
+            is_completed ? 1 : 0
+        ]);
+
+        return { id: result.lastID };
+    }
+
+    /**
+     * 記錄互動
+     * @param {Object} data - 互動資料
+     * @returns {Promise<Object>}
+     */
+    async logInteraction(data) {
+        const {
+            trace_id,
+            project_id,
+            submission_id,
+            interaction_type,
+            interaction_data
+        } = data;
+
+        return this.rawRun(`
+            INSERT INTO participant_interactions (
+                trace_id, project_id, submission_id, interaction_type,
+                interaction_data, created_at
+            ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `, [trace_id, project_id, submission_id, interaction_type, JSON.stringify(interaction_data)]);
+    }
+
+    // ============================================================================
+    // 瀏覽追蹤
+    // ============================================================================
+
+    /**
+     * 記錄問卷瀏覽
+     * @param {Object} data - 瀏覽資料
+     * @returns {Promise<Object>}
+     */
+    async logView(data) {
+        const {
+            questionnaire_id,
+            trace_id,
+            ip_address,
+            user_agent,
+            referrer
+        } = data;
+
+        return this.rawRun(`
+            INSERT INTO questionnaire_views (
+                questionnaire_id, trace_id, ip_address, user_agent, referrer, created_at
+            ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `, [questionnaire_id, trace_id, ip_address, user_agent || null, referrer || null]);
+    }
+
+    // ============================================================================
+    // QR Code 相關
+    // ============================================================================
+
+    /**
+     * 取得專案的問卷 QR Code
+     * @param {number} projectId - 專案 ID
+     * @param {string} qrDataPattern - QR 資料 pattern
+     * @returns {Promise<Object|null>}
+     */
+    async getQRCode(projectId, qrDataPattern) {
+        return this.rawGet(`
+            SELECT * FROM qr_codes WHERE project_id = ? AND qr_data LIKE ?
+            ORDER BY created_at DESC LIMIT 1
+        `, [projectId, qrDataPattern]);
+    }
+
+    /**
+     * 更新 QR Code
+     * @param {number} qrId - QR Code ID
+     * @param {string} qrCode - QR Code 圖片
+     * @param {string} qrData - QR 資料
+     * @returns {Promise<Object>}
+     */
+    async updateQRCode(qrId, qrCode, qrData) {
+        return this.rawRun(`
+            UPDATE qr_codes SET qr_code = ?, qr_data = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?
+        `, [qrCode, qrData, qrId]);
+    }
+
+    /**
+     * 創建 QR Code
+     * @param {Object} data - QR Code 資料
+     * @returns {Promise<Object>}
+     */
+    async createQRCode(data) {
+        const { project_id, qr_code, qr_data } = data;
+
+        return this.rawRun(`
+            INSERT INTO qr_codes (project_id, qr_code, qr_data, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        `, [project_id, qr_code, qr_data]);
+    }
+
+    /**
+     * 增加 QR Code 掃描次數
+     * @param {number} projectId - 專案 ID
+     * @param {string} qrDataPattern - QR 資料 pattern
+     * @returns {Promise<Object>}
+     */
+    async incrementQRScanCount(projectId, qrDataPattern) {
+        return this.rawRun(`
+            UPDATE qr_codes SET scan_count = scan_count + 1, last_scanned = CURRENT_TIMESTAMP
+            WHERE project_id = ? AND qr_data LIKE ?
+        `, [projectId, qrDataPattern]);
+    }
+
+    // ============================================================================
+    // 進階統計
+    // ============================================================================
+
+    /**
+     * 取得問卷基本統計（含瀏覽和回應）
+     * @param {number} questionnaireId - 問卷 ID
+     * @returns {Promise<Object>}
+     */
+    async getBasicStats(questionnaireId) {
+        return this.rawGet(`
+            SELECT
+                COUNT(DISTINCT qv.trace_id) as view_count,
+                COUNT(DISTINCT qr.trace_id) as response_count,
+                COUNT(DISTINCT CASE WHEN qr.is_completed = 1 THEN qr.trace_id END) as completed_count
+            FROM questionnaire_views qv
+            LEFT JOIN questionnaire_responses qr ON qv.questionnaire_id = qr.questionnaire_id
+                AND qv.trace_id = qr.trace_id
+            WHERE qv.questionnaire_id = ?
+        `, [questionnaireId]);
+    }
 }
 
 // 單例模式
