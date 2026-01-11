@@ -61,17 +61,11 @@ class ProjectService extends BaseService {
      * @returns {Promise<boolean>}
      */
     async checkProjectPermission(userId, projectId) {
-        const project = await this.db.get(
-            'SELECT * FROM event_projects WHERE id = ? AND created_by = ?',
-            [projectId, userId]
-        );
+        const project = await this.repository.findByCreatorId(userId, projectId);
 
         if (project) return true;
 
-        const permission = await this.db.get(
-            'SELECT * FROM user_project_permissions WHERE user_id = ? AND project_id = ?',
-            [userId, projectId]
-        );
+        const permission = await this.repository.findUserPermission(userId, projectId);
 
         return !!permission;
     }
@@ -88,17 +82,11 @@ class ProjectService extends BaseService {
             return true;
         }
 
-        const project = await this.db.get(
-            'SELECT * FROM event_projects WHERE id = ? AND created_by = ?',
-            [projectId, userId]
-        );
+        const project = await this.repository.findByCreatorId(userId, projectId);
 
         if (project) return true;
 
-        const adminPermission = await this.db.get(
-            'SELECT * FROM user_project_permissions WHERE user_id = ? AND project_id = ? AND permission_level = ?',
-            [userId, projectId, 'admin']
-        );
+        const adminPermission = await this.repository.findAdminPermission(userId, projectId, 'admin');
 
         return !!adminPermission;
     }
@@ -119,27 +107,20 @@ class ProjectService extends BaseService {
             event_location, event_type, template_config, brand_config
         } = data;
 
-        const result = await this.db.run(`
-            INSERT INTO event_projects (
-                project_name, project_code, description, event_date, event_location,
-                event_type, created_by, template_config, brand_config, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
+        const result = await this.repository.createWithCreator({
             project_name,
             project_code,
             description,
             event_date,
             event_location,
-            event_type || 'standard',
-            createdBy,
-            template_config ? JSON.stringify(template_config) : null,
-            brand_config ? JSON.stringify(brand_config) : null,
-            'draft'
-        ]);
+            event_type,
+            template_config,
+            brand_config
+        }, createdBy);
 
-        this.log('createProject', { projectId: result.lastID, project_name, project_code });
+        this.log('createProject', { projectId: result.id, project_name, project_code });
 
-        return { id: result.lastID };
+        return result;
     }
 
     /**
@@ -149,36 +130,7 @@ class ProjectService extends BaseService {
      * @returns {Promise<Object>}
      */
     async updateProject(projectId, updates) {
-        const allowedFields = [
-            'project_name', 'project_code', 'description', 'event_date',
-            'event_location', 'event_type', 'status', 'assigned_to',
-            'template_config', 'brand_config',
-            'max_participants', 'registration_deadline'
-        ];
-
-        const updateFields = [];
-        const updateValues = [];
-
-        Object.keys(updates).forEach(field => {
-            if (allowedFields.includes(field) && updates[field] !== undefined) {
-                updateFields.push(`${field} = ?`);
-                if (field === 'template_config' || field === 'brand_config') {
-                    updateValues.push(JSON.stringify(updates[field]));
-                } else {
-                    updateValues.push(updates[field]);
-                }
-            }
-        });
-
-        if (updateFields.length === 0) {
-            return { success: false, error: 'NO_FIELDS', message: '沒有有效的更新字段' };
-        }
-
-        updateFields.push('updated_at = CURRENT_TIMESTAMP');
-        updateValues.push(projectId);
-
-        const query = `UPDATE event_projects SET ${updateFields.join(', ')} WHERE id = ?`;
-        const result = await this.db.run(query, updateValues);
+        const result = await this.repository.updateById(projectId, updates);
 
         if (result.changes === 0) {
             return { success: false, error: 'NOT_FOUND', message: '項目不存在' };
@@ -195,7 +147,7 @@ class ProjectService extends BaseService {
      * @returns {Promise<Object>}
      */
     async deleteProject(projectId) {
-        const project = await this.db.get('SELECT * FROM event_projects WHERE id = ?', [projectId]);
+        const project = await this.repository.findById(projectId);
 
         if (!project) {
             return { success: false, error: 'NOT_FOUND', message: '項目不存在' };
@@ -204,10 +156,7 @@ class ProjectService extends BaseService {
         await this.db.beginTransaction();
 
         try {
-            await this.db.run('DELETE FROM user_project_permissions WHERE project_id = ?', [projectId]);
-            await this.db.run('DELETE FROM form_submissions WHERE project_id = ?', [projectId]);
-            await this.db.run('DELETE FROM qr_codes WHERE project_id = ?', [projectId]);
-            await this.db.run('DELETE FROM event_projects WHERE id = ?', [projectId]);
+            await this.repository.deleteProjectCascade(projectId);
 
             await this.db.commit();
 
@@ -227,37 +176,15 @@ class ProjectService extends BaseService {
      * @returns {Promise<Object>}
      */
     async duplicateProject(projectId, userId) {
-        const original = await this.db.get('SELECT * FROM event_projects WHERE id = ?', [projectId]);
+        const result = await this.repository.duplicate(projectId, userId);
 
-        if (!original) {
+        if (!result) {
             return { success: false, error: 'NOT_FOUND', message: '專案不存在' };
         }
 
-        const timestamp = Date.now().toString().slice(-5);
-        const newCode = `${original.project_code}_copy_${timestamp}`.slice(0, 50);
-        const newName = `${original.project_name} - 複本`;
+        this.log('duplicateProject', { originalId: projectId, newId: result.id });
 
-        const result = await this.db.run(`
-            INSERT INTO event_projects (
-                project_name, project_code, description, event_date, event_location,
-                event_type, created_by, template_config, brand_config, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-            newName,
-            newCode,
-            original.description,
-            original.event_date,
-            original.event_location,
-            original.event_type,
-            userId,
-            original.template_config,
-            original.brand_config,
-            'draft'
-        ]);
-
-        this.log('duplicateProject', { originalId: projectId, newId: result.lastID });
-
-        return { success: true, id: result.lastID };
+        return { success: true, id: result.id };
     }
 
     /**
@@ -271,16 +198,13 @@ class ProjectService extends BaseService {
             return { success: false, error: 'INVALID_STATUS', message: '無效的專案狀態' };
         }
 
-        const project = await this.db.get('SELECT * FROM event_projects WHERE id = ?', [projectId]);
+        const project = await this.repository.findById(projectId);
 
         if (!project) {
             return { success: false, error: 'NOT_FOUND', message: '專案不存在' };
         }
 
-        await this.db.run(
-            'UPDATE event_projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [status, projectId]
-        );
+        await this.repository.updateStatus(projectId, status);
 
         this.log('updateStatus', { projectId, oldStatus: project.status, newStatus: status });
 
@@ -302,15 +226,7 @@ class ProjectService extends BaseService {
      * @returns {Promise<Array>}
      */
     async getProjectPermissions(projectId) {
-        return this.db.query(`
-            SELECT pp.*, u.full_name as user_name, u.email as user_email,
-                   ab.full_name as assigned_by_name
-            FROM user_project_permissions pp
-            LEFT JOIN users u ON pp.user_id = u.id
-            LEFT JOIN users ab ON pp.assigned_by = ab.id
-            WHERE pp.project_id = ?
-            ORDER BY pp.created_at DESC
-        `, [projectId]);
+        return this.repository.getPermissions(projectId);
     }
 
     /**
@@ -322,11 +238,7 @@ class ProjectService extends BaseService {
      * @returns {Promise<Object>}
      */
     async addPermission(projectId, userId, permissionLevel, assignedBy) {
-        await this.db.run(`
-            INSERT OR REPLACE INTO user_project_permissions (
-                user_id, project_id, permission_level, assigned_by
-            ) VALUES (?, ?, ?, ?)
-        `, [userId, projectId, permissionLevel, assignedBy]);
+        await this.repository.upsertPermission(projectId, userId, permissionLevel, assignedBy);
 
         this.log('addPermission', { projectId, userId, permissionLevel });
 
@@ -342,11 +254,7 @@ class ProjectService extends BaseService {
      * @returns {Promise<Object>}
      */
     async updatePermission(projectId, userId, permissionLevel, assignedBy) {
-        const result = await this.db.run(`
-            UPDATE user_project_permissions
-            SET permission_level = ?, assigned_by = ?
-            WHERE user_id = ? AND project_id = ?
-        `, [permissionLevel, assignedBy, userId, projectId]);
+        const result = await this.repository.updatePermission(projectId, userId, permissionLevel, assignedBy);
 
         if (result.changes === 0) {
             return { success: false, error: 'NOT_FOUND', message: '權限記錄不存在' };
@@ -364,10 +272,7 @@ class ProjectService extends BaseService {
      * @returns {Promise<Object>}
      */
     async removePermission(projectId, userId) {
-        const result = await this.db.run(`
-            DELETE FROM user_project_permissions
-            WHERE user_id = ? AND project_id = ?
-        `, [userId, projectId]);
+        const result = await this.repository.deletePermission(projectId, userId);
 
         if (result.changes === 0) {
             return { success: false, error: 'NOT_FOUND', message: '權限記錄不存在' };
@@ -388,37 +293,7 @@ class ProjectService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getProjectsList({ userId, userRole, page = 1, limit = 20 }) {
-        const { filter, params } = this.buildProjectFilter(userRole, userId);
-        const offset = (page - 1) * limit;
-
-        const projectsQuery = `
-            SELECT
-                p.*,
-                u.full_name as creator_name,
-                t.template_name as template_name,
-                COUNT(fs.id) as participant_count
-            FROM event_projects p
-            LEFT JOIN users u ON p.created_by = u.id
-            LEFT JOIN invitation_templates t ON p.template_id = t.id
-            LEFT JOIN form_submissions fs ON p.id = fs.project_id
-            ${filter}
-            GROUP BY p.id ORDER BY p.created_at DESC LIMIT ? OFFSET ?
-        `;
-
-        const countQuery = `SELECT COUNT(*) as count FROM event_projects p ${filter}`;
-
-        const projects = await this.db.query(projectsQuery, [...params, limit, offset]);
-        const totalResult = await this.db.get(countQuery, params);
-
-        return {
-            projects,
-            pagination: {
-                page,
-                limit,
-                total: totalResult.count,
-                pages: Math.ceil(totalResult.count / limit)
-            }
-        };
+        return this.repository.getListWithPermissionFilter({ userId, userRole, page, limit });
     }
 
     /**
@@ -427,43 +302,7 @@ class ProjectService extends BaseService {
      * @returns {Promise<Array>}
      */
     async searchProjectsAdmin({ userId, userRole, search, status, limit = 50 }) {
-        const { filter, params } = this.buildProjectFilter(userRole, userId);
-
-        let searchQuery = `
-            SELECT
-                p.*,
-                u.full_name as creator_name,
-                COUNT(fs.id) as participant_count
-            FROM event_projects p
-            LEFT JOIN users u ON p.created_by = u.id
-            LEFT JOIN form_submissions fs ON p.id = fs.project_id
-            WHERE 1=1
-        `;
-
-        const queryParams = [];
-
-        if (filter) {
-            searchQuery += ` AND (p.created_by = ? OR p.id IN (
-                SELECT project_id FROM user_project_permissions WHERE user_id = ?
-            ))`;
-            queryParams.push(userId, userId);
-        }
-
-        if (search && search.trim()) {
-            searchQuery += ` AND (p.project_name LIKE ? OR p.project_code LIKE ? OR p.description LIKE ?)`;
-            const searchTerm = `%${search.trim()}%`;
-            queryParams.push(searchTerm, searchTerm, searchTerm);
-        }
-
-        if (status && status !== 'all') {
-            searchQuery += ` AND p.status = ?`;
-            queryParams.push(status);
-        }
-
-        searchQuery += ` GROUP BY p.id ORDER BY p.created_at DESC LIMIT ?`;
-        queryParams.push(limit);
-
-        return this.db.query(searchQuery, queryParams);
+        return this.repository.searchWithPermissionFilter({ userId, userRole, search, status, limit });
     }
 
     /**
@@ -472,15 +311,7 @@ class ProjectService extends BaseService {
      * @returns {Promise<Array>}
      */
     async getRecentProjects({ userId, userRole, limit = 5 }) {
-        const { filter, params } = this.buildProjectFilter(userRole, userId);
-
-        return this.db.query(`
-            SELECT p.*, u.full_name as creator_name
-            FROM event_projects p
-            LEFT JOIN users u ON p.created_by = u.id
-            ${filter}
-            ORDER BY p.created_at DESC LIMIT ?
-        `, [...params, limit]);
+        return this.repository.getRecentProjectsWithFilter({ userId, userRole, limit });
     }
 
     // ============================================================================
@@ -493,29 +324,8 @@ class ProjectService extends BaseService {
      * @returns {Promise<Object|null>}
      */
     async getProjectFullDetail(projectId) {
-        const project = await this.db.get(`
-            SELECT p.*, u.full_name as creator_name, a.full_name as assignee_name
-            FROM event_projects p
-            LEFT JOIN users u ON p.created_by = u.id
-            LEFT JOIN users a ON p.assigned_to = a.id
-            WHERE p.id = ?
-        `, [projectId]);
-
-        if (!project) return null;
-
-        const permissions = await this.getProjectPermissions(projectId);
-
-        const submissionStats = await this.db.get(`
-            SELECT
-                COUNT(*) as total,
-                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-                SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-                SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected
-            FROM form_submissions
-            WHERE project_id = ?
-        `, [projectId]);
-
-        return { ...project, permissions, submission_stats: submissionStats };
+        const project = await this.repository.getFullDetail(projectId);
+        return project;
     }
 
     /**
@@ -525,16 +335,16 @@ class ProjectService extends BaseService {
      * @returns {Promise<Object|null>}
      */
     async getScannerUrl(projectId, baseUrl) {
-        const project = await this.db.get('SELECT * FROM event_projects WHERE id = ?', [projectId]);
+        const project = await this.repository.getScannerInfo(projectId);
 
         if (!project) return null;
 
         return {
             project_id: projectId,
             project_name: project.project_name,
-            project_status: project.status,
+            project_status: project.project_status,
             scanner_url: `${baseUrl}/admin/qr-scanner?project=${projectId}`,
-            is_active: project.status === 'active'
+            is_active: project.project_status === 'active'
         };
     }
 
@@ -548,21 +358,13 @@ class ProjectService extends BaseService {
      * @returns {Promise<Object>}
      */
     async exportProjectSubmissions(projectId) {
-        const project = await this.db.get('SELECT * FROM event_projects WHERE id = ?', [projectId]);
+        const result = await this.repository.exportSubmissions(projectId);
 
-        if (!project) {
+        if (!result) {
             return { success: false, error: 'NOT_FOUND', message: '專案不存在' };
         }
 
-        const submissions = await this.db.query(`
-            SELECT s.*, p.project_name
-            FROM form_submissions s
-            LEFT JOIN event_projects p ON s.project_id = p.id
-            WHERE s.project_id = ?
-            ORDER BY s.created_at DESC
-        `, [projectId]);
-
-        return { success: true, project, submissions };
+        return { success: true, ...result };
     }
 
     // ============================================================================
@@ -923,10 +725,7 @@ class ProjectService extends BaseService {
             return false;
         }
 
-        await this.db.run(
-            'UPDATE event_projects SET form_config = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [JSON.stringify(formConfig), projectId]
-        );
+        await this.repository.updateById(projectId, { form_config: formConfig });
 
         this.log('updateFormConfig', { projectId, user: user?.id });
 

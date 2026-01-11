@@ -58,10 +58,7 @@ class SubmissionService extends BaseService {
 
         if (submission.project_creator === userId) return true;
 
-        const permission = await this.db.get(`
-            SELECT 1 FROM user_project_permissions
-            WHERE user_id = ? AND project_id = ?
-        `, [userId, submission.project_id]);
+        const permission = await this.repository.findUserProjectPermission(userId, submission.project_id);
 
         return !!permission;
     }
@@ -78,10 +75,7 @@ class SubmissionService extends BaseService {
 
         if (submission.project_creator === userId) return true;
 
-        const permission = await this.db.get(`
-            SELECT 1 FROM user_project_permissions
-            WHERE user_id = ? AND project_id = ? AND permission_level IN ('write', 'admin')
-        `, [userId, submission.project_id]);
+        const permission = await this.repository.findUserProjectWritePermission(userId, submission.project_id);
 
         return !!permission;
     }
@@ -105,47 +99,17 @@ class SubmissionService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getSubmissionsList({ userId, userRole, page = 1, limit = 20, projectId = null }) {
-        const offset = (page - 1) * limit;
-        const { filter, params } = this.buildSubmissionFilter(userRole, userId);
+        const result = await this.repository.findWithPermissionFilter({
+            userId,
+            userRole,
+            projectId,
+            page,
+            limit
+        });
 
-        let submissionsQuery = `
-            SELECT s.*, p.project_name
-            FROM form_submissions s
-            LEFT JOIN event_projects p ON s.project_id = p.id
-            ${filter}
-        `;
+        this.log('getSubmissionsList', { userId, userRole, page, limit, projectId, total: result.pagination.total });
 
-        let countQuery = `
-            SELECT COUNT(*) as count
-            FROM form_submissions s
-            LEFT JOIN event_projects p ON s.project_id = p.id
-            ${filter}
-        `;
-
-        const queryParams = [...params];
-
-        // 項目過濾
-        if (projectId) {
-            const projectFilter = filter ? ' AND p.id = ?' : ' WHERE p.id = ?';
-            submissionsQuery += projectFilter;
-            countQuery += projectFilter;
-            queryParams.push(projectId);
-        }
-
-        submissionsQuery += ' ORDER BY s.created_at DESC LIMIT ? OFFSET ?';
-
-        const submissions = await this.db.query(submissionsQuery, [...queryParams, limit, offset]);
-        const totalResult = await this.db.get(countQuery, queryParams);
-
-        return {
-            submissions,
-            pagination: {
-                page,
-                limit,
-                total: totalResult.count,
-                pages: Math.ceil(totalResult.count / limit)
-            }
-        };
+        return result;
     }
 
     /**
@@ -154,17 +118,15 @@ class SubmissionService extends BaseService {
      * @returns {Promise<Array>}
      */
     async getRecentSubmissions({ userId, userRole, limit = 10 }) {
-        const { filter, params } = this.buildSubmissionFilter(userRole, userId);
+        const submissions = await this.repository.findRecentWithPermissionFilter({
+            userId,
+            userRole,
+            limit
+        });
 
-        const query = `
-            SELECT s.*, p.project_name
-            FROM form_submissions s
-            LEFT JOIN event_projects p ON s.project_id = p.id
-            ${filter}
-            ORDER BY s.created_at DESC LIMIT ?
-        `;
+        this.log('getRecentSubmissions', { userId, userRole, limit, count: submissions.length });
 
-        return this.db.query(query, [...params, limit]);
+        return submissions;
     }
 
     // ============================================================================
@@ -179,12 +141,7 @@ class SubmissionService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getSubmissionDetail(submissionId, userId, userRole) {
-        const submission = await this.db.get(`
-            SELECT s.*, p.project_name, p.created_by as project_creator
-            FROM form_submissions s
-            LEFT JOIN event_projects p ON s.project_id = p.id
-            WHERE s.id = ?
-        `, [submissionId]);
+        const submission = await this.repository.findByIdWithCreator(submissionId);
 
         if (!submission) {
             return { success: false, error: 'NOT_FOUND', message: '提交記錄不存在' };
@@ -221,12 +178,7 @@ class SubmissionService extends BaseService {
      * @returns {Promise<Object>}
      */
     async updateStatus(submissionId, status, userId, userRole) {
-        const submission = await this.db.get(`
-            SELECT s.*, p.created_by as project_creator
-            FROM form_submissions s
-            LEFT JOIN event_projects p ON s.project_id = p.id
-            WHERE s.id = ?
-        `, [submissionId]);
+        const submission = await this.repository.findByIdWithCreator(submissionId);
 
         if (!submission) {
             return { success: false, error: 'NOT_FOUND', message: '提交記錄不存在' };
@@ -238,11 +190,7 @@ class SubmissionService extends BaseService {
             return { success: false, error: 'FORBIDDEN', message: '權限不足' };
         }
 
-        const result = await this.db.run(`
-            UPDATE form_submissions
-            SET status = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        `, [status, submissionId]);
+        const result = await this.repository.updateStatus(submissionId, status);
 
         if (result.changes === 0) {
             return { success: false, error: 'NOT_FOUND', message: '提交記錄不存在' };
@@ -266,12 +214,7 @@ class SubmissionService extends BaseService {
      * @returns {Promise<Object>}
      */
     async updateSubmission(submissionId, updates, userId, userRole) {
-        const submission = await this.db.get(`
-            SELECT s.*, p.created_by as project_creator
-            FROM form_submissions s
-            LEFT JOIN event_projects p ON s.project_id = p.id
-            WHERE s.id = ?
-        `, [submissionId]);
+        const submission = await this.repository.findByIdWithCreator(submissionId);
 
         if (!submission) {
             return { success: false, error: 'NOT_FOUND', message: '提交記錄不存在' };
@@ -303,7 +246,7 @@ class SubmissionService extends BaseService {
         updateValues.push(submissionId);
 
         const query = `UPDATE form_submissions SET ${updateFields.join(', ')} WHERE id = ?`;
-        const result = await this.db.run(query, updateValues);
+        const result = await this.repository.rawRun(query, updateValues);
 
         if (result.changes === 0) {
             return { success: false, error: 'NOT_FOUND', message: '提交記錄不存在' };
@@ -335,36 +278,22 @@ class SubmissionService extends BaseService {
             return { success: false, error: 'FORBIDDEN', message: '權限不足' };
         }
 
-        const submission = await this.db.get(`
-            SELECT * FROM form_submissions WHERE id = ?
-        `, [submissionId]);
+        const submission = await this.repository.findById(submissionId);
 
         if (!submission) {
             return { success: false, error: 'NOT_FOUND', message: '提交記錄不存在' };
         }
 
-        await this.db.beginTransaction();
+        // 使用 Repository 的 deleteWithRelated（包含 transaction）
+        await this.repository.deleteWithRelated(submissionId);
 
-        try {
-            // 刪除相關 QR 碼記錄
-            await this.db.run('DELETE FROM qr_codes WHERE submission_id = ?', [submissionId]);
+        this.log('deleteSubmission', { submissionId, submitter_name: submission.submitter_name });
 
-            // 刪除提交記錄
-            await this.db.run('DELETE FROM form_submissions WHERE id = ?', [submissionId]);
-
-            await this.db.commit();
-
-            this.log('deleteSubmission', { submissionId, submitter_name: submission.submitter_name });
-
-            return {
-                success: true,
-                message: '提交記錄刪除成功',
-                submission: { id: submissionId, submitter_name: submission.submitter_name }
-            };
-        } catch (error) {
-            await this.db.rollback();
-            throw error;
-        }
+        return {
+            success: true,
+            message: '提交記錄刪除成功',
+            submission: { id: submissionId, submitter_name: submission.submitter_name }
+        };
     }
 
     // ============================================================================
@@ -377,44 +306,13 @@ class SubmissionService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getStats({ userId, userRole, projectId = null }) {
-        let whereClause = '';
-        let queryParams = [];
+        const stats = await this.repository.getStatsWithPermission({
+            userId,
+            userRole,
+            projectId
+        });
 
-        // 權限過濾
-        if (userRole !== 'super_admin') {
-            whereClause = `
-                WHERE s.project_id IN (
-                    SELECT id FROM event_projects
-                    WHERE created_by = ?
-                    UNION
-                    SELECT project_id FROM user_project_permissions WHERE user_id = ?
-                )
-            `;
-            queryParams = [userId, userId];
-        }
-
-        // 項目過濾
-        if (projectId) {
-            if (whereClause) {
-                whereClause += ' AND s.project_id = ?';
-            } else {
-                whereClause = ' WHERE s.project_id = ?';
-            }
-            queryParams.push(projectId);
-        }
-
-        const stats = await this.db.get(`
-            SELECT
-                COUNT(*) as total,
-                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-                SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-                SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
-                COUNT(CASE WHEN date(created_at) = date('now') THEN 1 END) as today,
-                COUNT(CASE WHEN date(created_at) >= date('now', '-7 days') THEN 1 END) as this_week,
-                COUNT(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') THEN 1 END) as this_month
-            FROM form_submissions s
-            ${whereClause}
-        `, queryParams);
+        this.log('getStats', { userId, userRole, projectId });
 
         return stats;
     }
@@ -425,52 +323,14 @@ class SubmissionService extends BaseService {
      * @returns {Promise<Object>}
      */
     async exportSubmissions({ userId, userRole, projectId, status, startDate, endDate }) {
-        let query = `
-            SELECT s.*, p.project_name
-            FROM form_submissions s
-            LEFT JOIN event_projects p ON s.project_id = p.id
-        `;
-        const whereConditions = [];
-        const queryParams = [];
-
-        // 權限過濾
-        if (userRole !== 'super_admin') {
-            whereConditions.push(`
-                (p.created_by = ? OR p.id IN (
-                    SELECT project_id FROM user_project_permissions WHERE user_id = ?
-                ))
-            `);
-            queryParams.push(userId, userId);
-        }
-
-        // 其他過濾條件
-        if (projectId) {
-            whereConditions.push('s.project_id = ?');
-            queryParams.push(projectId);
-        }
-
-        if (status) {
-            whereConditions.push('s.status = ?');
-            queryParams.push(status);
-        }
-
-        if (startDate) {
-            whereConditions.push('date(s.created_at) >= ?');
-            queryParams.push(startDate);
-        }
-
-        if (endDate) {
-            whereConditions.push('date(s.created_at) <= ?');
-            queryParams.push(endDate);
-        }
-
-        if (whereConditions.length > 0) {
-            query += ' WHERE ' + whereConditions.join(' AND ');
-        }
-
-        query += ' ORDER BY s.created_at DESC';
-
-        const submissions = await this.db.query(query, queryParams);
+        const submissions = await this.repository.exportWithPermission({
+            userId,
+            userRole,
+            projectId,
+            status,
+            startDate,
+            endDate
+        });
 
         this.log('exportSubmissions', { count: submissions.length, projectId });
 

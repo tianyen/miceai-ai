@@ -14,7 +14,7 @@
  */
 
 const { createDb } = require('./utils/db');
-const API_URL = process.env.API_URL || 'http://localhost:3000/api/v1';
+const API_URL = process.env.API_URL || 'http://localhost:9999/api/v1';
 
 // ANSI 顏色
 const colors = {

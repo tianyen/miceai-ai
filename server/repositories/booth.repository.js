@@ -289,6 +289,142 @@ class BoothRepository extends BaseRepository {
         // 刪除攤位
         return this.rawRun('DELETE FROM booths WHERE id = ?', [boothId]);
     }
+
+    // ============================================================================
+    // 遊戲綁定相關方法
+    // ============================================================================
+
+    /**
+     * 查詢攤位綁定的遊戲列表
+     * @param {number} boothId - 攤位 ID
+     * @returns {Promise<Array>}
+     */
+    async findBoothGames(boothId) {
+        const sql = `
+            SELECT
+                bg.*,
+                g.game_name_zh,
+                g.game_name_en,
+                g.game_url,
+                g.game_version,
+                g.is_active as game_is_active,
+                v.voucher_name,
+                v.voucher_value,
+                v.remaining_quantity,
+                v.total_quantity
+            FROM booth_games bg
+            LEFT JOIN games g ON bg.game_id = g.id
+            LEFT JOIN vouchers v ON bg.voucher_id = v.id
+            WHERE bg.booth_id = ?
+            ORDER BY bg.created_at DESC
+        `;
+        return this.rawAll(sql, [boothId]);
+    }
+
+    /**
+     * 查詢遊戲是否存在
+     * @param {number} gameId - 遊戲 ID
+     * @returns {Promise<Object|null>}
+     */
+    async findGameById(gameId) {
+        return this.rawGet('SELECT * FROM games WHERE id = ?', [gameId]);
+    }
+
+    /**
+     * 檢查遊戲是否已綁定到攤位
+     * @param {number} boothId - 攤位 ID
+     * @param {number} gameId - 遊戲 ID
+     * @returns {Promise<Object|null>}
+     */
+    async findBindingByBoothAndGame(boothId, gameId) {
+        return this.rawGet(
+            'SELECT * FROM booth_games WHERE booth_id = ? AND game_id = ?',
+            [boothId, gameId]
+        );
+    }
+
+    /**
+     * 查詢兌換券是否存在
+     * @param {number} voucherId - 兌換券 ID
+     * @returns {Promise<Object|null>}
+     */
+    async findVoucherById(voucherId) {
+        return this.rawGet('SELECT * FROM vouchers WHERE id = ?', [voucherId]);
+    }
+
+    /**
+     * 創建遊戲綁定
+     * @param {number} boothId - 攤位 ID
+     * @param {number} gameId - 遊戲 ID
+     * @param {number|null} voucherId - 兌換券 ID
+     * @param {string} qrCodeBase64 - QR Code 圖片
+     * @returns {Promise<Object>}
+     */
+    async createGameBinding(boothId, gameId, voucherId, qrCodeBase64) {
+        return this.rawRun(
+            `INSERT INTO booth_games (booth_id, game_id, voucher_id, qr_code_base64)
+             VALUES (?, ?, ?, ?)`,
+            [boothId, gameId, voucherId || null, qrCodeBase64]
+        );
+    }
+
+    /**
+     * 查詢綁定記錄
+     * @param {number} bindingId - 綁定 ID
+     * @param {number} boothId - 攤位 ID
+     * @returns {Promise<Object|null>}
+     */
+    async findBindingById(bindingId, boothId) {
+        return this.rawGet(
+            'SELECT * FROM booth_games WHERE id = ? AND booth_id = ?',
+            [bindingId, boothId]
+        );
+    }
+
+    /**
+     * 更新遊戲綁定
+     * @param {number} bindingId - 綁定 ID
+     * @param {Object} data - 更新資料
+     * @returns {Promise<Object>}
+     */
+    async updateBinding(bindingId, data) {
+        const updates = [];
+        const params = [];
+
+        if (data.voucher_id !== undefined) {
+            updates.push('voucher_id = ?');
+            params.push(data.voucher_id || null);
+        }
+
+        if (data.is_active !== undefined) {
+            updates.push('is_active = ?');
+            params.push(data.is_active ? 1 : 0);
+        }
+
+        if (updates.length > 0) {
+            updates.push('updated_at = CURRENT_TIMESTAMP');
+            params.push(bindingId);
+
+            return this.rawRun(
+                `UPDATE booth_games SET ${updates.join(', ')} WHERE id = ?`,
+                params
+            );
+        }
+        return { changes: 0 };
+    }
+
+    /**
+     * 刪除遊戲綁定
+     * @param {number} bindingId - 綁定 ID
+     * @param {number} boothId - 攤位 ID
+     * @returns {Promise<Object>}
+     */
+    async deleteBinding(bindingId, boothId) {
+        return this.rawRun(
+            'DELETE FROM booth_games WHERE id = ? AND booth_id = ?',
+            [bindingId, boothId]
+        );
+    }
 }
 
 // 單例模式

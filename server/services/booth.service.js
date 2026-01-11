@@ -219,24 +219,7 @@ class BoothService extends BaseService {
         }
 
         // 獲取攤位綁定的遊戲列表
-        const games = await this.db.query(`
-            SELECT
-                bg.*,
-                g.game_name_zh,
-                g.game_name_en,
-                g.game_url,
-                g.game_version,
-                g.is_active as game_is_active,
-                v.voucher_name,
-                v.voucher_value,
-                v.remaining_quantity,
-                v.total_quantity
-            FROM booth_games bg
-            LEFT JOIN games g ON bg.game_id = g.id
-            LEFT JOIN vouchers v ON bg.voucher_id = v.id
-            WHERE bg.booth_id = ?
-            ORDER BY bg.created_at DESC
-        `, [boothId]);
+        const games = await this.repository.findBoothGames(boothId);
 
         this.log('getBoothGames', { boothId, count: games.length });
 
@@ -251,29 +234,26 @@ class BoothService extends BaseService {
      */
     async bindGame(boothId, { game_id, voucher_id }) {
         // 檢查攤位是否存在
-        const booth = await this.db.get('SELECT * FROM booths WHERE id = ?', [boothId]);
+        const booth = await this.repository.findById(boothId);
         if (!booth) {
             this.throwError(this.ErrorCodes.NOT_FOUND, { message: '找不到攤位' });
         }
 
         // 檢查遊戲是否存在
-        const game = await this.db.get('SELECT * FROM games WHERE id = ?', [game_id]);
+        const game = await this.repository.findGameById(game_id);
         if (!game) {
             this.throwError(this.ErrorCodes.GAME_NOT_FOUND);
         }
 
         // 檢查是否已綁定
-        const existing = await this.db.get(
-            'SELECT * FROM booth_games WHERE booth_id = ? AND game_id = ?',
-            [boothId, game_id]
-        );
+        const existing = await this.repository.findBindingByBoothAndGame(boothId, game_id);
         if (existing) {
             this.throwError(this.ErrorCodes.DUPLICATE_ENTRY, { message: '此遊戲已綁定到該攤位' });
         }
 
         // 如果有兌換券，檢查兌換券是否存在
         if (voucher_id) {
-            const voucher = await this.db.get('SELECT * FROM vouchers WHERE id = ?', [voucher_id]);
+            const voucher = await this.repository.findVoucherById(voucher_id);
             if (!voucher) {
                 this.throwError(this.ErrorCodes.VOUCHER_NOT_FOUND);
             }
@@ -297,10 +277,7 @@ class BoothService extends BaseService {
         });
 
         // 插入綁定記錄
-        const result = await this.db.run(`
-            INSERT INTO booth_games (booth_id, game_id, voucher_id, qr_code_base64)
-            VALUES (?, ?, ?, ?)
-        `, [boothId, game_id, voucher_id || null, qrCodeBase64]);
+        const result = await this.repository.createGameBinding(boothId, game_id, voucher_id, qrCodeBase64);
 
         this.log('bindGame', { boothId, game_id, binding_id: result.lastID });
 
@@ -316,38 +293,13 @@ class BoothService extends BaseService {
      */
     async updateBinding(boothId, bindingId, { voucher_id, is_active }) {
         // 檢查綁定是否存在
-        const binding = await this.db.get(
-            'SELECT * FROM booth_games WHERE id = ? AND booth_id = ?',
-            [bindingId, boothId]
-        );
+        const binding = await this.repository.findBindingById(bindingId, boothId);
         if (!binding) {
             this.throwError(this.ErrorCodes.NOT_FOUND, { message: '找不到遊戲綁定' });
         }
 
         // 更新綁定
-        const updates = [];
-        const params = [];
-
-        if (voucher_id !== undefined) {
-            updates.push('voucher_id = ?');
-            params.push(voucher_id || null);
-        }
-
-        if (is_active !== undefined) {
-            updates.push('is_active = ?');
-            params.push(is_active ? 1 : 0);
-        }
-
-        if (updates.length > 0) {
-            updates.push('updated_at = CURRENT_TIMESTAMP');
-            params.push(bindingId, boothId);
-
-            await this.db.run(`
-                UPDATE booth_games
-                SET ${updates.join(', ')}
-                WHERE id = ? AND booth_id = ?
-            `, params);
-        }
+        await this.repository.updateBinding(bindingId, { voucher_id, is_active });
 
         this.log('updateBinding', { boothId, bindingId });
 
@@ -362,16 +314,13 @@ class BoothService extends BaseService {
      */
     async unbindGame(boothId, bindingId) {
         // 檢查綁定是否存在
-        const binding = await this.db.get(
-            'SELECT * FROM booth_games WHERE id = ? AND booth_id = ?',
-            [bindingId, boothId]
-        );
+        const binding = await this.repository.findBindingById(bindingId, boothId);
         if (!binding) {
             this.throwError(this.ErrorCodes.NOT_FOUND, { message: '找不到遊戲綁定' });
         }
 
         // 刪除綁定
-        await this.db.run('DELETE FROM booth_games WHERE id = ? AND booth_id = ?', [bindingId, boothId]);
+        await this.repository.deleteBinding(bindingId, boothId);
 
         this.log('unbindGame', { boothId, bindingId });
 

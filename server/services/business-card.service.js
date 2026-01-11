@@ -3,12 +3,16 @@
  * 名片 CRUD 操作、狀態管理、專案關聯查詢
  */
 const BaseService = require('./base.service');
+const businessCardRepository = require('../repositories/business-card.repository');
+const projectRepository = require('../repositories/project.repository');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
 
 class BusinessCardService extends BaseService {
     constructor() {
         super('BusinessCardService');
+        this.repository = businessCardRepository;
+        this.projectRepo = projectRepository;
     }
 
     /**
@@ -31,10 +35,7 @@ class BusinessCardService extends BaseService {
                 website, linkedin, wechat, facebook, twitter, instagram } = data;
 
         // 驗證專案存在
-        const project = await this.db.get(
-            'SELECT id, project_name FROM event_projects WHERE id = ?',
-            [project_id]
-        );
+        const project = await this.projectRepo.findById(project_id);
         if (!project) {
             this.throwError(this.ErrorCodes.PROJECT_NOT_FOUND);
         }
@@ -44,10 +45,7 @@ class BusinessCardService extends BaseService {
         let exists = true;
         while (exists) {
             cardId = this._generateCardId();
-            const check = await this.db.get(
-                'SELECT id FROM business_cards WHERE card_id = ?',
-                [cardId]
-            );
+            const check = await this.repository.findByCardId(cardId);
             exists = !!check;
         }
 
@@ -61,18 +59,24 @@ class BusinessCardService extends BaseService {
         });
 
         // 插入資料庫
-        const result = await this.db.run(`
-            INSERT INTO business_cards (
-                card_id, project_id, name, title, company, phone, email, address,
-                website, linkedin, wechat, facebook, twitter, instagram,
-                qr_code_base64, qr_code_data, is_active
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-        `, [
-            cardId, project_id, name, title || null, company || null,
-            phone || null, email || null, address || null, website || null,
-            linkedin || null, wechat || null, facebook || null,
-            twitter || null, instagram || null, qrCodeBase64, cardUrl
-        ]);
+        const result = await this.repository.create({
+            card_id: cardId,
+            project_id,
+            name,
+            title,
+            company,
+            phone,
+            email,
+            address,
+            website,
+            linkedin,
+            wechat,
+            facebook,
+            twitter,
+            instagram,
+            qr_code_base64,
+            qr_code_data: cardUrl
+        });
 
         this.log('createCard', { cardId, name, project_id });
 
@@ -98,46 +102,18 @@ class BusinessCardService extends BaseService {
         const offset = (page - 1) * limit;
 
         // 驗證專案是否存在
-        const project = await this.db.get(`
-            SELECT id, project_name, status
-            FROM event_projects
-            WHERE id = ?
-        `, [projectId]);
+        const project = await this.repository.findByProjectWithStatus(projectId);
 
         if (!project) {
             this.throwError(this.ErrorCodes.PROJECT_NOT_FOUND);
         }
 
-        // 構建搜尋條件
-        let whereClause = 'WHERE project_id = ?';
-        let params = [projectId];
+        // 並行查詢名片列表和總數
+        const [cards, total] = await Promise.all([
+            this.repository.findByProjectWithSearch(projectId, search, limit, offset),
+            this.repository.countByProject(projectId, search)
+        ]);
 
-        if (search) {
-            whereClause += ' AND (name LIKE ? OR company LIKE ? OR email LIKE ?)';
-            const searchPattern = `%${search}%`;
-            params.push(searchPattern, searchPattern, searchPattern);
-        }
-
-        // 獲取名片列表
-        const cards = await this.db.query(`
-            SELECT
-                id, card_id, name, title, company, email, phone, website,
-                linkedin, wechat, scan_count, last_scanned_at,
-                is_active, created_at, updated_at
-            FROM business_cards
-            ${whereClause}
-            ORDER BY created_at DESC
-            LIMIT ? OFFSET ?
-        `, [...params, limit, offset]);
-
-        // 獲取總數
-        const totalResult = await this.db.get(`
-            SELECT COUNT(*) as total
-            FROM business_cards
-            ${whereClause}
-        `, params);
-
-        const total = totalResult.total;
         const totalPages = Math.ceil(total / limit);
 
         this.log('getCardsByProject', { projectId, page, limit, search, total, count: cards.length });
@@ -169,15 +145,7 @@ class BusinessCardService extends BaseService {
      * 獲取名片詳情
      */
     async getCardById(cardId) {
-        const card = await this.db.get(`
-            SELECT
-                bc.*,
-                p.project_name,
-                p.status as project_status
-            FROM business_cards bc
-            JOIN event_projects p ON bc.project_id = p.id
-            WHERE bc.card_id = ?
-        `, [cardId]);
+        const card = await this.repository.findByCardIdWithProject(cardId);
 
         if (!card) {
             this.throwError(this.ErrorCodes.NOT_FOUND, { message: '名片不存在' });
@@ -230,11 +198,7 @@ class BusinessCardService extends BaseService {
      */
     async toggleStatus(cardId, is_active) {
         // 驗證名片是否存在
-        const card = await this.db.get(`
-            SELECT id, card_id, name, is_active
-            FROM business_cards
-            WHERE card_id = ?
-        `, [cardId]);
+        const card = await this.repository.findBasicByCardId(cardId);
 
         if (!card) {
             this.throwError(this.ErrorCodes.NOT_FOUND, { message: '名片不存在' });
@@ -244,11 +208,7 @@ class BusinessCardService extends BaseService {
         const newStatus = is_active !== undefined ? (is_active ? 1 : 0) : (card.is_active ? 0 : 1);
 
         // 更新狀態
-        await this.db.run(`
-            UPDATE business_cards
-            SET is_active = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE card_id = ?
-        `, [newStatus, cardId]);
+        await this.repository.updateByCardId(cardId, newStatus);
 
         this.log('toggleStatus', { cardId, name: card.name, newStatus });
 
@@ -265,21 +225,14 @@ class BusinessCardService extends BaseService {
      */
     async deleteCard(cardId) {
         // 驗證名片是否存在
-        const card = await this.db.get(`
-            SELECT id, card_id, name
-            FROM business_cards
-            WHERE card_id = ?
-        `, [cardId]);
+        const card = await this.repository.findBasicByCardId(cardId);
 
         if (!card) {
             this.throwError(this.ErrorCodes.NOT_FOUND, { message: '名片不存在' });
         }
 
         // 刪除名片
-        await this.db.run(`
-            DELETE FROM business_cards
-            WHERE card_id = ?
-        `, [cardId]);
+        await this.repository.deleteByCardId(cardId);
 
         this.log('deleteCard', { cardId, name: card.name });
 

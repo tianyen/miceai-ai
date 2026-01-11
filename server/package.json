@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "test": "node test-modular.js",
     "verify": "bash scripts/verify-all.sh",
+    "verify:migration": "node scripts/verify-migration.js",
     "verify:api": "node scripts/test-api-v1-endpoints.js",
     "verify:api:http": "node scripts/test-api-v1-http.js",
     "verify:data": "node scripts/check-data-flow.js",

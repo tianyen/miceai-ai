@@ -5,10 +5,12 @@
  * @refactor 2025-12-01: 擴展 Admin API 支援
  */
 const BaseService = require('./base.service');
+const voucherRepository = require('../repositories/voucher.repository');
 
 class VoucherService extends BaseService {
     constructor() {
         super('VoucherService');
+        this.repository = voucherRepository;
     }
 
     // ==================== Admin API 方法 ====================
@@ -21,112 +23,13 @@ class VoucherService extends BaseService {
     async getStats(options = {}) {
         const { project_id } = options;
 
-        // 構建專案過濾條件（透過 game_sessions 關聯）
-        const projectJoin = project_id
-            ? 'INNER JOIN game_sessions gs ON vr.session_id = gs.id'
-            : '';
-        const projectWhere = project_id ? 'WHERE gs.project_id = ?' : '';
-        const projectWhereAnd = project_id ? 'AND gs.project_id = ?' : '';
-        const projectParams = project_id ? [project_id] : [];
-
-        // 1. 總覽統計
-        const summaryQuery = project_id
-            ? `SELECT
-                COUNT(*) as total_redemptions,
-                SUM(CASE WHEN vr.is_used = 1 THEN 1 ELSE 0 END) as used_redemptions,
-                COUNT(DISTINCT vr.trace_id) as unique_users,
-                ROUND(CAST(SUM(CASE WHEN vr.is_used = 1 THEN 1 ELSE 0 END) AS FLOAT) /
-                      NULLIF(COUNT(*), 0) * 100, 1) as usage_rate
-               FROM voucher_redemptions vr
-               ${projectJoin}
-               ${projectWhere}`
-            : `SELECT
-                COUNT(*) as total_redemptions,
-                SUM(CASE WHEN is_used = 1 THEN 1 ELSE 0 END) as used_redemptions,
-                COUNT(DISTINCT trace_id) as unique_users,
-                ROUND(CAST(SUM(CASE WHEN is_used = 1 THEN 1 ELSE 0 END) AS FLOAT) /
-                      NULLIF(COUNT(*), 0) * 100, 1) as usage_rate
-               FROM voucher_redemptions`;
-
-        const summary = await this.db.get(summaryQuery, projectParams);
-
-        // 2. 各兌換券發放統計
-        const voucherStatsQuery = project_id
-            ? `SELECT
-                v.voucher_name,
-                v.category,
-                v.voucher_value,
-                COUNT(*) as redemption_count,
-                SUM(CASE WHEN vr.is_used = 1 THEN 1 ELSE 0 END) as used_count
-               FROM voucher_redemptions vr
-               JOIN vouchers v ON vr.voucher_id = v.id
-               ${projectJoin}
-               ${projectWhere}
-               GROUP BY vr.voucher_id
-               ORDER BY redemption_count DESC`
-            : `SELECT
-                v.voucher_name,
-                v.category,
-                v.voucher_value,
-                COUNT(*) as redemption_count,
-                SUM(CASE WHEN vr.is_used = 1 THEN 1 ELSE 0 END) as used_count
-               FROM voucher_redemptions vr
-               JOIN vouchers v ON vr.voucher_id = v.id
-               GROUP BY vr.voucher_id
-               ORDER BY redemption_count DESC`;
-
-        const voucherStats = await this.db.query(voucherStatsQuery, projectParams);
-
-        // 3. 每日兌換趨勢（最近 30 天）
-        const dailyTrendQuery = project_id
-            ? `SELECT
-                DATE(vr.redeemed_at) as date,
-                COUNT(*) as redemption_count,
-                SUM(CASE WHEN vr.is_used = 1 THEN 1 ELSE 0 END) as used_count
-               FROM voucher_redemptions vr
-               ${projectJoin}
-               WHERE vr.redeemed_at >= DATE('now', '-30 days') ${projectWhereAnd}
-               GROUP BY DATE(vr.redeemed_at)
-               ORDER BY date ASC`
-            : `SELECT
-                DATE(redeemed_at) as date,
-                COUNT(*) as redemption_count,
-                SUM(CASE WHEN is_used = 1 THEN 1 ELSE 0 END) as used_count
-               FROM voucher_redemptions
-               WHERE redeemed_at >= DATE('now', '-30 days')
-               GROUP BY DATE(redeemed_at)
-               ORDER BY date ASC`;
-
-        const dailyTrend = await this.db.query(dailyTrendQuery, projectParams);
-
-        // 4. 熱門兌換券排行榜 TOP 10
-        const topVouchersQuery = project_id
-            ? `SELECT
-                v.voucher_name,
-                v.category,
-                v.voucher_value,
-                COUNT(*) as redemption_count,
-                SUM(CASE WHEN vr.is_used = 1 THEN 1 ELSE 0 END) as used_count
-               FROM voucher_redemptions vr
-               JOIN vouchers v ON vr.voucher_id = v.id
-               ${projectJoin}
-               ${projectWhere}
-               GROUP BY vr.voucher_id
-               ORDER BY redemption_count DESC
-               LIMIT 10`
-            : `SELECT
-                v.voucher_name,
-                v.category,
-                v.voucher_value,
-                COUNT(*) as redemption_count,
-                SUM(CASE WHEN vr.is_used = 1 THEN 1 ELSE 0 END) as used_count
-               FROM voucher_redemptions vr
-               JOIN vouchers v ON vr.voucher_id = v.id
-               GROUP BY vr.voucher_id
-               ORDER BY redemption_count DESC
-               LIMIT 10`;
-
-        const topVouchers = await this.db.query(topVouchersQuery, projectParams);
+        // 並行查詢各項統計
+        const [summary, voucherStats, dailyTrend, topVouchers] = await Promise.all([
+            this.repository.getRedemptionSummary(project_id),
+            this.repository.getVoucherStatsByProject(project_id),
+            this.repository.getDailyRedemptionTrend(project_id),
+            this.repository.getTopVouchers(project_id)
+        ]);
 
         this.log('getStats', { date: options.date, project_id });
 
@@ -143,21 +46,7 @@ class VoucherService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getInventoryStats() {
-        const stats = await this.db.get(`
-            SELECT
-                COUNT(*) as total,
-                SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active,
-                SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as inactive
-            FROM vouchers
-        `);
-
-        this.log('getInventoryStats', stats);
-
-        return {
-            total: stats.total || 0,
-            active: stats.active || 0,
-            inactive: stats.inactive || 0
-        };
+        return this.repository.getInventoryStats();
     }
 
     /**
@@ -165,73 +54,20 @@ class VoucherService extends BaseService {
      * @param {Object} options - 查詢選項
      * @returns {Promise<Object>}
      */
-    async getList({ page = 1, limit = 20, search = '', category = '', is_active = '' } = {}) {
-        const offset = (page - 1) * limit;
+    async getList(options = {}) {
+        const result = await this.repository.findVouchersWithFilter(options);
 
-        let query = `
-            SELECT
-                v.*,
-                (v.total_quantity - v.remaining_quantity) as redeemed_count,
-                vc.min_score,
-                vc.min_play_time
-            FROM vouchers v
-            LEFT JOIN voucher_conditions vc ON v.id = vc.voucher_id
-            WHERE 1=1
-        `;
-        const params = [];
+        this.log('getList', {
+            page: options.page,
+            limit: options.limit,
+            search: options.search,
+            category: options.category,
+            is_active: options.is_active,
+            total: result.pagination.total_items,
+            count: result.vouchers.length
+        });
 
-        if (search) {
-            query += ` AND v.voucher_name LIKE ?`;
-            params.push(`%${search}%`);
-        }
-
-        if (category) {
-            query += ` AND v.category = ?`;
-            params.push(category);
-        }
-
-        if (is_active !== '') {
-            query += ` AND v.is_active = ?`;
-            params.push(is_active);
-        }
-
-        query += ` ORDER BY v.created_at DESC LIMIT ? OFFSET ?`;
-        params.push(parseInt(limit), parseInt(offset));
-
-        const vouchers = await this.db.query(query, params);
-
-        // 獲取總數
-        let countQuery = `SELECT COUNT(*) as total FROM vouchers WHERE 1=1`;
-        const countParams = [];
-
-        if (search) {
-            countQuery += ` AND voucher_name LIKE ?`;
-            countParams.push(`%${search}%`);
-        }
-
-        if (category) {
-            countQuery += ` AND category = ?`;
-            countParams.push(category);
-        }
-
-        if (is_active !== '') {
-            countQuery += ` AND is_active = ?`;
-            countParams.push(is_active);
-        }
-
-        const { total } = await this.db.get(countQuery, countParams);
-
-        this.log('getList', { page, limit, search, category, is_active, total, count: vouchers.length });
-
-        return {
-            vouchers,
-            pagination: {
-                current_page: parseInt(page),
-                total_pages: Math.ceil(total / limit),
-                total_items: total,
-                items_per_page: parseInt(limit)
-            }
-        };
+        return result;
     }
 
     /**
@@ -240,15 +76,7 @@ class VoucherService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getById(voucherId) {
-        const voucher = await this.db.get(`
-            SELECT
-                v.*,
-                vc.min_score,
-                vc.min_play_time
-            FROM vouchers v
-            LEFT JOIN voucher_conditions vc ON v.id = vc.voucher_id
-            WHERE v.id = ?
-        `, [voucherId]);
+        const voucher = await this.repository.findVoucherByIdWithConditions(voucherId);
 
         if (!voucher) {
             this.throwError(this.ErrorCodes.VOUCHER_NOT_FOUND);
@@ -285,25 +113,18 @@ class VoucherService extends BaseService {
             });
         }
 
-        const result = await this.db.run(
-            `INSERT INTO vouchers (
-                voucher_name, vendor_name, sponsor_name, category, voucher_value,
-                total_quantity, remaining_quantity, description, is_active
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                voucher_name,
-                vendor_name || null,
-                sponsor_name || null,
-                category || null,
-                voucher_value || null,
-                total_quantity,
-                total_quantity, // remaining_quantity 初始等於 total_quantity
-                description || null,
-                is_active ? 1 : 0
-            ]
-        );
+        const result = await this.repository.createVoucher({
+            voucher_name,
+            vendor_name,
+            sponsor_name,
+            category,
+            voucher_value,
+            total_quantity,
+            description,
+            is_active
+        });
 
-        const voucher = await this.db.get('SELECT * FROM vouchers WHERE id = ?', [result.lastID]);
+        const voucher = await this.repository.findById(result.lastID);
 
         this.log('create', { voucher_id: result.lastID, voucher_name, total_quantity });
 
@@ -317,63 +138,21 @@ class VoucherService extends BaseService {
      * @returns {Promise<Object>}
      */
     async update(voucherId, data) {
-        const voucher = await this.db.get('SELECT * FROM vouchers WHERE id = ?', [voucherId]);
+        const voucher = await this.repository.findById(voucherId);
 
         if (!voucher) {
             this.throwError(this.ErrorCodes.VOUCHER_NOT_FOUND);
         }
 
-        const updates = [];
-        const params = [];
-
-        if (data.voucher_name !== undefined) {
-            updates.push('voucher_name = ?');
-            params.push(data.voucher_name);
-        }
-        if (data.vendor_name !== undefined) {
-            updates.push('vendor_name = ?');
-            params.push(data.vendor_name);
-        }
-        if (data.sponsor_name !== undefined) {
-            updates.push('sponsor_name = ?');
-            params.push(data.sponsor_name);
-        }
-        if (data.category !== undefined) {
-            updates.push('category = ?');
-            params.push(data.category);
-        }
-        if (data.voucher_value !== undefined) {
-            updates.push('voucher_value = ?');
-            params.push(data.voucher_value);
-        }
+        // 計算數量差異並更新 remaining_quantity
         if (data.total_quantity !== undefined) {
-            updates.push('total_quantity = ?');
-            params.push(data.total_quantity);
-            // 同時更新 remaining_quantity
             const diff = data.total_quantity - voucher.total_quantity;
-            updates.push('remaining_quantity = remaining_quantity + ?');
-            params.push(diff);
-        }
-        if (data.description !== undefined) {
-            updates.push('description = ?');
-            params.push(data.description);
-        }
-        if (data.is_active !== undefined) {
-            updates.push('is_active = ?');
-            params.push(data.is_active ? 1 : 0);
+            data.remaining_quantity = voucher.remaining_quantity + diff;
         }
 
-        if (updates.length > 0) {
-            updates.push('updated_at = CURRENT_TIMESTAMP');
-            params.push(voucherId);
+        await this.repository.updateVoucher(voucherId, data);
 
-            await this.db.run(
-                `UPDATE vouchers SET ${updates.join(', ')} WHERE id = ?`,
-                params
-            );
-        }
-
-        const updatedVoucher = await this.db.get('SELECT * FROM vouchers WHERE id = ?', [voucherId]);
+        const updatedVoucher = await this.repository.findVoucherByIdWithConditions(voucherId);
 
         this.log('update', { voucher_id: voucherId, updates: Object.keys(data) });
 
@@ -386,17 +165,13 @@ class VoucherService extends BaseService {
      * @returns {Promise<Object>}
      */
     async delete(voucherId) {
-        const voucher = await this.db.get('SELECT * FROM vouchers WHERE id = ?', [voucherId]);
+        const voucher = await this.repository.findById(voucherId);
 
         if (!voucher) {
             this.throwError(this.ErrorCodes.VOUCHER_NOT_FOUND);
         }
 
-        // 軟刪除：設置 is_active = 0
-        await this.db.run(
-            'UPDATE vouchers SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [voucherId]
-        );
+        await this.repository.softDeleteVoucher(voucherId);
 
         this.log('delete', { voucher_id: voucherId, voucher_name: voucher.voucher_name });
 
@@ -411,7 +186,6 @@ class VoucherService extends BaseService {
      * @returns {Promise<Object>}
      */
     async scanVoucher({ code, redemption_code, trace_id }) {
-        // 確定要查詢的兌換碼或 trace_id
         const searchCode = code || redemption_code;
 
         if (!searchCode && !trace_id) {
@@ -421,34 +195,7 @@ class VoucherService extends BaseService {
         }
 
         // 查詢兌換記錄
-        let redemption;
-        if (searchCode) {
-            redemption = await this.db.get(`
-                SELECT
-                    vr.*,
-                    v.voucher_name,
-                    v.vendor_name,
-                    v.category,
-                    v.voucher_value
-                FROM voucher_redemptions vr
-                JOIN vouchers v ON vr.voucher_id = v.id
-                WHERE vr.redemption_code = ?
-            `, [searchCode]);
-        } else if (trace_id) {
-            redemption = await this.db.get(`
-                SELECT
-                    vr.*,
-                    v.voucher_name,
-                    v.vendor_name,
-                    v.category,
-                    v.voucher_value
-                FROM voucher_redemptions vr
-                JOIN vouchers v ON vr.voucher_id = v.id
-                WHERE vr.trace_id = ?
-                ORDER BY vr.redeemed_at DESC
-                LIMIT 1
-            `, [trace_id]);
-        }
+        const redemption = await this.repository.findRedemptionByCodeOrTrace(searchCode, trace_id);
 
         if (!redemption) {
             this.throwError(this.ErrorCodes.NOT_FOUND, {
@@ -463,10 +210,7 @@ class VoucherService extends BaseService {
         }
 
         // 標記為已使用
-        await this.db.run(
-            'UPDATE voucher_redemptions SET is_used = 1, used_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [redemption.id]
-        );
+        await this.repository.markRedemptionUsed(redemption.id);
 
         this.log('scanVoucher', {
             redemption_id: redemption.id,
@@ -495,18 +239,7 @@ class VoucherService extends BaseService {
     async getRedemptions(options = {}) {
         const { limit = 100 } = options;
 
-        const redemptions = await this.db.query(`
-            SELECT
-                vr.*,
-                v.voucher_name,
-                v.vendor_name,
-                v.category,
-                v.voucher_value
-            FROM voucher_redemptions vr
-            JOIN vouchers v ON vr.voucher_id = v.id
-            ORDER BY vr.redeemed_at DESC
-            LIMIT ?
-        `, [limit]);
+        const redemptions = await this.repository.getRedemptionsWithVouchers(limit);
 
         this.log('getRedemptions', { count: redemptions.length });
 
@@ -519,10 +252,7 @@ class VoucherService extends BaseService {
      * @returns {Promise<Object>}
      */
     async markRedemptionUsed(redemptionId) {
-        const redemption = await this.db.get(
-            'SELECT * FROM voucher_redemptions WHERE id = ?',
-            [redemptionId]
-        );
+        const redemption = await this.repository.findByRedemptionCode('');
 
         if (!redemption) {
             this.throwError(this.ErrorCodes.NOT_FOUND, {
@@ -536,10 +266,7 @@ class VoucherService extends BaseService {
             });
         }
 
-        await this.db.run(
-            'UPDATE voucher_redemptions SET is_used = 1, used_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [redemptionId]
-        );
+        await this.repository.markRedemptionUsed(redemptionId);
 
         this.log('markRedemptionUsed', {
             redemption_id: redemptionId,
@@ -558,10 +285,7 @@ class VoucherService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getVoucherById(voucherId) {
-        const voucher = await this.db.get(
-            'SELECT * FROM vouchers WHERE id = ?',
-            [voucherId]
-        );
+        const voucher = await this.repository.findById(voucherId);
 
         if (!voucher) {
             this.throwError(this.ErrorCodes.VOUCHER_NOT_FOUND);
@@ -576,23 +300,7 @@ class VoucherService extends BaseService {
      * @returns {Promise<Array>}
      */
     async getAvailableVouchers(options = {}) {
-        const { category, limit = 50 } = options;
-
-        let query = `
-            SELECT * FROM vouchers
-            WHERE is_active = 1 AND remaining_quantity > 0
-        `;
-        const params = [];
-
-        if (category) {
-            query += ' AND category = ?';
-            params.push(category);
-        }
-
-        query += ' ORDER BY voucher_value DESC LIMIT ?';
-        params.push(limit);
-
-        return this.db.query(query, params);
+        return this.repository.findAvailable(options);
     }
 
     /**
@@ -614,23 +322,21 @@ class VoucherService extends BaseService {
         }
 
         // 扣減庫存
-        const updateResult = await this.db.run(`
-            UPDATE vouchers
-            SET remaining_quantity = remaining_quantity - 1
-            WHERE id = ? AND remaining_quantity > 0
-        `, [voucherId]);
+        const updateResult = await this.repository.decrementStock(voucherId);
 
         if (updateResult.changes === 0) {
             this.throwError(this.ErrorCodes.VOUCHER_OUT_OF_STOCK);
         }
 
         // 建立兌換記錄
-        const result = await this.db.run(`
-            INSERT INTO voucher_redemptions (
-                voucher_id, trace_id, user_id, session_id,
-                redemption_code, qr_code_base64, is_used, redeemed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
-        `, [voucherId, traceId, userId, sessionId, redemptionCode, qrCodeBase64]);
+        const result = await this.repository.createRedemption({
+            voucherId,
+            traceId,
+            userId,
+            sessionId,
+            redemptionCode,
+            qrCodeBase64
+        });
 
         this.log('issueVoucher', {
             redemptionId: result.lastID,
@@ -661,12 +367,7 @@ class VoucherService extends BaseService {
      */
     async redeemVoucher(redemptionCode, redeemedBy) {
         // 查詢兌換記錄
-        const redemption = await this.db.get(`
-            SELECT vr.*, v.voucher_name, v.category, v.voucher_value, v.vendor_name
-            FROM voucher_redemptions vr
-            JOIN vouchers v ON vr.voucher_id = v.id
-            WHERE vr.redemption_code = ?
-        `, [redemptionCode]);
+        const redemption = await this.repository.findByRedemptionCode(redemptionCode);
 
         if (!redemption) {
             this.throwError(this.ErrorCodes.VOUCHER_NOT_FOUND, {
@@ -681,11 +382,7 @@ class VoucherService extends BaseService {
         }
 
         // 標記已兌換
-        await this.db.run(`
-            UPDATE voucher_redemptions
-            SET is_used = 1, used_at = CURRENT_TIMESTAMP
-            WHERE redemption_code = ? AND is_used = 0
-        `, [redemptionCode]);
+        await this.repository.markRedemptionUsedByCode(redemptionCode);
 
         this.log('redeemVoucher', { redemptionCode, redeemedBy });
 
@@ -707,12 +404,7 @@ class VoucherService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getByRedemptionCode(redemptionCode) {
-        const redemption = await this.db.get(`
-            SELECT vr.*, v.voucher_name, v.category, v.voucher_value, v.vendor_name
-            FROM voucher_redemptions vr
-            JOIN vouchers v ON vr.voucher_id = v.id
-            WHERE vr.redemption_code = ?
-        `, [redemptionCode]);
+        const redemption = await this.repository.findByRedemptionCode(redemptionCode);
 
         if (!redemption) {
             this.throwError(this.ErrorCodes.VOUCHER_NOT_FOUND);

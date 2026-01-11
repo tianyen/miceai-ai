@@ -620,6 +620,279 @@ class SubmissionRepository extends BaseRepository {
         `;
         return this.rawGet(sql, [traceId]);
     }
+
+
+    /**
+     * 檢查用戶是否有專案權限
+     * @param {number} userId - 用戶 ID
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Object|null>}
+     */
+    async findUserProjectPermission(userId, projectId) {
+        return this.rawGet(
+            `SELECT 1 FROM user_project_permissions WHERE user_id = ? AND project_id = ?`,
+            [userId, projectId]
+        );
+    }
+
+    /**
+     * 檢查用戶是否有專案寫入權限
+     * @param {number} userId - 用戶 ID
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Object|null>}
+     */
+    async findUserProjectWritePermission(userId, projectId) {
+        return this.rawGet(
+            `SELECT 1 FROM user_project_permissions
+             WHERE user_id = ? AND project_id = ? AND permission_level IN ('write', 'admin')`,
+            [userId, projectId]
+        );
+    }
+
+    /**
+     * 取得提交記錄（含專案資訊和建立者）
+     * @param {number} submissionId - 提交 ID
+     * @returns {Promise<Object|null>}
+     */
+    async findByIdWithCreator(submissionId) {
+        const sql = `
+            SELECT s.*, p.project_name, p.created_by as project_creator
+            FROM form_submissions s
+            LEFT JOIN event_projects p ON s.project_id = p.id
+            WHERE s.id = ?
+        `;
+        return this.rawGet(sql, [submissionId]);
+    }
+
+    /**
+     * 取得提交記錄列表（帶權限過濾）
+     * @param {Object} params - 查詢參數
+     * @returns {Promise<Object>}
+     */
+    async findWithPermissionFilter({ userId, userRole, projectId = null, page = 1, limit = 20 } = {}) {
+        let baseSql = `
+            SELECT s.*, p.project_name
+            FROM form_submissions s
+            LEFT JOIN event_projects p ON s.project_id = p.id
+        `;
+        let countSql = `
+            SELECT COUNT(*) as count
+            FROM form_submissions s
+            LEFT JOIN event_projects p ON s.project_id = p.id
+        `;
+
+        const conditions = [];
+        const params = [];
+        const countParams = [];
+
+        // 權限過濾
+        if (userRole !== 'super_admin') {
+            conditions.push(`(p.created_by = ? OR p.id IN (SELECT project_id FROM user_project_permissions WHERE user_id = ?))`);
+            params.push(userId, userId);
+            countParams.push(userId, userId);
+        }
+
+        // 專案過濾
+        if (projectId) {
+            conditions.push('p.id = ?');
+            params.push(projectId);
+            countParams.push(projectId);
+        }
+
+        if (conditions.length > 0) {
+            const whereClause = ' WHERE ' + conditions.join(' AND ');
+            baseSql += whereClause;
+            countSql += whereClause;
+        }
+
+        baseSql += ` ORDER BY s.created_at DESC LIMIT ? OFFSET ?`;
+        params.push(limit, (page - 1) * limit);
+
+        const [submissions, totalResult] = await Promise.all([
+            this.rawAll(baseSql, params),
+            this.rawGet(countSql, countParams)
+        ]);
+
+        return {
+            submissions,
+            pagination: {
+                page,
+                limit,
+                total: totalResult.count,
+                pages: Math.ceil(totalResult.count / limit)
+            }
+        };
+    }
+
+    /**
+     * 取得最近提交記錄（帶權限過濾）
+     * @param {Object} params - 查詢參數
+     * @returns {Promise<Array>}
+     */
+    async findRecentWithPermissionFilter({ userId, userRole, limit = 10 } = {}) {
+        let sql = `
+            SELECT s.*, p.project_name
+            FROM form_submissions s
+            LEFT JOIN event_projects p ON s.project_id = p.id
+        `;
+
+        const conditions = [];
+        const params = [];
+
+        if (userRole !== 'super_admin') {
+            conditions.push(`(p.created_by = ? OR p.id IN (SELECT project_id FROM user_project_permissions WHERE user_id = ?))`);
+            params.push(userId, userId);
+        }
+
+        if (conditions.length > 0) {
+            sql += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        sql += ` ORDER BY s.created_at DESC LIMIT ?`;
+        params.push(limit);
+
+        return this.rawAll(sql, params);
+    }
+
+    /**
+     * 取得提交統計（帶權限過濾）
+     * @param {Object} params - 查詢參數
+     * @returns {Promise<Object>}
+     */
+    async getStatsWithPermission({ userId, userRole, projectId = null } = {}) {
+        let sql = `
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
+                SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
+                COUNT(CASE WHEN date(s.created_at) = date('now') THEN 1 END) as today,
+                COUNT(CASE WHEN date(s.created_at) >= date('now', '-7 days') THEN 1 END) as this_week,
+                COUNT(CASE WHEN strftime('%Y-%m', s.created_at) = strftime('%Y-%m', 'now') THEN 1 END) as this_month
+            FROM form_submissions s
+            LEFT JOIN event_projects p ON s.project_id = p.id
+        `;
+
+        const conditions = [];
+        const params = [];
+
+        if (userRole !== 'super_admin') {
+            conditions.push(`s.project_id IN (SELECT id FROM event_projects WHERE created_by = ? UNION SELECT project_id FROM user_project_permissions WHERE user_id = ?)`);
+            params.push(userId, userId);
+        }
+
+        if (projectId) {
+            conditions.push('s.project_id = ?');
+            params.push(projectId);
+        }
+
+        if (conditions.length > 0) {
+            sql += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        return this.rawGet(sql, params);
+    }
+
+    /**
+     * 匯出提交記錄（帶權限過濾）
+     * @param {Object} params - 匯出參數
+     * @returns {Promise<Array>}
+     */
+    async exportWithPermission({ userId, userRole, projectId, status, startDate, endDate } = {}) {
+        let sql = `
+            SELECT s.*, p.project_name
+            FROM form_submissions s
+            LEFT JOIN event_projects p ON s.project_id = p.id
+        `;
+
+        const conditions = [];
+        const params = [];
+
+        if (userRole !== 'super_admin') {
+            conditions.push(`(p.created_by = ? OR p.id IN (SELECT project_id FROM user_project_permissions WHERE user_id = ?))`);
+            params.push(userId, userId);
+        }
+
+        if (projectId) {
+            conditions.push('s.project_id = ?');
+            params.push(projectId);
+        }
+
+        if (status) {
+            conditions.push('s.status = ?');
+            params.push(status);
+        }
+
+        if (startDate) {
+            conditions.push('date(s.created_at) >= ?');
+            params.push(startDate);
+        }
+
+        if (endDate) {
+            conditions.push('date(s.created_at) <= ?');
+            params.push(endDate);
+        }
+
+        if (conditions.length > 0) {
+            sql += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        sql += ' ORDER BY s.created_at DESC';
+
+        return this.rawAll(sql, params);
+    }
+
+    /**
+     * 更新提交狀態
+     * @param {number} submissionId - 提交 ID
+     * @param {string} status - 新狀態
+     * @returns {Promise<Object>}
+     */
+    async updateStatus(submissionId, status) {
+        const sql = `
+            UPDATE form_submissions
+            SET status = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `;
+        return this.rawRun(sql, [status, submissionId]);
+    }
+
+    /**
+     * 依 ID 刪除提交記錄
+     * @param {number} submissionId - 提交 ID
+     * @returns {Promise<Object>}
+     */
+    async deleteById(submissionId) {
+        return this.rawRun(`DELETE FROM form_submissions WHERE id = ?`, [submissionId]);
+    }
+
+    // ============================================================================
+    // 互動追蹤 (for 3-Tier Migration)
+    // ============================================================================
+
+    /**
+     * 記錄參與者互動
+     * @param {Object} data - 互動資料
+     * @returns {Promise<Object>}
+     */
+    async logInteraction({ trace_id, project_id, submission_id, interaction_type, interaction_target, interaction_data, ip_address, user_agent }) {
+        return this.rawRun(`
+            INSERT INTO participant_interactions (
+                trace_id, project_id, submission_id, interaction_type,
+                interaction_target, interaction_data, ip_address, user_agent,
+                timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `, [
+            trace_id,
+            project_id,
+            submission_id || null,
+            interaction_type,
+            interaction_target || null,
+            interaction_data ? JSON.stringify(interaction_data) : null,
+            ip_address || null,
+            user_agent || null
+        ]);
+    }
 }
 
 // 單例模式

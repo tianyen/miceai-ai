@@ -269,13 +269,7 @@ class QuestionnaireService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getQuestionnaireDetail(questionnaireId, user) {
-        const questionnaire = await this.db.get(`
-            SELECT q.*, u.full_name as creator_name, p.project_name
-            FROM questionnaires q
-            LEFT JOIN users u ON q.created_by = u.id
-            LEFT JOIN event_projects p ON q.project_id = p.id
-            WHERE q.id = ?
-        `, [questionnaireId]);
+        const questionnaire = await this.repository.getDetail(questionnaireId);
 
         if (!questionnaire) {
             return { success: false, error: 'NOT_FOUND', message: '問卷不存在' };
@@ -290,11 +284,7 @@ class QuestionnaireService extends BaseService {
         }
 
         // 獲取問題
-        const questions = await this.db.query(`
-            SELECT * FROM questionnaire_questions
-            WHERE questionnaire_id = ?
-            ORDER BY display_order ASC, id ASC
-        `, [questionnaireId]);
+        const questions = await this.repository.getQuestions(questionnaireId);
 
         // 解析選項
         questions.forEach(question => {
@@ -360,64 +350,26 @@ class QuestionnaireService extends BaseService {
             }
         }
 
-        await this.db.beginTransaction();
+        const result = await this.repository.createWithQuestions({
+            project_id,
+            title,
+            description,
+            instructions,
+            start_time,
+            end_time,
+            allow_multiple_submissions,
+            is_active,
+            created_by: user.id,
+            questions
+        });
 
-        try {
-            // 創建問卷
-            const result = await this.db.run(`
-                INSERT INTO questionnaires (
-                    project_id, title, description, instructions,
-                    start_time, end_time, allow_multiple_submissions,
-                    is_active, created_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `, [
-                project_id,
-                title,
-                description || null,
-                instructions || null,
-                start_time || null,
-                end_time || null,
-                allow_multiple_submissions ? 1 : 0,
-                is_active !== undefined ? (is_active ? 1 : 0) : 1,
-                user.id
-            ]);
+        this.log('createQuestionnaire', { questionnaireId: result.id, title, project_id });
 
-            const questionnaireId = result.lastID;
-
-            // 創建問題
-            if (questions && questions.length > 0) {
-                for (let i = 0; i < questions.length; i++) {
-                    const question = questions[i];
-                    await this.db.run(`
-                        INSERT INTO questionnaire_questions (
-                            questionnaire_id, question_text, question_type,
-                            is_required, options, display_order
-                        ) VALUES (?, ?, ?, ?, ?, ?)
-                    `, [
-                        questionnaireId,
-                        question.question_text,
-                        question.question_type,
-                        question.is_required || 1,
-                        question.options ? JSON.stringify(question.options) : null,
-                        i + 1
-                    ]);
-                }
-            }
-
-            await this.db.commit();
-
-            this.log('createQuestionnaire', { questionnaireId, title, project_id });
-
-            return {
-                success: true,
-                id: questionnaireId,
-                title
-            };
-
-        } catch (error) {
-            await this.db.rollback();
-            throw error;
-        }
+        return {
+            success: true,
+            id: result.id,
+            title
+        };
     }
 
     /**
@@ -452,62 +404,20 @@ class QuestionnaireService extends BaseService {
             questions
         } = updates;
 
-        await this.db.beginTransaction();
+        await this.repository.updateWithQuestions(questionnaireId, {
+            title,
+            description,
+            instructions,
+            is_active,
+            start_time,
+            end_time,
+            allow_multiple_submissions,
+            questions
+        });
 
-        try {
-            // 更新問卷基本信息
-            await this.db.run(`
-                UPDATE questionnaires
-                SET title = ?, description = ?, instructions = ?,
-                    is_active = ?, start_time = ?, end_time = ?,
-                    allow_multiple_submissions = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            `, [
-                title,
-                description,
-                instructions,
-                is_active,
-                start_time,
-                end_time,
-                allow_multiple_submissions,
-                questionnaireId
-            ]);
+        this.log('updateQuestionnaire', { questionnaireId, title });
 
-            // 更新問題（先刪除後重建）
-            if (questions) {
-                await this.db.run(
-                    'DELETE FROM questionnaire_questions WHERE questionnaire_id = ?',
-                    [questionnaireId]
-                );
-
-                for (let i = 0; i < questions.length; i++) {
-                    const question = questions[i];
-                    await this.db.run(`
-                        INSERT INTO questionnaire_questions (
-                            questionnaire_id, question_text, question_type,
-                            is_required, options, display_order
-                        ) VALUES (?, ?, ?, ?, ?, ?)
-                    `, [
-                        questionnaireId,
-                        question.question_text,
-                        question.question_type,
-                        question.is_required || 1,
-                        question.options ? JSON.stringify(question.options) : null,
-                        i + 1
-                    ]);
-                }
-            }
-
-            await this.db.commit();
-
-            this.log('updateQuestionnaire', { questionnaireId, title });
-
-            return { success: true, questionnaire: { id: questionnaireId, title } };
-
-        } catch (error) {
-            await this.db.rollback();
-            throw error;
-        }
+        return { success: true, questionnaire: { id: questionnaireId, title } };
     }
 
     /**
@@ -544,24 +454,11 @@ class QuestionnaireService extends BaseService {
             }
         }
 
-        await this.db.beginTransaction();
+        await this.repository.deleteCascadeFull(questionnaireId);
 
-        try {
-            await this.db.run('DELETE FROM questionnaire_responses WHERE questionnaire_id = ?', [questionnaireId]);
-            await this.db.run('DELETE FROM questionnaire_views WHERE questionnaire_id = ?', [questionnaireId]);
-            await this.db.run('DELETE FROM questionnaire_questions WHERE questionnaire_id = ?', [questionnaireId]);
-            await this.db.run('DELETE FROM questionnaires WHERE id = ?', [questionnaireId]);
+        this.log('deleteQuestionnaire', { questionnaireId, title: questionnaire.title });
 
-            await this.db.commit();
-
-            this.log('deleteQuestionnaire', { questionnaireId, title: questionnaire.title });
-
-            return { success: true, questionnaire: { id: questionnaireId, title: questionnaire.title } };
-
-        } catch (error) {
-            await this.db.rollback();
-            throw error;
-        }
+        return { success: true, questionnaire: { id: questionnaireId, title: questionnaire.title } };
     }
 
     /**
@@ -588,65 +485,26 @@ class QuestionnaireService extends BaseService {
             }
         }
 
-        await this.db.beginTransaction();
+        const newTitle = `${source.title} (複製)`;
 
-        try {
-            const newTitle = `${source.title} (複製)`;
-            const result = await this.db.run(`
-                INSERT INTO questionnaires (
-                    project_id, title, description, instructions,
-                    allow_multiple_submissions, is_active, created_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            `, [
-                source.project_id,
-                newTitle,
-                source.description,
-                source.instructions,
-                source.allow_multiple_submissions,
-                0, // 預設停用
-                user.id
-            ]);
+        const result = await this.repository.duplicateWithQuestions(questionnaireId, {
+            newTitle,
+            projectId: null, // 使用原始專案
+            createdBy: user.id
+        });
 
-            const newId = result.lastID;
-
-            // 複製問題
-            const questions = await this.db.query(`
-                SELECT * FROM questionnaire_questions
-                WHERE questionnaire_id = ?
-                ORDER BY display_order ASC
-            `, [questionnaireId]);
-
-            for (const question of questions) {
-                await this.db.run(`
-                    INSERT INTO questionnaire_questions (
-                        questionnaire_id, question_text, question_type,
-                        is_required, options, display_order
-                    ) VALUES (?, ?, ?, ?, ?, ?)
-                `, [
-                    newId,
-                    question.question_text,
-                    question.question_type,
-                    question.is_required,
-                    question.options,
-                    question.display_order
-                ]);
-            }
-
-            await this.db.commit();
-
-            this.log('duplicateQuestionnaire', { sourceId: questionnaireId, newId, newTitle });
-
-            return {
-                success: true,
-                id: newId,
-                title: newTitle,
-                source_title: source.title
-            };
-
-        } catch (error) {
-            await this.db.rollback();
-            throw error;
+        if (!result.success) {
+            return result;
         }
+
+        this.log('duplicateQuestionnaire', { sourceId: questionnaireId, newId: result.id, newTitle });
+
+        return {
+            success: true,
+            id: result.id,
+            title: result.title,
+            source_title: source.title
+        };
     }
 
     /**
@@ -681,11 +539,7 @@ class QuestionnaireService extends BaseService {
         const isActive = status === 'active' ? 1 : 0;
         const oldStatus = questionnaire.is_active ? 'active' : 'inactive';
 
-        await this.db.run(`
-            UPDATE questionnaires
-            SET is_active = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        `, [isActive, questionnaireId]);
+        await this.repository.toggleActive(questionnaireId, isActive === 1);
 
         this.log('toggleStatus', { questionnaireId, oldStatus, newStatus: status });
 
@@ -721,55 +575,14 @@ class QuestionnaireService extends BaseService {
             }
         }
 
-        // 基本統計
-        const basicStats = await this.db.get(`
-            SELECT
-                COUNT(DISTINCT qv.trace_id) as view_count,
-                COUNT(DISTINCT qr.trace_id) as response_count,
-                COUNT(DISTINCT CASE WHEN qr.is_completed = 1 THEN qr.trace_id END) as completed_count,
-                AVG(qr.completion_time) as avg_completion_time
-            FROM questionnaire_views qv
-            LEFT JOIN questionnaire_responses qr ON qv.questionnaire_id = qr.questionnaire_id
-                AND qv.trace_id = qr.trace_id
-            WHERE qv.questionnaire_id = ?
-        `, [questionnaireId]);
+        // 從 Repository 獲取統計數據
+        const { basicStats, dailyStats, hourlyStats } = await this.repository.getDetailedStats(questionnaireId);
 
-        // 每日統計
-        const dailyStats = await this.db.query(`
-            SELECT
-                DATE(qv.view_time) as date,
-                COUNT(DISTINCT qv.trace_id) as views,
-                COUNT(DISTINCT qr.trace_id) as responses,
-                COUNT(DISTINCT CASE WHEN qr.is_completed = 1 THEN qr.trace_id END) as completions
-            FROM questionnaire_views qv
-            LEFT JOIN questionnaire_responses qr ON qv.questionnaire_id = qr.questionnaire_id
-                AND qv.trace_id = qr.trace_id
-            WHERE qv.questionnaire_id = ?
-                AND qv.view_time >= DATE('now', '-30 days')
-            GROUP BY DATE(qv.view_time)
-            ORDER BY date DESC
-        `, [questionnaireId]);
-
-        // 每小時統計（今日）
-        const hourlyStats = await this.db.query(`
-            SELECT
-                strftime('%H', qv.view_time) as hour,
-                COUNT(DISTINCT qv.trace_id) as views,
-                COUNT(DISTINCT qr.trace_id) as responses
-            FROM questionnaire_views qv
-            LEFT JOIN questionnaire_responses qr ON qv.questionnaire_id = qr.questionnaire_id
-                AND qv.trace_id = qr.trace_id
-            WHERE qv.questionnaire_id = ?
-                AND DATE(qv.view_time) = DATE('now')
-            GROUP BY strftime('%H', qv.view_time)
-            ORDER BY hour
-        `, [questionnaireId]);
-
-        const completionRate = basicStats.view_count > 0
+        const completionRate = basicStats?.view_count > 0
             ? Math.round((basicStats.completed_count / basicStats.view_count) * 100)
             : 0;
 
-        const interactionRate = basicStats.view_count > 0
+        const interactionRate = basicStats?.view_count > 0
             ? Math.round((basicStats.response_count / basicStats.view_count) * 100)
             : 0;
 
@@ -781,7 +594,7 @@ class QuestionnaireService extends BaseService {
                     ...basicStats,
                     completion_rate: completionRate,
                     interaction_rate: interactionRate,
-                    avg_completion_time: basicStats.avg_completion_time ? Math.round(basicStats.avg_completion_time) : null
+                    avg_completion_time: basicStats?.avg_completion_time ? Math.round(basicStats.avg_completion_time) : null
                 },
                 daily_stats: dailyStats,
                 hourly_stats: hourlyStats
@@ -809,13 +622,8 @@ class QuestionnaireService extends BaseService {
             }
         }
 
-        // 獲取問題
-        const questions = await this.db.query(`
-            SELECT id, question_text, question_type, options
-            FROM questionnaire_questions
-            WHERE questionnaire_id = ?
-            ORDER BY display_order ASC, id ASC
-        `, [questionnaireId]);
+        // 從 Repository 獲取問題和回答數據
+        const { questions, responses } = await this.repository.getQuestionAnalysisData(questionnaireId);
 
         // 解析選項
         questions.forEach(q => {
@@ -823,13 +631,6 @@ class QuestionnaireService extends BaseService {
                 try { q.options = JSON.parse(q.options); } catch (e) { q.options = []; }
             }
         });
-
-        // 獲取所有回答
-        const responses = await this.db.query(`
-            SELECT response_data, completed_at, completion_time
-            FROM questionnaire_responses
-            WHERE questionnaire_id = ? AND is_completed = 1
-        `, [questionnaireId]);
 
         // 分析每個問題
         const questionAnalysis = {};
@@ -918,12 +719,7 @@ class QuestionnaireService extends BaseService {
      * @returns {Promise<Object>}
      */
     async generateQRCode(questionnaireId, user, baseUrl, traceId = null) {
-        const questionnaire = await this.db.get(`
-            SELECT q.*, p.project_name
-            FROM questionnaires q
-            LEFT JOIN event_projects p ON q.project_id = p.id
-            WHERE q.id = ?
-        `, [questionnaireId]);
+        const questionnaire = await this.repository.getQuestionnaireWithProject(questionnaireId);
 
         if (!questionnaire) {
             return { success: false, error: 'NOT_FOUND', message: '問卷不存在' };
@@ -964,18 +760,17 @@ class QuestionnaireService extends BaseService {
         if (traceId) qrData.trace_id = traceId;
 
         // 儲存或更新 QR Code 記錄
-        const existingQR = await this.db.get(`
-            SELECT * FROM qr_codes WHERE project_id = ? AND qr_data LIKE ?
-        `, [questionnaire.project_id, `%questionnaire/${questionnaireId}%`]);
+        const qrDataPattern = `%questionnaire/${questionnaireId}%`;
+        const existingQR = await this.repository.getQRCode(questionnaire.project_id, qrDataPattern);
 
         if (existingQR) {
-            await this.db.run(`
-                UPDATE qr_codes SET qr_code = ?, qr_data = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?
-            `, [qrCodeDataURL, JSON.stringify(qrData), existingQR.id]);
+            await this.repository.updateQRCode(existingQR.id, qrCodeDataURL, JSON.stringify(qrData));
         } else {
-            await this.db.run(`
-                INSERT INTO qr_codes (project_id, qr_code, qr_data, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-            `, [questionnaire.project_id, qrCodeDataURL, JSON.stringify(qrData)]);
+            await this.repository.createQRCode({
+                project_id: questionnaire.project_id,
+                qr_code: qrCodeDataURL,
+                qr_data: JSON.stringify(qrData)
+            });
         }
 
         this.log('generateQRCode', { questionnaireId, title: questionnaire.title });
@@ -1011,9 +806,8 @@ class QuestionnaireService extends BaseService {
             }
         }
 
-        const qrRecord = await this.db.get(`
-            SELECT * FROM qr_codes WHERE project_id = ? AND qr_data LIKE ? ORDER BY created_at DESC LIMIT 1
-        `, [questionnaire.project_id, `%questionnaire/${questionnaireId}%`]);
+        const qrDataPattern = `%questionnaire/${questionnaireId}%`;
+        const qrRecord = await this.repository.getQRCode(questionnaire.project_id, qrDataPattern);
 
         if (!qrRecord) {
             return { success: false, error: 'NOT_FOUND', message: '尚未生成 QR Code，請先生成' };
@@ -1045,10 +839,8 @@ class QuestionnaireService extends BaseService {
             return { success: false, error: 'NOT_FOUND', message: '問卷不存在' };
         }
 
-        await this.db.run(`
-            UPDATE qr_codes SET scan_count = scan_count + 1, last_scanned = CURRENT_TIMESTAMP
-            WHERE project_id = ? AND qr_data LIKE ?
-        `, [questionnaire.project_id, `%questionnaire/${questionnaireId}%`]);
+        const qrDataPattern = `%questionnaire/${questionnaireId}%`;
+        await this.repository.incrementQRScanCount(questionnaire.project_id, qrDataPattern);
 
         return { success: true };
     }
@@ -1063,12 +855,7 @@ class QuestionnaireService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getPublicQuestionnaire(questionnaireId) {
-        const questionnaire = await this.db.get(`
-            SELECT q.*, p.project_name
-            FROM questionnaires q
-            LEFT JOIN event_projects p ON q.project_id = p.id
-            WHERE q.id = ? AND q.is_active = 1
-        `, [questionnaireId]);
+        const questionnaire = await this.repository.getPublicQuestionnaire(questionnaireId);
 
         if (!questionnaire) {
             return { success: false, error: 'NOT_FOUND', message: '問卷不存在或已關閉' };
@@ -1084,12 +871,7 @@ class QuestionnaireService extends BaseService {
         }
 
         // 獲取問題
-        const questions = await this.db.query(`
-            SELECT id, question_text, question_type, is_required, options, display_order
-            FROM questionnaire_questions
-            WHERE questionnaire_id = ?
-            ORDER BY display_order ASC, id ASC
-        `, [questionnaireId]);
+        const questions = await this.repository.getQuestions(questionnaireId);
 
         questions.forEach(q => {
             if (q.options) {
@@ -1117,9 +899,7 @@ class QuestionnaireService extends BaseService {
             return { success: false, error: 'BAD_REQUEST', message: '缺少必要資料' };
         }
 
-        const questionnaire = await this.db.get(`
-            SELECT * FROM questionnaires WHERE id = ? AND is_active = 1
-        `, [questionnaireId]);
+        const questionnaire = await this.repository.getPublicQuestionnaire(questionnaireId);
 
         if (!questionnaire) {
             return { success: false, error: 'NOT_FOUND', message: '問卷不存在或已關閉' };
@@ -1127,10 +907,7 @@ class QuestionnaireService extends BaseService {
 
         // 檢查是否允許多次提交
         if (!questionnaire.allow_multiple_submissions) {
-            const existing = await this.db.get(`
-                SELECT id FROM questionnaire_responses
-                WHERE questionnaire_id = ? AND trace_id = ? AND is_completed = 1
-            `, [questionnaireId, trace_id]);
+            const existing = await this.repository.checkExistingSubmission(questionnaireId, trace_id);
 
             if (existing) {
                 return { success: false, error: 'DUPLICATE', message: '您已經填寫過此問卷' };
@@ -1138,10 +915,7 @@ class QuestionnaireService extends BaseService {
         }
 
         // 驗證必填題目
-        const questions = await this.db.query(`
-            SELECT id, question_text, question_type, is_required
-            FROM questionnaire_questions WHERE questionnaire_id = ?
-        `, [questionnaireId]);
+        const questions = await this.repository.getQuestions(questionnaireId);
 
         for (const question of questions) {
             if (question.is_required && (!responses[question.id] || responses[question.id] === '')) {
@@ -1151,41 +925,37 @@ class QuestionnaireService extends BaseService {
 
         // 獲取關聯的 submission_id
         let submission_id = null;
-        const submission = await this.db.get(`SELECT id FROM form_submissions WHERE trace_id = ?`, [trace_id]);
+        const submission = await this.repository.findSubmissionByTraceId(trace_id);
         if (submission) submission_id = submission.id;
 
         // 儲存回答
-        const result = await this.db.run(`
-            INSERT INTO questionnaire_responses (
-                questionnaire_id, trace_id, submission_id, respondent_name,
-                respondent_email, response_data, completion_time,
-                ip_address, user_agent, is_completed, completed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-            questionnaireId, trace_id, submission_id, respondent_name,
-            respondent_email, JSON.stringify(responses), completion_time || null,
-            reqInfo.ip, reqInfo.userAgent, 1, new Date().toISOString()
-        ]);
+        const result = await this.repository.submitResponse({
+            questionnaire_id: questionnaireId,
+            trace_id,
+            submission_id,
+            respondent_name,
+            respondent_email,
+            response_data: responses,
+            is_completed: true
+        });
 
         // 記錄互動
-        await this.db.run(`
-            INSERT INTO participant_interactions (
-                trace_id, project_id, submission_id, interaction_type,
-                interaction_target, interaction_data, ip_address, user_agent
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-            trace_id, questionnaire.project_id, submission_id,
-            'questionnaire_completed', `questionnaire_${questionnaireId}`,
-            JSON.stringify({ questionnaire_title: questionnaire.title, response_count: Object.keys(responses).length }),
-            reqInfo.ip, reqInfo.userAgent
-        ]);
+        await this.repository.logInteraction({
+            trace_id,
+            project_id: questionnaire.project_id,
+            submission_id,
+            interaction_type: 'questionnaire_completed',
+            interaction_data: { questionnaire_title: questionnaire.title, response_count: Object.keys(responses).length },
+            ip_address: reqInfo.ip,
+            user_agent: reqInfo.userAgent
+        });
 
-        this.log('submitResponse', { questionnaireId, trace_id, response_id: result.lastID });
+        this.log('submitResponse', { questionnaireId, trace_id, response_id: result.id });
 
         return {
             success: true,
             message: '問卷提交成功！感謝您的參與。',
-            response_id: result.lastID
+            response_id: result.id
         };
     }
 
@@ -1201,14 +971,13 @@ class QuestionnaireService extends BaseService {
             return { success: false, error: 'BAD_REQUEST', message: '缺少追蹤ID' };
         }
 
-        await this.db.run(`
-            INSERT INTO questionnaire_views (
-                questionnaire_id, trace_id, ip_address, user_agent, referrer
-            ) VALUES (?, ?, ?, ?, ?)
-        `, [
-            questionnaireId, traceId,
-            reqInfo.ip, reqInfo.userAgent, reqInfo.referrer || null
-        ]);
+        await this.repository.logView({
+            questionnaire_id: questionnaireId,
+            trace_id: traceId,
+            ip_address: reqInfo.ip,
+            user_agent: reqInfo.userAgent,
+            referrer: reqInfo.referrer
+        });
 
         return { success: true };
     }

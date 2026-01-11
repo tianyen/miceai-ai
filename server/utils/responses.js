@@ -40,6 +40,19 @@ const error = (res, messageOrError = 'Error', statusCode = 500, details = null, 
         errorDetails = messageOrError.details;
     }
 
+    // DEBUG: 記錄錯誤處理過程
+    console.error('[responses.error] DEBUG:', {
+        originalMessage: messageOrError,
+        messageAfterAppError: message,
+        isAppError: messageOrError instanceof AppError,
+        errorDetails
+    });
+
+    // 防禦性檢查：確保 message 不為 undefined/null
+    if (message === undefined || message === null) {
+        message = '發生錯誤';
+    }
+
     // 自動記錄錯誤日誌
     if (statusCode >= 400 && statusCode < 500) {
         logger.log4xx(res.req, res, statusCode, message);
@@ -48,8 +61,10 @@ const error = (res, messageOrError = 'Error', statusCode = 500, details = null, 
         logger.log5xx(res.req, res, statusCode, err, message);
     }
 
+    // 構建響應：同時包含 message 和 error.message 以保持向後相容
     const response = {
         success: false,
+        message,  // 向後相容：舊版客戶端期望的格式
         error: {
             message
         }

@@ -146,10 +146,7 @@ class AuthService extends BaseService {
         const { username, email, password, full_name } = data;
 
         // 檢查用戶名或郵箱是否已存在
-        const existingUser = await this.db.get(
-            'SELECT id FROM users WHERE username = ? OR email = ?',
-            [username, email]
-        );
+        const existingUser = await userRepository.findByUsernameOrEmail(username, email);
 
         if (existingUser) {
             return {
@@ -163,16 +160,20 @@ class AuthService extends BaseService {
         const hashedPassword = await this.hashPassword(password);
 
         // 創建用戶
-        const result = await this.db.run(`
-            INSERT INTO users (username, email, password_hash, full_name, role, status)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `, [username, email, hashedPassword, full_name, 'project_user', 'active']);
+        const result = await userRepository.createUser({
+            username,
+            email,
+            password_hash: hashedPassword,
+            full_name,
+            role: 'project_user',
+            status: 'active'
+        });
 
-        this.log('registerUser', { userId: result.lastID, username });
+        this.log('registerUser', { userId: result.id, username });
 
         return {
             success: true,
-            userId: result.lastID
+            userId: result.id
         };
     }
 
@@ -200,10 +201,7 @@ class AuthService extends BaseService {
         const hashedNewPassword = await this.hashPassword(newPassword);
 
         // 更新密碼
-        await this.db.run(
-            'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [hashedNewPassword, userId]
-        );
+        await userRepository.updatePassword(userId, hashedNewPassword);
 
         this.log('changePassword', { userId });
 

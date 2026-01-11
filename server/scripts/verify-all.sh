@@ -25,12 +25,48 @@ FAILED=0
 SERVER_PID=""
 SERVER_STARTED_BY_US=false
 
+# 測試用端口
+TEST_PORT=9999
+
+# 備份並修改 .env PORT
+configure_env_for_test() {
+    echo "🔧 配置測試環境..."
+
+    # 備份 .env
+    if [ ! -f ".env.bak" ]; then
+        cp .env .env.bak
+        echo "   ✅ 已備份 .env"
+    fi
+
+    # 修改 PORT
+    if grep -q "^PORT=" .env; then
+        CURRENT_PORT=$(grep "^PORT=" .env | cut -d= -f2)
+        if [ "$CURRENT_PORT" != "$TEST_PORT" ]; then
+            sed -i '' "s/^PORT=.*/PORT=$TEST_PORT/" .env
+            echo "   ✅ PORT: $CURRENT_PORT → $TEST_PORT"
+        else
+            echo "   ✅ PORT 已正確 ($TEST_PORT)"
+        fi
+    else
+        echo "PORT=$TEST_PORT" >> .env
+        echo "   ✅ 新增 PORT=$TEST_PORT"
+    fi
+}
+
+# 恢復 .env
+restore_env() {
+    if [ -f ".env.bak" ]; then
+        mv .env.bak .env
+        echo "   ✅ 已恢復 .env"
+    fi
+}
+
 # 檢查並啟動 server
 check_and_start_server() {
     echo "🔍 檢查 API 伺服器狀態..."
 
-    # 檢查 port 3000 是否有服務
-    if curl -s --max-time 2 http://localhost:3000/api/v1/health > /dev/null 2>&1; then
+    # 檢查 port 9999 是否有服務
+    if curl -s --max-time 2 http://localhost:9999/api/v1/health > /dev/null 2>&1; then
         echo -e "${GREEN}✅ API 伺服器已在運行${NC}"
         return 0
     fi
@@ -45,7 +81,7 @@ check_and_start_server() {
     # 等待 server 啟動
     for i in {1..10}; do
         sleep 1
-        if curl -s --max-time 2 http://localhost:3000/api/v1/health > /dev/null 2>&1; then
+        if curl -s --max-time 2 http://localhost:9999/api/v1/health > /dev/null 2>&1; then
             echo -e "${GREEN}✅ API 伺服器啟動成功 (PID: $SERVER_PID)${NC}"
             echo ""
             return 0
@@ -66,10 +102,16 @@ stop_server_if_needed() {
         wait $SERVER_PID 2>/dev/null
         echo -e "${GREEN}✅ 伺服器已停止${NC}"
     fi
+
+    # 恢復 .env
+    restore_env
 }
 
 # 註冊清理函數
 trap stop_server_if_needed EXIT
+
+# 配置測試環境（修改 .env PORT）
+configure_env_for_test
 
 # 測試函數
 run_test() {
@@ -116,11 +158,11 @@ run_test "完整業務流程測試" "node scripts/test-full-workflow.js"
 # 4. 後台資料顯示檢查
 run_test "後台資料顯示檢查" "node scripts/check-admin-data.js"
 
-# 5. 團體報名流程測試
-run_test "團體報名流程測試" "EVENT_ID=2 node scripts/verify-batch-registration.js"
+# 5. 團體報名流程測試 (使用 EVENT_ID=3: 資訊月互動許願樹 2026-01-08 ~ 2026-01-11)
+run_test "團體報名流程測試" "EVENT_ID=3 node scripts/verify-batch-registration.js"
 
 # 6. 小孩統計功能測試
-run_test "小孩統計功能測試" "EVENT_ID=2 node scripts/verify-children-stats.js"
+run_test "小孩統計功能測試" "EVENT_ID=3 node scripts/verify-children-stats.js"
 
 # 顯示總結
 echo "================================"

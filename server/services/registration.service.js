@@ -508,12 +508,16 @@ class RegistrationService extends BaseService {
      */
     async _logInteraction({ traceId, projectId, submissionId, type, target, data, ipAddress, userAgent }) {
         try {
-            await this.db.run(`
-                INSERT INTO participant_interactions (
-                    trace_id, project_id, submission_id, interaction_type,
-                    interaction_target, interaction_data, ip_address, user_agent
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `, [traceId, projectId, submissionId, type, target, JSON.stringify(data), ipAddress, userAgent]);
+            await this.submissionRepo.logInteraction({
+                trace_id: traceId,
+                project_id: projectId,
+                submission_id: submissionId,
+                interaction_type: type,
+                interaction_target: target,
+                interaction_data: data,
+                ip_address: ipAddress,
+                user_agent: userAgent
+            });
         } catch (error) {
             // 日誌失敗不應該阻止主流程
             this.logError('_logInteraction', error);

@@ -6,7 +6,7 @@
  */
 
 const BaseRepository = require('./base.repository');
-const database = require('../database');
+const database = require('../config/database');
 
 class TemplateRepository extends BaseRepository {
     constructor() {

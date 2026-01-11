@@ -28,53 +28,11 @@ class GameService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getList({ page = 1, limit = 20, search = '', is_active = '' } = {}) {
-        const offset = (page - 1) * limit;
+        const result = await this.gameRepo.findGamesWithFilter({ page, limit, search, is_active });
 
-        let query = `SELECT * FROM games WHERE 1=1`;
-        const params = [];
+        this.log('getList', { page, limit, search, is_active, total: result.pagination.total_items, count: result.games.length });
 
-        if (search) {
-            query += ` AND (game_name_zh LIKE ? OR game_name_en LIKE ?)`;
-            params.push(`%${search}%`, `%${search}%`);
-        }
-
-        if (is_active !== '') {
-            query += ` AND is_active = ?`;
-            params.push(is_active);
-        }
-
-        query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
-        params.push(parseInt(limit), parseInt(offset));
-
-        const games = await this.db.query(query, params);
-
-        // 獲取總數
-        let countQuery = `SELECT COUNT(*) as total FROM games WHERE 1=1`;
-        const countParams = [];
-
-        if (search) {
-            countQuery += ` AND (game_name_zh LIKE ? OR game_name_en LIKE ?)`;
-            countParams.push(`%${search}%`, `%${search}%`);
-        }
-
-        if (is_active !== '') {
-            countQuery += ` AND is_active = ?`;
-            countParams.push(is_active);
-        }
-
-        const { total } = await this.db.get(countQuery, countParams);
-
-        this.log('getList', { page, limit, search, is_active, total, count: games.length });
-
-        return {
-            games,
-            pagination: {
-                current_page: parseInt(page),
-                total_pages: Math.ceil(total / limit),
-                total_items: total,
-                items_per_page: parseInt(limit)
-            }
-        };
+        return result;
     }
 
     /**
@@ -83,7 +41,7 @@ class GameService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getById(gameId) {
-        const game = await this.db.get('SELECT * FROM games WHERE id = ?', [gameId]);
+        const game = await this.gameRepo.findById(gameId);
 
         if (!game) {
             this.throwError(this.ErrorCodes.GAME_NOT_FOUND);
@@ -115,13 +73,16 @@ class GameService extends BaseService {
             });
         }
 
-        const result = await this.db.run(
-            `INSERT INTO games (game_name_zh, game_name_en, game_url, game_version, description, is_active)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [game_name_zh, game_name_en, game_url, game_version || null, description || null, is_active ? 1 : 0]
-        );
+        const result = await this.gameRepo.createGame({
+            game_name_zh,
+            game_name_en,
+            game_url,
+            game_version,
+            description,
+            is_active
+        });
 
-        const game = await this.db.get('SELECT * FROM games WHERE id = ?', [result.lastID]);
+        const game = await this.gameRepo.findById(result.lastID);
 
         this.log('create', { game_id: result.lastID, game_name_zh, game_name_en });
 
@@ -135,51 +96,15 @@ class GameService extends BaseService {
      * @returns {Promise<Object>}
      */
     async update(gameId, data) {
-        const game = await this.db.get('SELECT * FROM games WHERE id = ?', [gameId]);
+        const game = await this.gameRepo.findById(gameId);
 
         if (!game) {
             this.throwError(this.ErrorCodes.GAME_NOT_FOUND);
         }
 
-        const updates = [];
-        const params = [];
+        await this.gameRepo.updateGame(gameId, data);
 
-        if (data.game_name_zh !== undefined) {
-            updates.push('game_name_zh = ?');
-            params.push(data.game_name_zh);
-        }
-        if (data.game_name_en !== undefined) {
-            updates.push('game_name_en = ?');
-            params.push(data.game_name_en);
-        }
-        if (data.game_url !== undefined) {
-            updates.push('game_url = ?');
-            params.push(data.game_url);
-        }
-        if (data.game_version !== undefined) {
-            updates.push('game_version = ?');
-            params.push(data.game_version);
-        }
-        if (data.description !== undefined) {
-            updates.push('description = ?');
-            params.push(data.description);
-        }
-        if (data.is_active !== undefined) {
-            updates.push('is_active = ?');
-            params.push(data.is_active ? 1 : 0);
-        }
-
-        if (updates.length > 0) {
-            updates.push('updated_at = CURRENT_TIMESTAMP');
-            params.push(gameId);
-
-            await this.db.run(
-                `UPDATE games SET ${updates.join(', ')} WHERE id = ?`,
-                params
-            );
-        }
-
-        const updatedGame = await this.db.get('SELECT * FROM games WHERE id = ?', [gameId]);
+        const updatedGame = await this.gameRepo.findById(gameId);
 
         this.log('update', { game_id: gameId, updates: Object.keys(data) });
 
@@ -192,17 +117,13 @@ class GameService extends BaseService {
      * @returns {Promise<Object>}
      */
     async delete(gameId) {
-        const game = await this.db.get('SELECT * FROM games WHERE id = ?', [gameId]);
+        const game = await this.gameRepo.findById(gameId);
 
         if (!game) {
             this.throwError(this.ErrorCodes.GAME_NOT_FOUND);
         }
 
-        // 軟刪除：設置 is_active = 0
-        await this.db.run(
-            'UPDATE games SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [gameId]
-        );
+        await this.gameRepo.softDeleteGame(gameId);
 
         this.log('delete', { game_id: gameId, game_name_zh: game.game_name_zh });
 
@@ -216,50 +137,11 @@ class GameService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getSessions(gameId, { page = 1, limit = 20, trace_id = '' } = {}) {
-        const offset = (page - 1) * limit;
+        const result = await this.gameRepo.findSessionsWithFilter(gameId, { page, limit, trace_id });
 
-        let query = `
-            SELECT
-                gs.*,
-                g.game_name_zh,
-                g.game_name_en,
-                p.project_name,
-                v.voucher_name
-            FROM game_sessions gs
-            LEFT JOIN games g ON gs.game_id = g.id
-            LEFT JOIN event_projects p ON gs.project_id = p.id
-            LEFT JOIN vouchers v ON gs.voucher_id = v.id
-            WHERE gs.game_id = ?
-        `;
-        let countQuery = 'SELECT COUNT(*) as total FROM game_sessions WHERE game_id = ?';
-        let params = [gameId];
-        let countParams = [gameId];
+        this.log('getSessions', { game_id: gameId, page, limit, trace_id, total: result.pagination.total_items, count: result.sessions.length });
 
-        if (trace_id && trace_id.trim()) {
-            query += ` AND gs.trace_id LIKE ?`;
-            countQuery += ` AND trace_id LIKE ?`;
-            const searchTerm = `%${trace_id.trim()}%`;
-            params.push(searchTerm);
-            countParams.push(searchTerm);
-        }
-
-        query += ` ORDER BY gs.session_start DESC LIMIT ? OFFSET ?`;
-        params.push(parseInt(limit), parseInt(offset));
-
-        const sessions = await this.db.query(query, params);
-        const { total } = await this.db.get(countQuery, countParams);
-
-        this.log('getSessions', { game_id: gameId, page, limit, trace_id, total, count: sessions.length });
-
-        return {
-            sessions,
-            pagination: {
-                current_page: parseInt(page),
-                total_pages: Math.ceil(total / limit),
-                total_items: total,
-                items_per_page: parseInt(limit)
-            }
-        };
+        return result;
     }
 
     // ==================== 遊戲查詢 ====================
@@ -456,20 +338,14 @@ class GameService extends BaseService {
      */
     async _processVoucherRedemption({ voucherId, sessionId, traceId, finalScore, totalPlayTime }) {
         // 查詢兌換券資訊
-        const voucher = await this.db.get(
-            'SELECT * FROM vouchers WHERE id = ? AND is_active = 1',
-            [voucherId]
-        );
+        const voucher = await this.gameRepo.findActiveVoucher(voucherId);
 
         if (!voucher) {
             return { earned: false, reason: '兌換券不存在或未啟用' };
         }
 
         // 查詢兌換條件
-        const conditions = await this.db.get(
-            'SELECT * FROM voucher_conditions WHERE voucher_id = ?',
-            [voucherId]
-        );
+        const conditions = await this.gameRepo.findVoucherConditions(voucherId);
 
         if (!conditions) {
             return { earned: false, reason: '未設定兌換條件' };
@@ -633,12 +509,7 @@ class GameService extends BaseService {
 
             // 如果有綁定兌換券，返回兌換券資訊
             if (binding.voucher_id) {
-                const voucher = await this.db.get(`
-                    SELECT v.*, vc.min_score, vc.min_play_time
-                    FROM vouchers v
-                    LEFT JOIN voucher_conditions vc ON v.id = vc.voucher_id
-                    WHERE v.id = ? AND v.is_active = 1
-                `, [binding.voucher_id]);
+                const voucher = await this.gameRepo.findBoothVoucherWithConditions(binding.booth_id, gameId);
 
                 if (voucher) {
                     responseData.voucher = {
@@ -746,31 +617,7 @@ class GameService extends BaseService {
      * @private
      */
     async _getSummaryStats(whereClause, params) {
-        const summary = await this.db.get(`
-            SELECT
-                COUNT(DISTINCT gs.trace_id) as total_players,
-                COUNT(gs.id) as total_sessions,
-                AVG(gs.final_score) as avg_score,
-                MAX(gs.final_score) as max_score,
-                MIN(gs.final_score) as min_score,
-                AVG(gs.total_play_time) as avg_play_time,
-                MIN(gs.total_play_time) as min_play_time,
-                MAX(gs.total_play_time) as max_play_time
-            FROM game_sessions gs
-            ${whereClause}
-              AND gs.session_end IS NOT NULL
-        `, params);
-
-        return {
-            total_players: summary.total_players || 0,
-            total_sessions: summary.total_sessions || 0,
-            avg_score: Math.round((summary.avg_score || 0) * 10) / 10,
-            max_score: summary.max_score || 0,
-            min_score: summary.min_score || 0,
-            avg_play_time: Math.round((summary.avg_play_time || 0) * 10) / 10,
-            min_play_time: summary.min_play_time || 0,
-            max_play_time: summary.max_play_time || 0
-        };
+        return this.gameRepo.getSummaryStats(whereClause, params);
     }
 
     /**
@@ -778,28 +625,7 @@ class GameService extends BaseService {
      * @private
      */
     async _getHourlyStats(whereClause, params) {
-        const hourlyStats = await this.db.query(`
-            SELECT
-                strftime('%Y-%m-%d %H:00', gs.session_start) as hour,
-                COUNT(DISTINCT gs.trace_id) as player_count,
-                COUNT(gs.id) as session_count,
-                AVG(gs.final_score) as avg_score
-            FROM game_sessions gs
-            ${whereClause}
-              AND gs.session_end IS NOT NULL
-            GROUP BY hour
-            ORDER BY hour DESC
-            LIMIT 24
-        `, params);
-
-        return {
-            hourly_stats: hourlyStats.map(row => ({
-                hour: row.hour,
-                player_count: row.player_count,
-                session_count: row.session_count,
-                avg_score: Math.round((row.avg_score || 0) * 10) / 10
-            }))
-        };
+        return this.gameRepo.getHourlyStats(whereClause, params);
     }
 
     /**
@@ -807,33 +633,7 @@ class GameService extends BaseService {
      * @private
      */
     async _getFastestPlayers(whereClause, params) {
-        const fastest = await this.db.query(`
-            SELECT
-                gs.trace_id,
-                gs.final_score,
-                gs.total_play_time,
-                gs.session_start,
-                fs.submitter_name,
-                fs.submitter_email
-            FROM game_sessions gs
-            LEFT JOIN form_submissions fs ON gs.trace_id = fs.trace_id
-            ${whereClause}
-              AND gs.session_end IS NOT NULL
-              AND gs.total_play_time > 0
-            ORDER BY gs.total_play_time ASC
-            LIMIT 10
-        `, params);
-
-        return {
-            fastest_players: fastest.map(row => ({
-                trace_id: row.trace_id,
-                name: row.submitter_name || '匿名玩家',
-                email: row.submitter_email,
-                score: row.final_score,
-                play_time: row.total_play_time,
-                session_start: row.session_start
-            }))
-        };
+        return this.gameRepo.getFastestPlayers(whereClause, params);
     }
 
     /**
@@ -841,32 +641,7 @@ class GameService extends BaseService {
      * @private
      */
     async _getTopScores(whereClause, params) {
-        const topScores = await this.db.query(`
-            SELECT
-                gs.trace_id,
-                gs.final_score,
-                gs.total_play_time,
-                gs.session_start,
-                fs.submitter_name,
-                fs.submitter_email
-            FROM game_sessions gs
-            LEFT JOIN form_submissions fs ON gs.trace_id = fs.trace_id
-            ${whereClause}
-              AND gs.session_end IS NOT NULL
-            ORDER BY gs.final_score DESC
-            LIMIT 10
-        `, params);
-
-        return {
-            top_scores: topScores.map(row => ({
-                trace_id: row.trace_id,
-                name: row.submitter_name || '匿名玩家',
-                email: row.submitter_email,
-                score: row.final_score,
-                play_time: row.total_play_time,
-                session_start: row.session_start
-            }))
-        };
+        return this.gameRepo.getTopScores(whereClause, params);
     }
 
     // ==================== 遊戲分析 API ====================
@@ -879,50 +654,11 @@ class GameService extends BaseService {
     async getDailyUsers({ date, project_id } = {}) {
         const targetDate = date || new Date().toISOString().split('T')[0];
 
-        let query = `
-            SELECT
-                fs.trace_id,
-                fs.user_id,
-                fs.submitter_name,
-                fs.submitter_email,
-                fs.company_name,
-                fs.submitter_phone,
-                fs.project_id,
-                p.project_name,
-                fs.created_at as registration_time,
-                cr.checkin_time,
-                COUNT(DISTINCT gs.id) as game_sessions,
-                MAX(gs.final_score) as highest_score,
-                COUNT(DISTINCT vr.id) as vouchers_redeemed
-            FROM form_submissions fs
-            LEFT JOIN event_projects p ON fs.project_id = p.id
-            LEFT JOIN checkin_records cr ON fs.trace_id = cr.trace_id
-            LEFT JOIN game_sessions gs ON fs.trace_id = gs.trace_id
-            LEFT JOIN voucher_redemptions vr ON fs.trace_id = vr.trace_id
-            WHERE (
-                DATE(fs.created_at) = ? OR
-                DATE(cr.checkin_time) = ? OR
-                DATE(gs.session_start) = ?
-            )
-        `;
+        const result = await this.gameRepo.getDailyUsers(targetDate, project_id);
 
-        const params = [targetDate, targetDate, targetDate];
+        this.log('getDailyUsers', { date: targetDate, project_id, count: result.users.length });
 
-        if (project_id) {
-            query += ' AND fs.project_id = ?';
-            params.push(project_id);
-        }
-
-        query += ' GROUP BY fs.trace_id ORDER BY fs.created_at DESC';
-
-        const users = await this.db.query(query, params);
-
-        this.log('getDailyUsers', { date: targetDate, project_id, count: users.length });
-
-        return {
-            users,
-            date: targetDate
-        };
+        return result;
     }
 
     /**
@@ -931,107 +667,18 @@ class GameService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getUserJourney(traceId) {
-        // 1. 用戶基本資訊
-        const userInfo = await this.db.get(`
-            SELECT
-                fs.trace_id,
-                fs.user_id,
-                fs.submitter_name,
-                fs.submitter_email,
-                fs.company_name,
-                fs.submitter_phone,
-                fs.position,
-                fs.project_id,
-                p.project_name,
-                fs.created_at as registration_time,
-                cr.checkin_time
-            FROM form_submissions fs
-            LEFT JOIN event_projects p ON fs.project_id = p.id
-            LEFT JOIN checkin_records cr ON fs.trace_id = cr.trace_id
-            WHERE fs.trace_id = ?
-        `, [traceId]);
+        // 並行查詢用戶資訊和遊戲會話
+        const [userInfo, gameSessions, redemptions, interactions, gameLogs] = await Promise.all([
+            this.gameRepo.findUserInfoByTraceId(traceId),
+            this.gameRepo.findUserGameSessions(traceId),
+            this.voucherRepo.findRedemptions({ traceId }),
+            this.gameRepo.findUserInteractions(traceId),
+            this.gameRepo.findUserGameLogs(traceId)
+        ]);
 
         if (!userInfo) {
             this.throwError(this.ErrorCodes.NOT_FOUND, { message: '找不到用戶資料' });
         }
-
-        // 2. 遊戲會話記錄
-        const gameSessions = await this.db.query(`
-            SELECT
-                gs.id,
-                gs.game_id,
-                g.game_name_zh,
-                g.game_name_en,
-                gs.booth_id,
-                b.booth_name,
-                b.booth_code,
-                gs.session_start,
-                gs.session_end,
-                gs.total_play_time,
-                gs.final_score,
-                gs.voucher_earned,
-                v.voucher_name
-            FROM game_sessions gs
-            LEFT JOIN games g ON gs.game_id = g.id
-            LEFT JOIN booths b ON gs.booth_id = b.id
-            LEFT JOIN vouchers v ON gs.voucher_id = v.id
-            WHERE gs.trace_id = ?
-            ORDER BY gs.session_start ASC
-        `, [traceId]);
-
-        // 3. 兌換記錄
-        const redemptions = await this.db.query(`
-            SELECT
-                vr.id,
-                vr.voucher_id,
-                v.voucher_name,
-                v.vendor_name,
-                v.voucher_value,
-                vr.booth_id,
-                b.booth_name,
-                vr.redemption_code,
-                vr.redeemed_at,
-                vr.is_used,
-                vr.used_at
-            FROM voucher_redemptions vr
-            LEFT JOIN vouchers v ON vr.voucher_id = v.id
-            LEFT JOIN booths b ON vr.booth_id = b.id
-            WHERE vr.trace_id = ?
-            ORDER BY vr.redeemed_at ASC
-        `, [traceId]);
-
-        // 4. 參與者互動記錄
-        const interactions = await this.db.query(`
-            SELECT
-                interaction_type,
-                interaction_data,
-                timestamp
-            FROM participant_interactions
-            WHERE trace_id = ?
-            ORDER BY timestamp ASC
-        `, [traceId]);
-
-        // 5. 遊戲日誌（最近 20 筆）
-        const gameLogs = await this.db.query(`
-            SELECT
-                gl.id,
-                gl.game_id,
-                g.game_name_zh,
-                gl.booth_id,
-                b.booth_name,
-                gl.log_level,
-                gl.message,
-                gl.user_action,
-                gl.score,
-                gl.play_time,
-                gl.created_at
-            FROM game_logs gl
-            LEFT JOIN games g ON gl.game_id = g.id
-            LEFT JOIN booths b ON gl.booth_id = b.id
-            WHERE gl.trace_id = ?
-            ORDER BY gl.created_at DESC
-            LIMIT 20
-        `, [traceId]);
 
         this.log('getUserJourney', { traceId, sessions: gameSessions.length });
 
@@ -1052,53 +699,11 @@ class GameService extends BaseService {
     async getLeaderboard({ date, project_id, game_id, limit = 10 } = {}) {
         const targetDate = date || new Date().toISOString().split('T')[0];
 
-        let query = `
-            SELECT
-                gs.trace_id,
-                fs.user_id,
-                fs.submitter_name,
-                fs.company_name,
-                gs.game_id,
-                g.game_name_zh,
-                gs.booth_id,
-                b.booth_name,
-                MAX(gs.final_score) as highest_score,
-                gs.total_play_time,
-                gs.session_start
-            FROM game_sessions gs
-            LEFT JOIN form_submissions fs ON gs.trace_id = fs.trace_id
-            LEFT JOIN games g ON gs.game_id = g.id
-            LEFT JOIN booths b ON gs.booth_id = b.id
-            WHERE DATE(gs.session_start) = ?
-        `;
+        const result = await this.gameRepo.getLeaderboard(targetDate, project_id, game_id, limit);
 
-        const params = [targetDate];
+        this.log('getLeaderboard', { date: targetDate, project_id, game_id, count: result.leaderboard.length });
 
-        if (project_id) {
-            query += ' AND gs.project_id = ?';
-            params.push(project_id);
-        }
-
-        if (game_id) {
-            query += ' AND gs.game_id = ?';
-            params.push(game_id);
-        }
-
-        query += `
-            GROUP BY gs.trace_id, gs.game_id
-            ORDER BY highest_score DESC
-            LIMIT ?
-        `;
-        params.push(parseInt(limit));
-
-        const leaderboard = await this.db.query(query, params);
-
-        this.log('getLeaderboard', { date: targetDate, project_id, game_id, count: leaderboard.length });
-
-        return {
-            leaderboard,
-            date: targetDate
-        };
+        return result;
     }
 }
 

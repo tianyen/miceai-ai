@@ -695,6 +695,471 @@ class ProjectRepository extends BaseRepository {
         `;
         return this.rawAll(sql);
     }
+
+    // ============================================================================
+    // 權限檢查方法
+    // ============================================================================
+
+    /**
+     * 檢查用戶是否為專案創建者
+     * @param {number} userId - 用戶 ID
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Object|null>}
+     */
+    async findByCreatorId(userId, projectId) {
+        return this.rawGet(
+            'SELECT * FROM event_projects WHERE id = ? AND created_by = ?',
+            [projectId, userId]
+        );
+    }
+
+    /**
+     * 檢查用戶是否有專案權限
+     * @param {number} userId - 用戶 ID
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Object|null>}
+     */
+    async findUserPermission(userId, projectId) {
+        return this.rawGet(
+            'SELECT * FROM user_project_permissions WHERE user_id = ? AND project_id = ?',
+            [userId, projectId]
+        );
+    }
+
+    /**
+     * 檢查用戶是否有專案管理權限
+     * @param {number} userId - 用戶 ID
+     * @param {number} projectId - 專案 ID
+     * @param {string} permissionLevel - 權限等級
+     * @returns {Promise<Object|null>}
+     */
+    async findAdminPermission(userId, projectId, permissionLevel = 'admin') {
+        return this.rawGet(
+            'SELECT * FROM user_project_permissions WHERE user_id = ? AND project_id = ? AND permission_level = ?',
+            [userId, projectId, permissionLevel]
+        );
+    }
+
+    // ============================================================================
+    // 進階 CRUD 操作
+    // ============================================================================
+
+    /**
+     * 建立專案
+     * @param {Object} data - 專案資料
+     * @param {number} createdBy - 建立者 ID
+     * @returns {Promise<Object>}
+     */
+    async createWithCreator(data, createdBy) {
+        const sql = `
+            INSERT INTO event_projects (
+                project_name, project_code, description, event_date, event_location,
+                event_type, created_by, template_config, brand_config, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        const params = [
+            data.project_name,
+            data.project_code,
+            data.description,
+            data.event_date,
+            data.event_location,
+            data.event_type || 'standard',
+            createdBy,
+            data.template_config ? JSON.stringify(data.template_config) : null,
+            data.brand_config ? JSON.stringify(data.brand_config) : null,
+            'draft'
+        ];
+        const result = await this.rawRun(sql, params);
+        return { id: result.lastID };
+    }
+
+    /**
+     * 更新專案（動態欄位）
+     * @param {number} projectId - 專案 ID
+     * @param {Object} updates - 更新資料
+     * @returns {Promise<Object>}
+     */
+    async updateById(projectId, updates) {
+        const allowedFields = [
+            'project_name', 'project_code', 'description', 'event_date',
+            'event_location', 'event_type', 'status', 'assigned_to',
+            'template_config', 'brand_config',
+            'max_participants', 'registration_deadline', 'form_config'
+        ];
+
+        const updateFields = [];
+        const updateValues = [];
+
+        Object.keys(updates).forEach(field => {
+            if (allowedFields.includes(field) && updates[field] !== undefined) {
+                updateFields.push(`${field} = ?`);
+                if (field === 'template_config' || field === 'brand_config' || field === 'form_config') {
+                    updateValues.push(JSON.stringify(updates[field]));
+                } else {
+                    updateValues.push(updates[field]);
+                }
+            }
+        });
+
+        if (updateFields.length === 0) {
+            return { changes: 0 };
+        }
+
+        updateFields.push('updated_at = CURRENT_TIMESTAMP');
+        updateValues.push(projectId);
+
+        const query = `UPDATE event_projects SET ${updateFields.join(', ')} WHERE id = ?`;
+        return this.rawRun(query, updateValues);
+    }
+
+    /**
+     * 級聯刪除專案（不含交易）
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<void>}
+     */
+    async deleteProjectCascade(projectId) {
+        await this.rawRun('DELETE FROM user_project_permissions WHERE project_id = ?', [projectId]);
+        await this.rawRun('DELETE FROM form_submissions WHERE project_id = ?', [projectId]);
+        await this.rawRun('DELETE FROM qr_codes WHERE project_id = ?', [projectId]);
+        await this.rawRun('DELETE FROM event_projects WHERE id = ?', [projectId]);
+    }
+
+    /**
+     * 複製專案
+     * @param {number} projectId - 原始專案 ID
+     * @param {number} userId - 建立者 ID
+     * @returns {Promise<Object>}
+     */
+    async duplicate(projectId, userId) {
+        const original = await this.findById(projectId);
+        if (!original) {
+            return null;
+        }
+
+        const timestamp = Date.now().toString().slice(-5);
+        const newCode = `${original.project_code}_copy_${timestamp}`.slice(0, 50);
+        const newName = `${original.project_name} - 複本`;
+
+        const sql = `
+            INSERT INTO event_projects (
+                project_name, project_code, description, event_date, event_location,
+                event_type, created_by, template_config, brand_config, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        const params = [
+            newName,
+            newCode,
+            original.description,
+            original.event_date,
+            original.event_location,
+            original.event_type,
+            userId,
+            original.template_config,
+            original.brand_config,
+            'draft'
+        ];
+        const result = await this.rawRun(sql, params);
+        return { id: result.lastID };
+    }
+
+    /**
+     * 更新專案狀態
+     * @param {number} projectId - 專案 ID
+     * @param {string} status - 新狀態
+     * @returns {Promise<Object>}
+     */
+    async updateStatus(projectId, status) {
+        const sql = `
+            UPDATE event_projects
+            SET status = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `;
+        return this.rawRun(sql, [status, projectId]);
+    }
+
+    // ============================================================================
+    // 權限管理
+    // ============================================================================
+
+    /**
+     * 取得專案權限列表
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Array>}
+     */
+    async getPermissions(projectId) {
+        const sql = `
+            SELECT pp.*, u.full_name as user_name, u.email as user_email,
+                   ab.full_name as assigned_by_name
+            FROM user_project_permissions pp
+            LEFT JOIN users u ON pp.user_id = u.id
+            LEFT JOIN users ab ON pp.assigned_by = ab.id
+            WHERE pp.project_id = ?
+            ORDER BY pp.created_at DESC
+        `;
+        return this.rawAll(sql, [projectId]);
+    }
+
+    /**
+     * 新增或更新專案權限
+     * @param {number} projectId - 專案 ID
+     * @param {number} userId - 被授權用戶 ID
+     * @param {string} permissionLevel - 權限等級
+     * @param {number} assignedBy - 授權者 ID
+     * @returns {Promise<void>}
+     */
+    async upsertPermission(projectId, userId, permissionLevel, assignedBy) {
+        await this.rawRun(`
+            INSERT OR REPLACE INTO user_project_permissions (
+                user_id, project_id, permission_level, assigned_by
+            ) VALUES (?, ?, ?, ?)
+        `, [userId, projectId, permissionLevel, assignedBy]);
+    }
+
+    /**
+     * 更新專案權限
+     * @param {number} projectId - 專案 ID
+     * @param {number} userId - 被授權用戶 ID
+     * @param {string} permissionLevel - 權限等級
+     * @param {number} assignedBy - 授權者 ID
+     * @returns {Promise<Object>}
+     */
+    async updatePermission(projectId, userId, permissionLevel, assignedBy) {
+        return this.rawRun(`
+            UPDATE user_project_permissions
+            SET permission_level = ?, assigned_by = ?
+            WHERE user_id = ? AND project_id = ?
+        `, [permissionLevel, assignedBy, userId, projectId]);
+    }
+
+    /**
+     * 移除專案權限
+     * @param {number} projectId - 專案 ID
+     * @param {number} userId - 被移除用戶 ID
+     * @returns {Promise<Object>}
+     */
+    async deletePermission(projectId, userId) {
+        return this.rawRun(`
+            DELETE FROM user_project_permissions
+            WHERE user_id = ? AND project_id = ?
+        `, [userId, projectId]);
+    }
+
+    // ============================================================================
+    // 帶權限過濾的列表查詢
+    // ============================================================================
+
+    /**
+     * 取得專案列表（含權限過濾和分頁）
+     * @param {Object} params - 查詢參數
+     * @returns {Promise<Object>}
+     */
+    async getListWithPermissionFilter({ userId, userRole, page = 1, limit = 20, search, status } = {}) {
+        const offset = (page - 1) * limit;
+
+        // 構建權限過濾條件
+        let roleFilter = '';
+        let roleParams = [];
+
+        if (userRole !== 'super_admin') {
+            roleFilter = `WHERE (p.created_by = ? OR p.id IN (
+                SELECT project_id FROM user_project_permissions WHERE user_id = ?
+            ))`;
+            roleParams = [userId, userId];
+        }
+
+        // 構建搜尋條件
+        let searchFilter = '';
+        const searchParams = [];
+
+        if (search && search.trim()) {
+            searchFilter = ` AND (p.project_name LIKE ? OR p.project_code LIKE ? OR p.description LIKE ?)`;
+            const searchTerm = `%${search.trim()}%`;
+            searchParams.push(searchTerm, searchTerm, searchTerm);
+        }
+
+        // 構建狀態過濾
+        let statusFilter = '';
+        if (status && status !== 'all') {
+            statusFilter = ` AND p.status = ?`;
+            searchParams.push(status);
+        }
+
+        const projectsQuery = `
+            SELECT
+                p.*,
+                u.full_name as creator_name,
+                t.template_name as template_name,
+                COUNT(fs.id) as participant_count
+            FROM event_projects p
+            LEFT JOIN users u ON p.created_by = u.id
+            LEFT JOIN invitation_templates t ON p.template_id = t.id
+            LEFT JOIN form_submissions fs ON p.id = fs.project_id
+            ${roleFilter}${searchFilter}${statusFilter}
+            GROUP BY p.id ORDER BY p.created_at DESC LIMIT ? OFFSET ?
+        `;
+
+        const countQuery = `SELECT COUNT(*) as count FROM event_projects p ${roleFilter}${searchFilter}${statusFilter}`;
+
+        const projects = await this.rawAll(projectsQuery, [...roleParams, ...searchParams, limit, offset]);
+        const totalResult = await this.rawGet(countQuery, [...roleParams, ...searchParams]);
+
+        return {
+            projects,
+            pagination: {
+                page,
+                limit,
+                total: totalResult?.count || 0,
+                pages: Math.ceil((totalResult?.count || 0) / limit)
+            }
+        };
+    }
+
+    /**
+     * 搜尋專案（Admin Panel 用，帶權限過濾）
+     * @param {Object} params - 搜尋參數
+     * @returns {Promise<Array>}
+     */
+    async searchWithPermissionFilter({ userId, userRole, search, status, limit = 50 } = {}) {
+        // 構建權限過濾條件
+        let roleFilter = '';
+        const roleParams = [];
+
+        if (userRole !== 'super_admin') {
+            roleFilter = ` AND (p.created_by = ? OR p.id IN (
+                SELECT project_id FROM user_project_permissions WHERE user_id = ?
+            ))`;
+            roleParams.push(userId, userId);
+        }
+
+        // 構建搜尋條件
+        let searchFilter = '';
+        const searchParams = [];
+
+        if (search && search.trim()) {
+            searchFilter = ` AND (p.project_name LIKE ? OR p.project_code LIKE ? OR p.description LIKE ?)`;
+            const searchTerm = `%${search.trim()}%`;
+            searchParams.push(searchTerm, searchTerm, searchTerm);
+        }
+
+        // 構建狀態過濾
+        let statusFilter = '';
+        if (status && status !== 'all') {
+            statusFilter = ` AND p.status = ?`;
+            searchParams.push(status);
+        }
+
+        const sql = `
+            SELECT
+                p.*,
+                u.full_name as creator_name,
+                COUNT(fs.id) as participant_count
+            FROM event_projects p
+            LEFT JOIN users u ON p.created_by = u.id
+            LEFT JOIN form_submissions fs ON p.id = fs.project_id
+            WHERE 1=1 ${roleFilter}${searchFilter}${statusFilter}
+            GROUP BY p.id ORDER BY p.created_at DESC LIMIT ?
+        `;
+
+        return this.rawAll(sql, [...roleParams, ...searchParams, limit]);
+    }
+
+    /**
+     * 取得最近專案（帶權限過濾）
+     * @param {Object} params - 查詢參數
+     * @returns {Promise<Array>}
+     */
+    async getRecentProjectsWithFilter({ userId, userRole, limit = 5 } = {}) {
+        // 構建權限過濾條件
+        let roleFilter = '';
+        const roleParams = [limit];
+
+        if (userRole !== 'super_admin') {
+            roleFilter = ` WHERE p.created_by = ? OR p.id IN (
+                SELECT project_id FROM user_project_permissions WHERE user_id = ?
+            )`;
+            roleParams.unshift(userId, userId);
+        }
+
+        return this.rawAll(`
+            SELECT p.*, u.full_name as creator_name
+            FROM event_projects p
+            LEFT JOIN users u ON p.created_by = u.id
+            ${roleFilter}
+            ORDER BY p.created_at DESC LIMIT ?
+        `, roleParams);
+    }
+
+    // ============================================================================
+    // 專案詳情與匯出
+    // ============================================================================
+
+    /**
+     * 取得專案完整詳情（含權限和統計）
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Object|null>}
+     */
+    async getFullDetail(projectId) {
+        const project = await this.rawGet(`
+            SELECT p.*, u.full_name as creator_name, a.full_name as assignee_name
+            FROM event_projects p
+            LEFT JOIN users u ON p.created_by = u.id
+            LEFT JOIN users a ON p.assigned_to = a.id
+            WHERE p.id = ?
+        `, [projectId]);
+
+        if (!project) return null;
+
+        const permissions = await this.getPermissions(projectId);
+
+        const submissionStats = await this.rawGet(`
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
+                SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected
+            FROM form_submissions
+            WHERE project_id = ?
+        `, [projectId]);
+
+        return { ...project, permissions, submission_stats: submissionStats };
+    }
+
+    /**
+     * 取得專案掃描器資訊
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Object|null>}
+     */
+    async getScannerInfo(projectId) {
+        const project = await this.findById(projectId);
+        if (!project) return null;
+        return {
+            project_id: projectId,
+            project_name: project.project_name,
+            project_status: project.status
+        };
+    }
+
+    /**
+     * 匯出專案表單提交資料
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Object>}
+     */
+    async exportSubmissions(projectId) {
+        const project = await this.findById(projectId);
+        if (!project) {
+            return null;
+        }
+
+        const submissions = await this.rawAll(`
+            SELECT s.*, p.project_name
+            FROM form_submissions s
+            LEFT JOIN event_projects p ON s.project_id = p.id
+            WHERE s.project_id = ?
+            ORDER BY s.created_at DESC
+        `, [projectId]);
+
+        return { project, submissions };
+    }
 }
 
 // 單例模式

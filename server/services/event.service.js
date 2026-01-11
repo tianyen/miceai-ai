@@ -3,14 +3,15 @@
  *
  * @description 處理前端活動查詢：列表、詳情、模板解析
  * @refactor 2025-12-01: 從 v1/events.js 提取業務邏輯
+ * @refactor 2026-01-08: 遷移至 Repository Pattern
  */
 const BaseService = require('./base.service');
-const projectRepository = require('../repositories/project.repository');
+const eventRepository = require('../repositories/event.repository');
 
 class EventService extends BaseService {
     constructor() {
         super('EventService');
-        this.projectRepo = projectRepository;
+        this.repository = eventRepository;
     }
 
     /**
@@ -23,68 +24,16 @@ class EventService extends BaseService {
      * @returns {Promise<Object>} 活動列表和分頁資訊
      */
     async getEventList({ page = 1, limit = 20, status, type } = {}) {
-        const offset = (page - 1) * limit;
+        const result = await this.repository.getEventListWithPagination({
+            page,
+            limit,
+            status,
+            type
+        });
 
-        // 構建查詢條件
-        let whereClause = 'WHERE 1=1';
-        let params = [];
+        this.log('getEventList', { page, limit, status, type, total: result.pagination.total });
 
-        if (status) {
-            whereClause += ' AND p.status = ?';
-            params.push(status);
-        }
-
-        if (type) {
-            whereClause += ' AND p.event_type = ?';
-            params.push(type);
-        }
-
-        // 獲取總數
-        const countQuery = `
-            SELECT COUNT(*) as total
-            FROM event_projects p
-            ${whereClause}
-        `;
-        const countResult = await this.db.get(countQuery, params);
-        const total = countResult.total;
-
-        // 獲取活動列表
-        const eventsQuery = `
-            SELECT
-                p.id,
-                p.project_name as name,
-                p.project_code as code,
-                p.description,
-                p.event_date as date,
-                p.event_location as location,
-                p.event_type as type,
-                p.status,
-                p.max_participants,
-                p.registration_deadline,
-                p.contact_email,
-                p.contact_phone,
-                p.created_at,
-                COUNT(fs.id) as current_participants
-            FROM event_projects p
-            LEFT JOIN form_submissions fs ON p.id = fs.project_id
-                AND fs.status IN ('pending', 'approved', 'confirmed')
-            ${whereClause}
-            GROUP BY p.id
-            ORDER BY p.created_at DESC
-            LIMIT ? OFFSET ?
-        `;
-
-        const events = await this.db.query(eventsQuery, [...params, limit, offset]);
-
-        return {
-            events,
-            pagination: {
-                total,
-                page,
-                limit,
-                pages: Math.ceil(total / limit)
-            }
-        };
+        return result;
     }
 
     /**
@@ -93,7 +42,7 @@ class EventService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getEventByCode(code) {
-        const event = await this._getEventData('code', code);
+        const event = await this.repository.findByCodeWithParticipants(code);
 
         if (!event) {
             this.throwError(this.ErrorCodes.PROJECT_NOT_FOUND, {
@@ -110,7 +59,7 @@ class EventService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getEventById(id) {
-        const event = await this._getEventData('id', id);
+        const event = await this.repository.findByIdWithParticipants(id);
 
         if (!event) {
             this.throwError(this.ErrorCodes.PROJECT_NOT_FOUND, {
@@ -122,43 +71,6 @@ class EventService extends BaseService {
     }
 
     /**
-     * 內部方法：獲取活動數據
-     * @private
-     */
-    async _getEventData(field, value) {
-        const whereClause = field === 'code' ? 'p.project_code = ?' : 'p.id = ?';
-
-        return this.db.get(`
-            SELECT
-                p.id,
-                p.project_name as name,
-                p.project_code as code,
-                p.description,
-                p.event_date as date,
-                p.event_start_date,
-                p.event_end_date,
-                p.event_highlights,
-                p.event_location as location,
-                p.event_type as type,
-                p.status,
-                p.max_participants,
-                p.registration_deadline,
-                p.contact_email,
-                p.contact_phone,
-                p.agenda,
-                p.template_id,
-                p.created_at,
-                p.updated_at,
-                COUNT(fs.id) as current_participants
-            FROM event_projects p
-            LEFT JOIN form_submissions fs ON p.id = fs.project_id
-                AND fs.status IN ('pending', 'approved', 'confirmed')
-            WHERE ${whereClause}
-            GROUP BY p.id
-        `, [value]);
-    }
-
-    /**
      * 內部方法：獲取活動模板
      * @private
      */
@@ -166,16 +78,7 @@ class EventService extends BaseService {
         if (!templateId) return null;
 
         try {
-            const template = await this.db.get(`
-                SELECT
-                    id,
-                    template_name,
-                    template_type,
-                    template_content,
-                    special_guests
-                FROM invitation_templates
-                WHERE id = ? AND template_type = 'event'
-            `, [templateId]);
+            const template = await this.repository.getEventTemplate(templateId);
 
             if (!template) return null;
 

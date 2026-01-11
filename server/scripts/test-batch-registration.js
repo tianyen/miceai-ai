@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3000/api/v1';
+const API_URL = 'http://localhost:9999/api/v1';
 const EVENT_ID = 1;
 
 async function testBatchRegistration() {

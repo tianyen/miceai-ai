@@ -9,7 +9,7 @@
  * 3. 透過 Service 層驗證 API 返回值
  */
 
-const API_URL = process.env.API_URL || 'http://localhost:3000/api/v1';
+const API_URL = process.env.API_URL || 'http://localhost:9999/api/v1';
 const EVENT_ID = process.env.EVENT_ID || 2;
 
 // ANSI 顏色

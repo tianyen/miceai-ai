@@ -3,13 +3,16 @@
  *
  * @description 處理許願樹：提交、統計、查詢
  * @refactor 2025-12-01: 從 v1/wish-tree.js 提取業務邏輯
+ * @refactor 2026-01-08: 遷移至 Repository Pattern
  */
 const BaseService = require('./base.service');
 const { getGMT8Timestamp } = require('../utils/timezone');
+const wishTreeRepository = require('../repositories/wish-tree.repository');
 
 class WishTreeService extends BaseService {
     constructor() {
         super('WishTreeService');
+        this.repository = wishTreeRepository;
     }
 
     /**
@@ -40,24 +43,21 @@ class WishTreeService extends BaseService {
         const created_at = getGMT8Timestamp();
 
         // 插入資料
-        const result = await this.db.run(`
-            INSERT INTO wish_tree_interactions (
-                project_id, booth_id, wish_text, image_base64,
-                ip_address, user_agent, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [project_id, booth_id || null, wish_text, image_base64 || null, ipAddress, userAgent, created_at]);
-
-        // 獲取創建時間
-        const record = await this.db.get(
-            'SELECT created_at FROM wish_tree_interactions WHERE id = ?',
-            [result.lastID]
-        );
+        const result = await this.repository.createWish({
+            project_id,
+            booth_id,
+            wish_text,
+            image_base64,
+            ip_address: ipAddress,
+            user_agent: userAgent,
+            created_at
+        });
 
         this.log('submitWish', { wishId: result.lastID, projectId: project_id });
 
         return {
             id: result.lastID,
-            created_at: record.created_at
+            created_at
         };
     }
 
@@ -73,76 +73,16 @@ class WishTreeService extends BaseService {
             });
         }
 
-        // 構建 WHERE 條件
-        let whereConditions = ['project_id = ?'];
-        let params = [project_id];
+        const stats = await this.repository.getStats({
+            project_id,
+            booth_id,
+            start_date,
+            end_date
+        });
 
-        if (booth_id) {
-            whereConditions.push('booth_id = ?');
-            params.push(booth_id);
-        }
+        this.log('getStats', { project_id, booth_id, start_date, end_date });
 
-        if (start_date) {
-            whereConditions.push('DATE(created_at) >= ?');
-            params.push(start_date);
-        }
-
-        if (end_date) {
-            whereConditions.push('DATE(created_at) <= ?');
-            params.push(end_date);
-        }
-
-        const whereClause = whereConditions.join(' AND ');
-
-        // 1. 總許願數
-        const totalResult = await this.db.get(
-            `SELECT COUNT(*) as total FROM wish_tree_interactions WHERE ${whereClause}`,
-            params
-        );
-
-        // 2. 每小時分佈
-        const hourlyDistribution = await this.db.query(
-            `SELECT
-                strftime('%H:00', created_at) as hour,
-                COUNT(*) as count
-             FROM wish_tree_interactions
-             WHERE ${whereClause}
-             GROUP BY strftime('%H', created_at)
-             ORDER BY hour`,
-            params
-        );
-
-        // 3. 每日分佈
-        const dailyDistribution = await this.db.query(
-            `SELECT
-                DATE(created_at) as date,
-                COUNT(*) as count
-             FROM wish_tree_interactions
-             WHERE ${whereClause}
-             GROUP BY DATE(created_at)
-             ORDER BY date`,
-            params
-        );
-
-        // 4. 高峰時段（前5名）
-        const peakHours = await this.db.query(
-            `SELECT
-                strftime('%H:00', created_at) as hour,
-                COUNT(*) as count
-             FROM wish_tree_interactions
-             WHERE ${whereClause}
-             GROUP BY strftime('%H', created_at)
-             ORDER BY count DESC
-             LIMIT 5`,
-            params
-        );
-
-        return {
-            total_wishes: totalResult.total,
-            hourly_distribution: hourlyDistribution,
-            daily_distribution: dailyDistribution,
-            peak_hours: peakHours
-        };
+        return stats;
     }
 
     /**
@@ -158,18 +98,11 @@ class WishTreeService extends BaseService {
             });
         }
 
-        // 限制數量
-        const limitNum = Math.min(parseInt(limit) || 20, 100);
+        const wishes = await this.repository.findRecentWishes(projectId, limit);
 
-        // 查詢最近的記錄（不含圖片）
-        return this.db.query(
-            `SELECT id, wish_text, created_at, ip_address
-             FROM wish_tree_interactions
-             WHERE project_id = ?
-             ORDER BY created_at DESC
-             LIMIT ?`,
-            [projectId, limitNum]
-        );
+        this.log('getRecentWishes', { projectId, count: wishes.length });
+
+        return wishes;
     }
 
     /**
@@ -178,12 +111,7 @@ class WishTreeService extends BaseService {
      * @returns {Promise<Object>}
      */
     async getWishById(wishId) {
-        const wish = await this.db.get(
-            `SELECT id, wish_text, image_base64, created_at, ip_address
-             FROM wish_tree_interactions
-             WHERE id = ?`,
-            [wishId]
-        );
+        const wish = await this.repository.findByIdWithImage(wishId);
 
         if (!wish) {
             this.throwError(this.ErrorCodes.NOT_FOUND, {

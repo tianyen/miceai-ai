@@ -739,6 +739,221 @@ class UserRepository extends BaseRepository {
 
         return { totalUsers: 0, activeUsers: 0 };
     }
+
+    // ============================================================================
+    // 用戶活動與歷史
+    // ============================================================================
+
+    /**
+     * 取得用戶活動記錄
+     * @param {number} userId - 用戶 ID
+     * @param {Object} options - 查詢選項
+     * @returns {Promise<Object>}
+     */
+    async getUserActivities(userId, { page = 1, limit = 20 } = {}) {
+        const offset = (page - 1) * limit;
+
+        const activities = await this.rawAll(`
+            SELECT al.*, u.full_name as user_name
+            FROM system_logs al
+            LEFT JOIN users u ON al.user_id = u.id
+            WHERE al.user_id = ?
+            ORDER BY al.created_at DESC
+            LIMIT ? OFFSET ?
+        `, [userId, limit, offset]);
+
+        const totalResult = await this.rawGet(
+            'SELECT COUNT(*) as count FROM system_logs WHERE user_id = ?',
+            [userId]
+        );
+
+        return {
+            activities,
+            pagination: {
+                page,
+                limit,
+                total: totalResult?.count || 0,
+                pages: Math.ceil((totalResult?.count || 0) / limit)
+            }
+        };
+    }
+
+    /**
+     * 取得用戶狀態歷史
+     * @param {number} userId - 用戶 ID
+     * @returns {Promise<Array>}
+     */
+    async getUserStatusHistory(userId) {
+        return this.rawAll(`
+            SELECT ush.*, u.full_name as changed_by_name
+            FROM user_status_history ush
+            LEFT JOIN users u ON ush.changed_by = u.id
+            WHERE ush.user_id = ?
+            ORDER BY ush.created_at DESC
+        `, [userId]);
+    }
+
+    // ============================================================================
+    // 交易操作
+    // ============================================================================
+
+    /**
+     * 刪除用戶及其所有關聯資料
+     * @param {number} userId - 用戶 ID
+     * @returns {Promise<Object>}
+     */
+    async deleteUserCascade(userId) {
+        // 注意：此方法需要在 Service 層的事務中調用
+        await this.rawRun('DELETE FROM user_project_permissions WHERE user_id = ?', [userId]);
+        await this.rawRun('UPDATE event_projects SET assigned_to = NULL WHERE assigned_to = ?', [userId]);
+        return this.delete(userId);
+    }
+
+    /**
+     * 批量更新用戶狀態
+     * @param {Array} userIds - 用戶 ID 陣列
+     * @param {string} status - 新狀態
+     * @returns {Promise<Object>}
+     */
+    async updateStatusBulk(userIds, status) {
+        if (!userIds || userIds.length === 0) {
+            return { changes: 0 };
+        }
+
+        const placeholders = userIds.map(() => '?').join(', ');
+        const sql = `UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
+        return this.rawRun(sql, [status, ...userIds]);
+    }
+
+    /**
+     * 取得用戶列表（含分頁、權限過濾和搜尋）
+     * @param {Object} options - 查詢選項
+     * @returns {Promise<Object>}
+     */
+    async getListWithPermissionFilter({ userId, userRole, page = 1, limit = 20, search, role, status } = {}) {
+        const offset = (page - 1) * limit;
+
+        // 構建權限過濾條件
+        let roleFilter = '';
+        let roleParams = [];
+
+        if (userRole !== 'super_admin') {
+            if (userRole === 'project_manager') {
+                roleFilter = ' AND u.role != ? AND (u.created_by = ? OR u.managed_by = ?)';
+                roleParams = ['super_admin', userId, userId];
+            } else {
+                roleFilter = ' AND u.id = ?';
+                roleParams = [userId];
+            }
+        }
+
+        let query = `
+            SELECT
+                u.*,
+                creator.full_name as created_by_name,
+                manager.full_name as managed_by_name
+            FROM users u
+            LEFT JOIN users creator ON u.created_by = creator.id
+            LEFT JOIN users manager ON u.managed_by = manager.id
+            WHERE 1=1 ${roleFilter}
+        `;
+        let countQuery = `SELECT COUNT(*) as count FROM users u WHERE 1=1 ${roleFilter}`;
+        const queryParams = [...roleParams];
+        const countParams = [...roleParams];
+
+        // 搜尋過濾
+        if (search && search.trim()) {
+            const searchClause = ` AND (u.username LIKE ? OR u.full_name LIKE ? OR u.email LIKE ?)`;
+            query += searchClause;
+            countQuery += searchClause;
+            const searchTerm = `%${search.trim()}%`;
+            queryParams.push(searchTerm, searchTerm, searchTerm);
+            countParams.push(searchTerm, searchTerm, searchTerm);
+        }
+
+        // 角色過濾
+        if (role && role.trim()) {
+            query += ` AND u.role = ?`;
+            countQuery += ` AND u.role = ?`;
+            queryParams.push(role.trim());
+            countParams.push(role.trim());
+        }
+
+        // 狀態過濾
+        if (status && status.trim()) {
+            query += ` AND u.status = ?`;
+            countQuery += ` AND u.status = ?`;
+            queryParams.push(status.trim());
+            countParams.push(status.trim());
+        }
+
+        query += ` ORDER BY u.created_at DESC LIMIT ? OFFSET ?`;
+
+        const users = await this.rawAll(query, [...queryParams, limit, offset]);
+        const totalResult = await this.rawGet(countQuery, countParams);
+
+        return {
+            users,
+            pagination: {
+                page,
+                limit,
+                total: totalResult?.count || 0,
+                pages: Math.ceil((totalResult?.count || 0) / limit)
+            }
+        };
+    }
+
+    /**
+     * 搜尋用戶（帶權限過濾）
+     * @param {Object} options - 查詢選項
+     * @returns {Promise<Array>}
+     */
+    async searchWithPermissionFilter({ userId, userRole, search, role, status, limit = 50 } = {}) {
+        // 構建權限過濾條件
+        let roleFilter = '';
+        let roleParams = [];
+
+        if (userRole !== 'super_admin') {
+            if (userRole === 'project_manager') {
+                roleFilter = ' AND u.role != ? AND (u.created_by = ? OR u.managed_by = ?)';
+                roleParams = ['super_admin', userId, userId];
+            } else {
+                roleFilter = ' AND u.id = ?';
+                roleParams = [userId];
+            }
+        }
+
+        let query = `
+            SELECT u.id, u.username, u.email, u.full_name, u.role, u.status,
+                   u.created_at, u.last_login,
+                   creator.full_name as created_by_name
+            FROM users u
+            LEFT JOIN users creator ON u.created_by = creator.id
+            WHERE 1=1 ${roleFilter}
+        `;
+        const queryParams = [...roleParams];
+
+        if (search && search.trim()) {
+            query += ` AND (u.username LIKE ? OR u.full_name LIKE ? OR u.email LIKE ?)`;
+            const searchTerm = `%${search.trim()}%`;
+            queryParams.push(searchTerm, searchTerm, searchTerm);
+        }
+
+        if (role && role.trim() && role !== 'all') {
+            query += ` AND u.role = ?`;
+            queryParams.push(role.trim());
+        }
+
+        if (status && status.trim() && status !== 'all') {
+            query += ` AND u.status = ?`;
+            queryParams.push(status.trim());
+        }
+
+        query += ` ORDER BY u.created_at DESC LIMIT ?`;
+        queryParams.push(limit);
+
+        return this.rawAll(query, queryParams);
+    }
 }
 
 // 單例模式

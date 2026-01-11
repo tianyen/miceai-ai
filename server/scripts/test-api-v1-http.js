@@ -11,7 +11,7 @@
 const http = require('http');
 
 // 配置
-const BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000';
+const BASE_URL = process.env.API_BASE_URL || 'http://localhost:9999';
 const API_PREFIX = '/api/v1';
 
 // 測試用的資料（從 seed 資料）

@@ -799,6 +799,320 @@ class QuestionnaireRepository extends BaseRepository {
             WHERE qv.questionnaire_id = ?
         `, [questionnaireId]);
     }
+
+    // ============================================================================
+    // 進階統計
+    // ============================================================================
+
+    /**
+     * 取得詳細統計（30天每日統計）
+     * @param {number} questionnaireId - 問卷 ID
+     * @returns {Promise<Object>}
+     */
+    async getDetailedStats(questionnaireId) {
+        const basicStats = await this.rawGet(`
+            SELECT
+                COUNT(DISTINCT qv.trace_id) as view_count,
+                COUNT(DISTINCT qr.trace_id) as response_count,
+                COUNT(DISTINCT CASE WHEN qr.is_completed = 1 THEN qr.trace_id END) as completed_count,
+                AVG(qr.completion_time) as avg_completion_time
+            FROM questionnaire_views qv
+            LEFT JOIN questionnaire_responses qr ON qv.questionnaire_id = qr.questionnaire_id
+                AND qv.trace_id = qr.trace_id
+            WHERE qv.questionnaire_id = ?
+        `, [questionnaireId]);
+
+        const dailyStats = await this.rawAll(`
+            SELECT
+                DATE(qv.view_time) as date,
+                COUNT(DISTINCT qv.trace_id) as views,
+                COUNT(DISTINCT qr.trace_id) as responses,
+                COUNT(DISTINCT CASE WHEN qr.is_completed = 1 THEN qr.trace_id END) as completions
+            FROM questionnaire_views qv
+            LEFT JOIN questionnaire_responses qr ON qv.questionnaire_id = qr.questionnaire_id
+                AND qv.trace_id = qr.trace_id
+            WHERE qv.questionnaire_id = ?
+                AND qv.view_time >= DATE('now', '-30 days')
+            GROUP BY DATE(qv.view_time)
+            ORDER BY date DESC
+        `, [questionnaireId]);
+
+        const hourlyStats = await this.rawAll(`
+            SELECT
+                strftime('%H', qv.view_time) as hour,
+                COUNT(DISTINCT qv.trace_id) as views,
+                COUNT(DISTINCT qr.trace_id) as responses
+            FROM questionnaire_views qv
+            LEFT JOIN questionnaire_responses qr ON qv.questionnaire_id = qr.questionnaire_id
+                AND qv.trace_id = qr.trace_id
+            WHERE qv.questionnaire_id = ?
+                AND DATE(qv.view_time) = DATE('now')
+            GROUP BY strftime('%H', qv.view_time)
+            ORDER BY hour
+        `, [questionnaireId]);
+
+        return { basicStats, dailyStats, hourlyStats };
+    }
+
+    /**
+     * 取得問題分析數據
+     * @param {number} questionnaireId - 問卷 ID
+     * @returns {Promise<Object>}
+     */
+    async getQuestionAnalysisData(questionnaireId) {
+        const questions = await this.rawAll(`
+            SELECT id, question_text, question_type, options
+            FROM questionnaire_questions
+            WHERE questionnaire_id = ?
+            ORDER BY display_order ASC, id ASC
+        `, [questionnaireId]);
+
+        const responses = await this.rawAll(`
+            SELECT response_data, completed_at, completion_time
+            FROM questionnaire_responses
+            WHERE questionnaire_id = ? AND is_completed = 1
+        `, [questionnaireId]);
+
+        return { questions, responses };
+    }
+
+    /**
+     * 取得問卷問題列表（用於提交驗證）
+     * @param {number} questionnaireId - 問卷 ID
+     * @returns {Promise<Array>}
+     */
+    async getQuestionsForValidation(questionnaireId) {
+        return this.rawAll(`
+            SELECT id, question_text, question_type, is_required
+            FROM questionnaire_questions
+            WHERE questionnaire_id = ?
+        `, [questionnaireId]);
+    }
+
+    /**
+     * 取得公開問卷（完整資訊）
+     * @param {number} questionnaireId - 問卷 ID
+     * @returns {Promise<Object|null>}
+     */
+    async getPublicQuestionnaireFull(questionnaireId) {
+        return this.rawGet(`
+            SELECT q.*, p.project_name
+            FROM questionnaires q
+            LEFT JOIN event_projects p ON q.project_id = p.id
+            WHERE q.id = ? AND q.is_active = 1
+        `, [questionnaireId]);
+    }
+
+    /**
+     * 根據 trace_id 查找表單提交
+     * @param {string} traceId - 追蹤 ID
+     * @returns {Promise<Object|null>}
+     */
+    async findSubmissionByTraceId(traceId) {
+        return this.rawGet(
+            `SELECT id FROM form_submissions WHERE trace_id = ?`,
+            [traceId]
+        );
+    }
+
+    // ============================================================================
+    // 跨表 Transaction 方法 (for 3-Tier Migration)
+    // ============================================================================
+
+    /**
+     * 創建問卷（含問題）- 完整版本
+     * @param {Object} data - 問卷資料
+     * @returns {Promise<Object>} { id, lastID }
+     */
+    async createWithQuestions(data) {
+        const {
+            project_id,
+            title,
+            description,
+            instructions,
+            start_time,
+            end_time,
+            allow_multiple_submissions,
+            is_active,
+            created_by,
+            questions
+        } = data;
+
+        // 創建問卷
+        const sql = `
+            INSERT INTO questionnaires (
+                project_id, title, description, instructions,
+                start_time, end_time, allow_multiple_submissions,
+                is_active, created_by, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `;
+
+        const result = await this.rawRun(sql, [
+            project_id,
+            title,
+            description || null,
+            instructions || null,
+            start_time || null,
+            end_time || null,
+            allow_multiple_submissions ? 1 : 0,
+            is_active !== undefined ? (is_active ? 1 : 0) : 1,
+            created_by
+        ]);
+
+        // 創建問題
+        if (questions && questions.length > 0) {
+            for (let i = 0; i < questions.length; i++) {
+                const question = questions[i];
+                await this.rawRun(`
+                    INSERT INTO questionnaire_questions (
+                        questionnaire_id, question_text, question_type,
+                        is_required, options, display_order
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                `, [
+                    result.lastID,
+                    question.question_text,
+                    question.question_type,
+                    question.is_required || 1,
+                    question.options ? JSON.stringify(question.options) : null,
+                    i + 1
+                ]);
+            }
+        }
+
+        return { id: result.lastID, lastID: result.lastID };
+    }
+
+    /**
+     * 更新問卷（含問題替換）- 完整版本
+     * @param {number} questionnaireId - 問卷 ID
+     * @param {Object} data - 更新資料
+     * @returns {Promise<Object>}
+     */
+    async updateWithQuestions(questionnaireId, data) {
+        const {
+            title,
+            description,
+            instructions,
+            is_active,
+            start_time,
+            end_time,
+            allow_multiple_submissions,
+            questions
+        } = data;
+
+        // 更新問卷基本信息
+        await this.rawRun(`
+            UPDATE questionnaires
+            SET title = ?, description = ?, instructions = ?,
+                is_active = ?, start_time = ?, end_time = ?,
+                allow_multiple_submissions = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `, [
+            title,
+            description || null,
+            instructions || null,
+            is_active ? 1 : 0,
+            start_time || null,
+            end_time || null,
+            allow_multiple_submissions ? 1 : 0,
+            questionnaireId
+        ]);
+
+        // 更新問題（先刪除後重建）
+        if (questions) {
+            await this.deleteQuestions(questionnaireId);
+
+            for (let i = 0; i < questions.length; i++) {
+                const question = questions[i];
+                await this.rawRun(`
+                    INSERT INTO questionnaire_questions (
+                        questionnaire_id, question_text, question_type,
+                        is_required, options, display_order
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                `, [
+                    questionnaireId,
+                    question.question_text,
+                    question.question_type,
+                    question.is_required || 1,
+                    question.options ? JSON.stringify(question.options) : null,
+                    i + 1
+                ]);
+            }
+        }
+
+        return { changes: 1 };
+    }
+
+    /**
+     * 徹底刪除問卷（含所有關聯數據）- 完整版本
+     * @param {number} questionnaireId - 問卷 ID
+     * @returns {Promise<Object>}
+     */
+    async deleteCascadeFull(questionnaireId) {
+        await this.deleteResponses(questionnaireId);
+        await this.deleteViews(questionnaireId);
+        await this.deleteQuestions(questionnaireId);
+        return this.rawRun('DELETE FROM questionnaires WHERE id = ?', [questionnaireId]);
+    }
+
+    /**
+     * 複製問卷（含問題）- 完整版本
+     * @param {number} questionnaireId - 原始問卷 ID
+     * @param {Object} data - 新問卷資料
+     * @returns {Promise<Object>}
+     */
+    async duplicateWithQuestions(questionnaireId, { newTitle, projectId, createdBy }) {
+        const original = await this.findById(questionnaireId);
+        if (!original) {
+            return { success: false, error: 'NOT_FOUND', message: '問卷不存在' };
+        }
+
+        // 創建新問卷（使用完整字段）
+        const sql = `
+            INSERT INTO questionnaires (
+                project_id, title, description, instructions,
+                start_time, end_time, allow_multiple_submissions,
+                is_active, created_by, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `;
+
+        const result = await this.rawRun(sql, [
+            projectId || original.project_id,
+            newTitle || `${original.title} (複製)`,
+            original.description,
+            original.instructions,
+            original.start_time || null,
+            original.end_time || null,
+            original.allow_multiple_submissions ? 1 : 0,
+            0, // 預設停用
+            createdBy
+        ]);
+
+        // 複製問題
+        const questions = await this.rawAll(`
+            SELECT * FROM questionnaire_questions
+            WHERE questionnaire_id = ?
+            ORDER BY display_order ASC
+        `, [questionnaireId]);
+
+        for (const question of questions) {
+            await this.rawRun(`
+                INSERT INTO questionnaire_questions (
+                    questionnaire_id, question_text, question_type,
+                    is_required, options, display_order
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            `, [
+                result.lastID,
+                question.question_text,
+                question.question_type,
+                question.is_required,
+                question.options,
+                question.display_order
+            ]);
+        }
+
+        return { success: true, id: result.lastID, title: newTitle || `${original.title} (複製)` };
+    }
 }
 
 // 單例模式

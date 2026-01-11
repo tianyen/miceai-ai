@@ -11,7 +11,7 @@
  */
 
 const { createDb } = require('./utils/db');
-const API_URL = process.env.API_URL || 'http://localhost:3000/api/v1';
+const API_URL = process.env.API_URL || 'http://localhost:9999/api/v1';
 const EVENT_ID = process.env.EVENT_ID || 2;  // 預設用 active 狀態的活動
 
 // ANSI 顏色

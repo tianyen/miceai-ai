@@ -11,7 +11,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const config = require('../config');
 
-const API_BASE = 'http://localhost:3000/api/v1';
+const API_BASE = 'http://localhost:9999/api/v1';
 
 // 從配置取得資料庫路徑（遵守 DATABASE_PATH 環境變數）
 const DB_PATH = path.resolve(config.database.path);

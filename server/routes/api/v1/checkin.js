@@ -22,11 +22,12 @@ function handleServiceError(res, error, defaultMessage) {
     console.error(`${defaultMessage}:`, error);
 
     if (error.statusCode) {
-        const message = error.details?.message || error.message || defaultMessage;
+        // 防禦性檢查：確保 message 不為 undefined/null
+        const message = error.details?.message || error.message || defaultMessage || '發生錯誤';
         return responses.error(res, message, error.statusCode);
     }
 
-    return responses.error(res, defaultMessage, 500);
+    return responses.error(res, defaultMessage || '發生錯誤', 500);
 }
 
 /**
