@@ -402,11 +402,11 @@ class GameRepository extends BaseRepository {
      * @param {Object} data - 遊戲資料
      * @returns {Promise<Object>}
      */
-    async createGame({ game_name_zh, game_name_en, game_url, game_version, description, is_active = 1 }) {
+    async createGame({ game_name_zh, game_name_en, game_url, game_version, description, is_active = 1, created_by }) {
         return this.db.run(
-            `INSERT INTO games (game_name_zh, game_name_en, game_url, game_version, description, is_active)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [game_name_zh, game_name_en, game_url, game_version || null, description || null, is_active ? 1 : 0]
+            `INSERT INTO games (game_name_zh, game_name_en, game_url, game_version, description, is_active, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [game_name_zh, game_name_en, game_url, game_version || null, description || null, is_active ? 1 : 0, created_by]
         );
     }
 

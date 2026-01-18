@@ -8,6 +8,7 @@
 const express = require('express');
 const router = express.Router({ mergeParams: true });
 const { param, body, validationResult } = require('express-validator');
+const { authenticateSession } = require('../../../middleware/auth');
 const { boothService } = require('../../../services');
 const responses = require('../../../utils/responses');
 const logger = require('../../../utils/logger');
@@ -40,7 +41,7 @@ function handleServiceError(res, error, defaultMessage) {
  *       200:
  *         description: 成功獲取遊戲列表
  */
-router.get('/', [
+router.get('/', authenticateSession, [
     param('boothId').isInt().withMessage('攤位 ID 必須是整數')
 ], async (req, res) => {
     try {
@@ -86,7 +87,7 @@ router.get('/', [
  *       200:
  *         description: 綁定成功
  */
-router.post('/', [
+router.post('/', authenticateSession, [
     param('boothId').isInt().withMessage('攤位 ID 必須是整數'),
     body('game_id').isInt().withMessage('遊戲 ID 必須是整數'),
     body('voucher_id').optional().isInt().withMessage('兌換券 ID 必須是整數')
@@ -147,7 +148,7 @@ router.post('/', [
  *       200:
  *         description: 更新成功
  */
-router.put('/:id', [
+router.put('/:id', authenticateSession, [
     param('boothId').isInt().withMessage('攤位 ID 必須是整數'),
     param('id').isInt().withMessage('綁定 ID 必須是整數'),
     body('voucher_id').optional().isInt().withMessage('兌換券 ID 必須是整數'),
@@ -197,7 +198,7 @@ router.put('/:id', [
  *       200:
  *         description: 解除綁定成功
  */
-router.delete('/:id', [
+router.delete('/:id', authenticateSession, [
     param('boothId').isInt().withMessage('攤位 ID 必須是整數'),
     param('id').isInt().withMessage('綁定 ID 必須是整數')
 ], async (req, res) => {

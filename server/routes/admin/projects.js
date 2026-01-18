@@ -585,6 +585,33 @@ router.get('/:id/games', async (req, res) => {
     }
 });
 
+// 綁定遊戲到專案 (使用 projectService)
+router.post('/:id/games', async (req, res) => {
+    try {
+        const projectId = req.params.id;
+        const { game_id, voucher_id } = req.body;
+
+        if (!game_id) {
+            return responses.badRequest(res, '請選擇遊戲');
+        }
+
+        const result = await projectService.createGameBinding(projectId, {
+            game_id: parseInt(game_id),
+            voucher_id: voucher_id ? parseInt(voucher_id) : null
+        });
+
+        return responses.success(res, result, result.message);
+
+    } catch (error) {
+        if (error.statusCode) {
+            const message = error.details?.message || error.message || '綁定遊戲失敗';
+            return responses.error(res, message, error.statusCode);
+        }
+        console.error('綁定遊戲失敗:', error);
+        return responses.serverError(res, '綁定遊戲失敗');
+    }
+});
+
 // 獲取遊戲綁定的 QR Code (使用 projectService)
 router.get('/:projectId/games/:bindingId/qr', async (req, res) => {
     try {

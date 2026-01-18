@@ -64,7 +64,8 @@ class GameService extends BaseService {
             game_url,
             game_version,
             description,
-            is_active = 1
+            is_active = 1,
+            created_by
         } = data;
 
         if (!game_name_zh) {
@@ -79,7 +80,8 @@ class GameService extends BaseService {
             game_url,
             game_version,
             description,
-            is_active
+            is_active,
+            created_by
         });
 
         const game = await this.gameRepo.findById(result.lastID);

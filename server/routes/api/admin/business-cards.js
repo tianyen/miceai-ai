@@ -8,6 +8,7 @@
 const express = require('express');
 const router = express.Router();
 const { businessCardService } = require('../../../services');
+const { authenticateSession } = require('../../../middleware/auth');
 const responses = require('../../../utils/responses');
 const { param, query, validationResult } = require('express-validator');
 
@@ -59,7 +60,7 @@ function handleServiceError(res, error, defaultMessage) {
  *       404:
  *         description: 專案不存在
  */
-router.get('/project/:projectId', [
+router.get('/project/:projectId', authenticateSession, [
     param('projectId').isInt({ min: 1 }).withMessage('專案 ID 必須是正整數'),
     query('page').optional().isInt({ min: 1 }).withMessage('頁碼必須是正整數'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('每頁筆數必須在 1-100 之間'),
@@ -102,7 +103,7 @@ router.get('/project/:projectId', [
  *       404:
  *         description: 名片不存在
  */
-router.get('/:cardId', [
+router.get('/:cardId', authenticateSession, [
     param('cardId').isLength({ min: 1, max: 50 }).withMessage('名片 ID 長度必須在 1-50 字符之間')
 ], async (req, res) => {
     try {
@@ -146,7 +147,7 @@ router.get('/:cardId', [
  *       404:
  *         description: 名片不存在
  */
-router.patch('/:cardId/status', [
+router.patch('/:cardId/status', authenticateSession, [
     param('cardId').isLength({ min: 1, max: 50 }).withMessage('名片 ID 長度必須在 1-50 字符之間')
 ], async (req, res) => {
     try {
@@ -181,7 +182,7 @@ router.patch('/:cardId/status', [
  *       404:
  *         description: 名片不存在
  */
-router.delete('/:cardId', [
+router.delete('/:cardId', authenticateSession, [
     param('cardId').isLength({ min: 1, max: 50 }).withMessage('名片 ID 長度必須在 1-50 字符之間')
 ], async (req, res) => {
     try {

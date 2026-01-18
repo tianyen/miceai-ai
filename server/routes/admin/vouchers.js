@@ -71,12 +71,12 @@ router.get('/api/list', async (req, res) => {
     try {
         const { is_active, limit = 100 } = req.query;
 
-        const vouchers = await voucherService.listVouchers({
-            isActive: is_active,
+        const result = await voucherService.getList({
+            is_active: is_active,
             limit: parseInt(limit)
         });
 
-        return responses.success(res, vouchers, '獲取兌換券列表成功');
+        return responses.success(res, result.vouchers, '獲取兌換券列表成功');
     } catch (error) {
         console.error('獲取兌換券列表失敗:', error);
         return responses.serverError(res, '獲取兌換券列表失敗');

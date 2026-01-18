@@ -7,6 +7,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
+const { authenticateSession } = require('../../../middleware/auth');
 const { gameService } = require('../../../services');
 const responses = require('../../../utils/responses');
 const logger = require('../../../utils/logger');
@@ -57,7 +58,7 @@ function handleServiceError(res, error, defaultMessage) {
  *       200:
  *         description: 成功獲取遊戲列表
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticateSession, async (req, res) => {
     try {
         const result = await gameService.getList({
             page: req.query.page,
@@ -92,7 +93,7 @@ router.get('/', async (req, res) => {
  *       404:
  *         description: 遊戲不存在
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateSession, async (req, res) => {
     try {
         const result = await gameService.getById(req.params.id);
         return responses.success(res, result, '成功獲取遊戲資訊');
@@ -144,7 +145,7 @@ router.get('/:id', async (req, res) => {
  *       400:
  *         description: 驗證錯誤
  */
-router.post('/', [
+router.post('/', authenticateSession, [
     body('game_name_zh').trim().notEmpty().withMessage('遊戲中文名稱為必填'),
     body('game_name_en').trim().notEmpty().withMessage('遊戲英文名稱為必填'),
     body('game_url').trim().isURL().withMessage('遊戲 URL 格式不正確'),
@@ -157,7 +158,10 @@ router.post('/', [
             return responses.badRequest(res, '驗證失敗', errors.array());
         }
 
-        const result = await gameService.create(req.body);
+        const result = await gameService.create({
+            ...req.body,
+            created_by: req.user?.id
+        });
 
         logger.business('遊戲創建', {
             game_id: result.game.id,
@@ -212,7 +216,7 @@ router.post('/', [
  *       404:
  *         description: 遊戲不存在
  */
-router.put('/:id', [
+router.put('/:id', authenticateSession, [
     body('game_name_zh').optional().trim().notEmpty().withMessage('遊戲中文名稱不能為空'),
     body('game_name_en').optional().trim().notEmpty().withMessage('遊戲英文名稱不能為空'),
     body('game_url').optional().trim().isURL().withMessage('遊戲 URL 格式不正確'),
@@ -260,7 +264,7 @@ router.put('/:id', [
  *       404:
  *         description: 遊戲不存在
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticateSession, async (req, res) => {
     try {
         await gameService.delete(req.params.id);
 
@@ -308,7 +312,7 @@ router.delete('/:id', async (req, res) => {
  *       200:
  *         description: 成功獲取會話列表
  */
-router.get('/:id/sessions', async (req, res) => {
+router.get('/:id/sessions', authenticateSession, async (req, res) => {
     try {
         const result = await gameService.getSessions(req.params.id, {
             page: req.query.page,

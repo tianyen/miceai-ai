@@ -350,6 +350,68 @@ CREATE TABLE IF NOT EXISTS api_access_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 攤位表
+CREATE TABLE IF NOT EXISTS booths (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    booth_name VARCHAR(100) NOT NULL,
+    booth_code VARCHAR(50) UNIQUE NOT NULL,
+    location VARCHAR(200),
+    description TEXT,
+    is_active BOOLEAN DEFAULT 1,
+    qr_code_base64 TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES event_projects(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_booths_project_id ON booths(project_id);
+CREATE INDEX IF NOT EXISTS idx_booths_booth_code ON booths(booth_code);
+
+-- 兌換券表
+CREATE TABLE IF NOT EXISTS vouchers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    voucher_name VARCHAR(100) NOT NULL,
+    vendor_name VARCHAR(100),
+    sponsor_name VARCHAR(100),
+    category VARCHAR(50),
+    total_quantity INTEGER DEFAULT 0,
+    remaining_quantity INTEGER DEFAULT 0,
+    voucher_value DECIMAL(10, 2),
+    description TEXT,
+    is_active BOOLEAN DEFAULT 1,
+    created_by INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- 兌換券條件表
+CREATE TABLE IF NOT EXISTS voucher_conditions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    voucher_id INTEGER NOT NULL,
+    min_score INTEGER DEFAULT 0,
+    min_play_time INTEGER DEFAULT 0,
+    other_conditions TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE
+);
+
+-- 遊戲表
+CREATE TABLE IF NOT EXISTS games (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_name_zh VARCHAR(100) NOT NULL,
+    game_name_en VARCHAR(100) NOT NULL,
+    game_url VARCHAR(500) NOT NULL,
+    game_version VARCHAR(20) DEFAULT '1.0.0',
+    description TEXT,
+    is_active BOOLEAN DEFAULT 1,
+    created_by INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
 -- 攤位遊戲關聯表
 CREATE TABLE IF NOT EXISTS booth_games (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -365,6 +427,96 @@ CREATE TABLE IF NOT EXISTS booth_games (
     FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE SET NULL,
     UNIQUE(booth_id, game_id)
 );
+
+-- 遊戲會話表
+CREATE TABLE IF NOT EXISTS game_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    game_id INTEGER NOT NULL,
+    booth_id INTEGER,
+    trace_id VARCHAR(50) NOT NULL,
+    user_id VARCHAR(100),
+    session_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    session_end TIMESTAMP,
+    total_play_time INTEGER DEFAULT 0,
+    final_score INTEGER DEFAULT 0,
+    voucher_earned BOOLEAN DEFAULT 0,
+    voucher_id INTEGER,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    FOREIGN KEY (project_id) REFERENCES event_projects(id),
+    FOREIGN KEY (game_id) REFERENCES games(id),
+    FOREIGN KEY (voucher_id) REFERENCES vouchers(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_sessions_trace_id ON game_sessions(trace_id);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_project_id ON game_sessions(project_id);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_game_id ON game_sessions(game_id);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_booth_id ON game_sessions(booth_id);
+
+-- 兌換券兌換記錄表
+CREATE TABLE IF NOT EXISTS voucher_redemptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    voucher_id INTEGER NOT NULL,
+    session_id INTEGER,
+    booth_id INTEGER,
+    trace_id VARCHAR(50) NOT NULL,
+    redeemed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    redemption_code VARCHAR(50) UNIQUE,
+    qr_code_base64 TEXT,
+    is_used BOOLEAN DEFAULT 0,
+    used_at TIMESTAMP,
+    FOREIGN KEY (voucher_id) REFERENCES vouchers(id),
+    FOREIGN KEY (session_id) REFERENCES game_sessions(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_trace_id ON voucher_redemptions(trace_id);
+CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_voucher_id ON voucher_redemptions(voucher_id);
+CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_redemption_code ON voucher_redemptions(redemption_code);
+CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_booth_id ON voucher_redemptions(booth_id);
+
+-- 遊戲日誌表
+CREATE TABLE IF NOT EXISTS game_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    game_id INTEGER NOT NULL,
+    booth_id INTEGER,
+    trace_id VARCHAR(50) NOT NULL,
+    user_id VARCHAR(100),
+    log_level VARCHAR(20) DEFAULT 'info',
+    message TEXT,
+    user_action VARCHAR(100),
+    score INTEGER DEFAULT 0,
+    play_time INTEGER DEFAULT 0,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES event_projects(id),
+    FOREIGN KEY (game_id) REFERENCES games(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_logs_trace_id ON game_logs(trace_id);
+CREATE INDEX IF NOT EXISTS idx_game_logs_game_id ON game_logs(game_id);
+CREATE INDEX IF NOT EXISTS idx_game_logs_created_at ON game_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_game_logs_booth_id ON game_logs(booth_id);
+
+-- 許願樹互動表
+CREATE TABLE IF NOT EXISTS wish_tree_interactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    booth_id INTEGER,
+    wish_text TEXT NOT NULL,
+    image_base64 TEXT,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES event_projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (booth_id) REFERENCES booths(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_wish_tree_project_id ON wish_tree_interactions(project_id);
+CREATE INDEX IF NOT EXISTS idx_wish_tree_booth_id ON wish_tree_interactions(booth_id);
+CREATE INDEX IF NOT EXISTS idx_wish_tree_created_at ON wish_tree_interactions(created_at);
 
 -- QR Code 名片表
 CREATE TABLE IF NOT EXISTS business_cards (

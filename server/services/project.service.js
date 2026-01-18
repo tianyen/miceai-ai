@@ -15,6 +15,8 @@
  */
 const BaseService = require('./base.service');
 const projectRepository = require('../repositories/project.repository');
+const boothRepository = require('../repositories/booth.repository');
+const QRCode = require('qrcode');
 
 class ProjectService extends BaseService {
     constructor() {
@@ -595,6 +597,63 @@ class ProjectService extends BaseService {
      */
     async getProjectGames(projectId) {
         return this.repository.getProjectGames(projectId);
+    }
+
+    /**
+     * 建立遊戲綁定（自動選擇第一個攤位）
+     * @param {number} projectId - 專案 ID
+     * @param {Object} data - 綁定資料 { game_id, voucher_id }
+     * @returns {Promise<Object>}
+     */
+    async createGameBinding(projectId, { game_id, voucher_id }) {
+        // 取得專案的第一個攤位
+        const booth = await boothRepository.findFirstByProject(projectId);
+
+        if (!booth) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                message: '此專案尚未建立攤位，請先新增攤位後再綁定遊戲'
+            });
+        }
+
+        // 檢查遊戲是否已綁定到此攤位
+        const existingBinding = await boothRepository.findBindingByBoothAndGame(booth.id, game_id);
+        if (existingBinding) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                message: '此遊戲已經綁定到攤位了'
+            });
+        }
+
+        // 生成 QR Code
+        const qrData = JSON.stringify({
+            type: 'booth_game',
+            booth_id: booth.id,
+            game_id: game_id,
+            project_id: projectId,
+            timestamp: Date.now()
+        });
+
+        const qrCodeBase64 = await QRCode.toDataURL(qrData, {
+            width: 300,
+            margin: 2,
+            color: { dark: '#000000', light: '#FFFFFF' }
+        });
+
+        // 建立綁定
+        const result = await boothRepository.createGameBinding(booth.id, game_id, voucher_id, qrCodeBase64);
+
+        this.log('createGameBinding', {
+            projectId,
+            boothId: booth.id,
+            game_id,
+            binding_id: result.lastID
+        });
+
+        return {
+            id: result.lastID,
+            booth_id: booth.id,
+            booth_name: booth.booth_name,
+            message: '遊戲綁定成功'
+        };
     }
 
     /**

@@ -104,7 +104,8 @@ class VoucherService extends BaseService {
             voucher_value,
             total_quantity,
             description,
-            is_active = 1
+            is_active = 1,
+            created_by
         } = data;
 
         if (!voucher_name) {
@@ -121,7 +122,8 @@ class VoucherService extends BaseService {
             voucher_value,
             total_quantity,
             description,
-            is_active
+            is_active,
+            created_by
         });
 
         const voucher = await this.repository.findById(result.lastID);

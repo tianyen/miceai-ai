@@ -7,6 +7,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
+const { authenticateSession } = require('../../../middleware/auth');
 const { voucherService } = require('../../../services');
 const responses = require('../../../utils/responses');
 const logger = require('../../../utils/logger');
@@ -45,7 +46,7 @@ function handleServiceError(res, error, defaultMessage) {
  *       200:
  *         description: 成功獲取統計資訊
  */
-router.get('/stats', async (req, res) => {
+router.get('/stats', authenticateSession, async (req, res) => {
     try {
         const result = await voucherService.getStats({
             date: req.query.date,
@@ -69,7 +70,7 @@ router.get('/stats', async (req, res) => {
  *       200:
  *         description: 成功獲取庫存統計
  */
-router.get('/inventory-stats', async (req, res) => {
+router.get('/inventory-stats', authenticateSession, async (req, res) => {
     try {
         const result = await voucherService.getInventoryStats();
         return responses.success(res, result, '成功獲取庫存統計');
@@ -116,7 +117,7 @@ router.get('/inventory-stats', async (req, res) => {
  *       200:
  *         description: 成功獲取兌換券列表
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticateSession, async (req, res) => {
     try {
         const result = await voucherService.getList({
             page: req.query.page,
@@ -161,7 +162,7 @@ router.get('/', async (req, res) => {
  *       404:
  *         description: 兌換記錄不存在
  */
-router.post('/scan', async (req, res) => {
+router.post('/scan', authenticateSession, async (req, res) => {
     try {
         const result = await voucherService.scanVoucher({
             code: req.body.code,
@@ -193,7 +194,7 @@ router.post('/scan', async (req, res) => {
  *       200:
  *         description: 成功獲取兌換記錄列表
  */
-router.get('/redemptions', async (req, res) => {
+router.get('/redemptions', authenticateSession, async (req, res) => {
     try {
         const result = await voucherService.getRedemptions({
             limit: req.query.limit || 100
@@ -225,7 +226,7 @@ router.get('/redemptions', async (req, res) => {
  *       404:
  *         description: 兌換記錄不存在
  */
-router.post('/redemptions/:id/use', async (req, res) => {
+router.post('/redemptions/:id/use', authenticateSession, async (req, res) => {
     try {
         await voucherService.markRedemptionUsed(req.params.id);
 
@@ -260,7 +261,7 @@ router.post('/redemptions/:id/use', async (req, res) => {
  *       404:
  *         description: 兌換券不存在
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateSession, async (req, res) => {
     try {
         const voucher = await voucherService.getById(req.params.id);
         return responses.success(res, voucher, '成功獲取兌換券資訊');
@@ -316,7 +317,7 @@ router.get('/:id', async (req, res) => {
  *       400:
  *         description: 驗證錯誤
  */
-router.post('/', [
+router.post('/', authenticateSession, [
     body('voucher_name').trim().notEmpty().withMessage('兌換券名稱為必填'),
     body('vendor_name').optional().trim(),
     body('sponsor_name').optional().trim(),
@@ -331,7 +332,10 @@ router.post('/', [
             return responses.badRequest(res, '驗證失敗', errors.array());
         }
 
-        const result = await voucherService.create(req.body);
+        const result = await voucherService.create({
+            ...req.body,
+            created_by: req.user?.id
+        });
 
         logger.business('兌換券創建', {
             voucher_id: result.voucher.id,
@@ -389,7 +393,7 @@ router.post('/', [
  *       404:
  *         description: 兌換券不存在
  */
-router.put('/:id', [
+router.put('/:id', authenticateSession, [
     body('voucher_name').optional().trim().notEmpty().withMessage('兌換券名稱不能為空'),
     body('vendor_name').optional().trim(),
     body('sponsor_name').optional().trim(),
@@ -439,7 +443,7 @@ router.put('/:id', [
  *       404:
  *         description: 兌換券不存在
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticateSession, async (req, res) => {
     try {
         await voucherService.delete(req.params.id);
 

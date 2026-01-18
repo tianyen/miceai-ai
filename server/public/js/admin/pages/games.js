@@ -465,7 +465,10 @@ function saveGame(gameId) {
 
     fetch(url, {
         method: method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCsrfToken()
+        },
         body: JSON.stringify(formData)
     })
     .then(function(response) { return response.json(); })
@@ -475,7 +478,14 @@ function saveGame(gameId) {
             closeModal();
             loadGames();
         } else {
-            showNotification(data.message || '儲存失敗', 'error');
+            var errorMsg = data.message || '儲存失敗';
+            if (data.details && Array.isArray(data.details)) {
+                var fieldErrors = data.details.map(function(err) {
+                    return err.msg || err.message;
+                }).join('\n');
+                errorMsg += '\n\n' + fieldErrors;
+            }
+            showNotification(errorMsg, 'error');
         }
     })
     .catch(function(error) {

@@ -449,12 +449,12 @@ class VoucherRepository extends BaseRepository {
      * @param {Object} data - 兌換券資料
      * @returns {Promise<Object>}
      */
-    async createVoucher({ voucher_name, vendor_name, sponsor_name, category, voucher_value, total_quantity, description, is_active = 1 }) {
+    async createVoucher({ voucher_name, vendor_name, sponsor_name, category, voucher_value, total_quantity, description, is_active = 1, created_by }) {
         return this.db.run(
             `INSERT INTO vouchers (
                 voucher_name, vendor_name, sponsor_name, category, voucher_value,
-                total_quantity, remaining_quantity, description, is_active
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                total_quantity, remaining_quantity, description, is_active, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 voucher_name,
                 vendor_name || null,
@@ -464,7 +464,8 @@ class VoucherRepository extends BaseRepository {
                 total_quantity,
                 total_quantity,
                 description || null,
-                is_active ? 1 : 0
+                is_active ? 1 : 0,
+                created_by
             ]
         );
     }
