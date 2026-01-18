@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const responses = require('../../utils/responses');
 const { submissionService, projectService } = require('../../services');
+const { formatGMT8Time } = require('../../utils/timezone');
 
 // 表單數據管理頁面
 router.get('/', (req, res) => {
@@ -43,7 +44,7 @@ router.get('/search', async (req, res) => {
             submissions.forEach(submission => {
                 const statusClass = submission.status === 'confirmed' ? 'success' :
                     submission.status === 'cancelled' ? 'danger' : 'warning';
-                const submittedAt = new Date(submission.created_at).toLocaleString('zh-TW');
+                const submittedAt = formatGMT8Time(submission.created_at, 'datetime');
 
                 html += `
                 <tr>
@@ -177,8 +178,8 @@ router.get('/:id', async (req, res) => {
         }
 
         // 格式化數據
-        const submittedAt = new Date(submission.created_at).toLocaleString('zh-TW');
-        const eventDate = submission.event_date ? new Date(submission.event_date).toLocaleDateString('zh-TW') : '-';
+        const submittedAt = formatGMT8Time(submission.created_at, 'datetime');
+        const eventDate = submission.event_date ? formatGMT8Time(submission.event_date, 'date') : '-';
 
         const getStatusText = (status) => {
             const statusMap = {
@@ -275,7 +276,7 @@ router.get('/:id', async (req, res) => {
                                             </span>
                                         </p>
                                         <p><strong>提交時間：</strong>${submittedAt}</p>
-                                        <p><strong>更新時間：</strong>${new Date(submission.updated_at).toLocaleString('zh-TW')}</p>
+                                        <p><strong>更新時間：</strong>${formatGMT8Time(submission.updated_at, 'datetime')}</p>
                                     </div>
                                 </div>
                                 ${submission.notes ? `

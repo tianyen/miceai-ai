@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const { templateService } = require('../../services');
 const responses = require('../../utils/responses');
+const { formatGMT8Time } = require('../../utils/timezone');
 
 // 活動模板頁面
 router.get('/', (req, res) => {
@@ -174,7 +175,7 @@ router.get('/:id/preview', async (req, res) => {
                             <div class="template-info mb-3">
                                 <h6>模板信息：</h6>
                                 <p><strong>模板類型：</strong> ${template.template_type}</p>
-                                <p><strong>創建時間：</strong> ${new Date(template.created_at).toLocaleString('zh-TW')}</p>
+                                <p><strong>創建時間：</strong> ${formatGMT8Time(template.created_at, 'datetime')}</p>
                             </div>
                             <hr>
                             <div class="template-preview-content" style="border: 1px solid #ddd; padding: 20px; background: #f9f9f9;">

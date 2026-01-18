@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const responses = require('../../utils/responses');
 const { questionnaireService } = require('../../services');
+const { formatGMT8Time } = require('../../utils/timezone');
 
 // 問卷設計頁面
 router.get('/design', (req, res) => {
@@ -224,7 +225,7 @@ router.get('/api/questionnaires', async (req, res) => {
                         ? '<span class="badge badge-success">啟用</span>'
                         : '<span class="badge badge-warning">停用</span>';
 
-                    const createdAt = new Date(questionnaire.created_at).toLocaleString('zh-TW');
+                    const createdAt = formatGMT8Time(questionnaire.created_at, 'datetime');
                     const canEdit = userRole === 'super_admin' || userRole === 'project_manager';
 
                     html += `

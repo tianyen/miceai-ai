@@ -9,6 +9,7 @@ const router = express.Router();
 const responses = require('../../utils/responses');
 const { projectService, registrationService, emailService } = require('../../services');
 const { requireRole, logUserActivity } = require('../../middleware/auth');
+const { parseDbDate } = require('../../utils/timezone');
 
 // 權限檢查：僅 super_admin 和 project_manager 可訪問
 router.use(requireRole(['super_admin', 'project_manager']));
@@ -139,8 +140,12 @@ router.get('/registrations', async (req, res) => {
             });
         }
 
-        // 按時間排序
-        result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        // 按時間排序（使用 parseDbDate 正確處理 UTC 時間）
+        result.sort((a, b) => {
+            const dateA = parseDbDate(a.created_at);
+            const dateB = parseDbDate(b.created_at);
+            return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
+        });
 
         return responses.success(res, result);
     } catch (error) {

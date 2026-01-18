@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const responses = require('../../utils/responses');
 const { userService } = require('../../services');
+const { formatGMT8Time } = require('../../utils/timezone');
 
 // 用戶管理頁面
 router.get('/', (req, res) => {
@@ -469,11 +470,11 @@ router.get('/:id/view', async (req, res) => {
                                 </div>
                                 <div class="info-group">
                                     <label>創建時間</label>
-                                    <p>${new Date(user.created_at).toLocaleString('zh-TW')}</p>
+                                    <p>${formatGMT8Time(user.created_at, 'datetime')}</p>
                                 </div>
                                 <div class="info-group">
                                     <label>最後登入</label>
-                                    <p>${user.last_login ? new Date(user.last_login).toLocaleString('zh-TW') : '從未登入'}</p>
+                                    <p>${user.last_login ? formatGMT8Time(user.last_login, 'datetime') : '從未登入'}</p>
                                 </div>
                             </div>
                         </div>
