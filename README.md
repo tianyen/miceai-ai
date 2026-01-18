@@ -194,6 +194,7 @@ server/
 ## 📡 API 文檔
 
 **Swagger UI**: http://localhost:3000/api-docs
+**V1 API 詳細文檔**: [`server/docs/v1-api.md`](server/docs/v1-api.md)
 
 主要 API 端點：
 - `/api/v1/*` - 前端 API（25 個端點，完整 Swagger 文檔）
@@ -467,7 +468,10 @@ WHERE project_id = 2 AND parent_submission_id IS NOT NULL;
 
 | 資源 | 位置 | 說明 |
 |------|------|------|
-| **API 文檔** | http://localhost:3000/api-docs | Swagger UI 互動式文檔 |
+| **V1 API 文檔** | [`server/docs/v1-api.md`](server/docs/v1-api.md) | 前端串接 API 完整文檔 |
+| **前端串接指南** | [`server/docs/frontend-flow.md`](server/docs/frontend-flow.md) | 完整前端整合流程（報名→報到→遊戲→兌換） |
+| **兌換券流程** | [`server/docs/voucher-flow.md`](server/docs/voucher-flow.md) | 兌換券庫存與核銷流程詳解 |
+| **Swagger UI** | http://localhost:3000/api-docs | 互動式 API 測試 |
 | **資料庫 Schema** | `server/database/schema.sql` | 完整資料表定義與註解 |
 | **遷移腳本** | `server/database/migrations/` | 資料庫版本遷移 |
 | **種子資料** | `server/scripts/seeds/` | 測試資料腳本 |

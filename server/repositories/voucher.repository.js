@@ -643,6 +643,32 @@ class VoucherRepository extends BaseRepository {
             LIMIT 1
         `, [traceId]);
     }
+
+    /**
+     * 根據 trace_id 查詢所有兌換記錄 (含 QR Code)
+     * @param {string} traceId - 追蹤 ID
+     * @returns {Promise<Array>}
+     */
+    async findAllRedemptionsByTraceId(traceId) {
+        return this.db.query(`
+            SELECT
+                vr.id,
+                vr.redemption_code,
+                vr.is_used,
+                vr.redeemed_at,
+                vr.used_at,
+                vr.qr_code_base64,
+                v.id AS voucher_id,
+                v.voucher_name,
+                v.voucher_value,
+                v.vendor_name,
+                v.category
+            FROM voucher_redemptions vr
+            JOIN vouchers v ON vr.voucher_id = v.id
+            WHERE vr.trace_id = ?
+            ORDER BY vr.redeemed_at DESC
+        `, [traceId]);
+    }
 }
 
 module.exports = new VoucherRepository();

@@ -143,15 +143,18 @@ const swaggerDefinition = {
       '| 取得 QR Code 圖片 | `GET /api/v1/qr-codes/{traceId}` | 直接返回 PNG 圖片 |\n' +
       '| 取得 QR Code Base64 | `GET /api/v1/qr-codes/{traceId}/data` | 返回 Base64 編碼 |\n' +
       '| 重寄邀請信 | `POST /api/v1/registrations/{traceId}/resend-email` | 重新發送確認郵件 |\n' +
-      '| 驗證通行碼 | `POST /api/v1/verify-pass-code` | 用 6 位數通行碼恢復 trace_id |\n\n' +
+      '| 驗證通行碼 | `POST /api/v1/verify-pass-code` | 用 6 位數通行碼恢復 trace_id |\n' +
+      '| 查詢我的兌換券 | `GET /api/v1/vouchers/my?trace_id={traceId}` | 查詢用戶獲得的所有兌換券 |\n\n' +
       '---\n\n' +
       '### 4. 完整串接流程\n\n' +
       '```\n' +
       '1. GET /api/v1/events/code/{projectCode} → 取得活動資訊和 eventId\n' +
       '2. POST /api/v1/events/{eventId}/registrations → 報名取得 trace_id、user_id\n' +
       '   或 POST /api/v1/events/{eventId}/registrations/batch → 團體報名\n' +
-      '3. POST /api/v1/games/{gameId}/start → 開始遊戲 (傳入 user_id)\n' +
-      '4. POST /api/v1/games/{gameId}/end → 結束遊戲取得兌換券 QR Code\n' +
+      '3. POST /api/v1/check-in → 報到 (傳入 trace_id)\n' +
+      '4. POST /api/v1/games/{gameId}/sessions/start → 開始遊戲 (傳入 trace_id, user_id)\n' +
+      '5. POST /api/v1/games/{gameId}/sessions/end → 結束遊戲，庫存 -1，取得兌換券\n' +
+      '6. GET /api/v1/vouchers/my?trace_id={traceId} → 查詢我的所有兌換券\n' +
       '```\n\n' +
       '---\n\n' +
       '**注意事項：**\n' +

@@ -15,6 +15,7 @@ const registrationsRouter = require('./registrations');
 const checkinRouter = require('./checkin');
 const businessCardsRouter = require('./business-cards');
 const gamesRouter = require('./games');
+const vouchersRouter = require('./vouchers');
 const wishTreeRouter = require('./wish-tree');
 
 // V1 API 日誌中間件（記錄所有 GET query 和 POST body）
@@ -35,6 +36,7 @@ router.get('/', (req, res) => {
                 check_in: '/api/v1/check-in',
                 business_cards: '/api/v1/business-cards',
                 games: '/api/v1/games',
+                vouchers: '/api/v1/vouchers',
                 wish_tree: '/api/v1/wish-tree'
             },
             documentation: '/api-docs',
@@ -63,6 +65,7 @@ router.use('/', registrationsRouter);
 router.use('/check-in', checkinRouter);
 router.use('/business-cards', businessCardsRouter);
 router.use('/games', gamesRouter);
+router.use('/vouchers', vouchersRouter);
 router.use('/wish-tree', wishTreeRouter);
 
 // 404 處理
@@ -99,6 +102,8 @@ router.use('*', (req, res) => {
                 'POST /api/v1/games/:gameId/logs',
                 'POST /api/v1/games/:gameId/sessions/end',
                 'GET /api/v1/games/:gameId/info',
+                // Vouchers (1)
+                'GET /api/v1/vouchers/my',
                 // Wish Tree (4)
                 'POST /api/v1/wish-tree/submit',
                 'GET /api/v1/wish-tree/stats',

@@ -414,6 +414,47 @@ class VoucherService extends BaseService {
 
         return redemption;
     }
+
+    // ==================== V1 API 方法 ====================
+
+    /**
+     * 根據 trace_id 查詢用戶的所有兌換券 (V1 API)
+     * @param {string} traceId - 用戶追蹤 ID
+     * @returns {Promise<Object>}
+     */
+    async getByTraceId(traceId) {
+        const redemptions = await this.repository.findAllRedemptionsByTraceId(traceId);
+
+        // 格式化回傳資料
+        const vouchers = redemptions.map(r => ({
+            id: r.id,
+            redemption_code: r.redemption_code,
+            voucher_name: r.voucher_name,
+            voucher_value: r.voucher_value,
+            vendor_name: r.vendor_name,
+            category: r.category,
+            is_used: r.is_used === 1,
+            redeemed_at: r.redeemed_at,
+            used_at: r.used_at,
+            qr_code_base64: r.qr_code_base64
+        }));
+
+        // 計算統計
+        const total = vouchers.length;
+        const used = vouchers.filter(v => v.is_used).length;
+        const unused = total - used;
+
+        this.log('getByTraceId', { traceId, total, used, unused });
+
+        return {
+            vouchers,
+            summary: {
+                total,
+                used,
+                unused
+            }
+        };
+    }
 }
 
 module.exports = new VoucherService();
