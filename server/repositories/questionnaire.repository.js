@@ -388,7 +388,7 @@ class QuestionnaireRepository extends BaseRepository {
      */
     async getQuestions(questionnaireId) {
         return this.rawAll(
-            'SELECT * FROM questionnaire_questions WHERE questionnaire_id = ? ORDER BY question_order',
+            'SELECT * FROM questionnaire_questions WHERE questionnaire_id = ? ORDER BY display_order',
             [questionnaireId]
         );
     }
@@ -443,13 +443,13 @@ class QuestionnaireRepository extends BaseRepository {
             question_type,
             options,
             is_required,
-            question_order
+            display_order
         } = data;
 
         const sql = `
             INSERT INTO questionnaire_questions (
                 questionnaire_id, question_text, question_type,
-                options, is_required, question_order
+                options, is_required, display_order
             ) VALUES (?, ?, ?, ?, ?, ?)
         `;
 
@@ -459,7 +459,7 @@ class QuestionnaireRepository extends BaseRepository {
             question_type,
             options ? JSON.stringify(options) : null,
             is_required ? 1 : 0,
-            question_order
+            display_order
         ]);
     }
 
@@ -474,7 +474,7 @@ class QuestionnaireRepository extends BaseRepository {
             await this.createQuestion({
                 questionnaire_id: questionnaireId,
                 ...questions[i],
-                question_order: i + 1
+                display_order: i + 1
             });
         }
     }

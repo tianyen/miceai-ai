@@ -763,9 +763,9 @@ class SubmissionRepository extends BaseRepository {
         let sql = `
             SELECT
                 COUNT(*) as total,
-                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-                SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-                SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
+                SUM(CASE WHEN s.status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN s.status = 'approved' THEN 1 ELSE 0 END) as approved,
+                SUM(CASE WHEN s.status = 'rejected' THEN 1 ELSE 0 END) as rejected,
                 COUNT(CASE WHEN date(s.created_at) = date('now') THEN 1 END) as today,
                 COUNT(CASE WHEN date(s.created_at) >= date('now', '-7 days') THEN 1 END) as this_week,
                 COUNT(CASE WHEN strftime('%Y-%m', s.created_at) = strftime('%Y-%m', 'now') THEN 1 END) as this_month
