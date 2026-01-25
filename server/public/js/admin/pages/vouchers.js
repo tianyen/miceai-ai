@@ -96,12 +96,12 @@ function loadVouchers() {
                 renderVouchersTable(data.data.vouchers || []);
                 renderPagination(data.data.pagination);
             } else {
-                showNotification('Failed to load vouchers', 'error');
+                showNotification('載入兌換券失敗', 'error');
             }
         })
         .catch(function(error) {
-            console.error('Failed to load vouchers:', error);
-            showNotification('Failed to load vouchers', 'error');
+            console.error('載入兌換券失敗:', error);
+            showNotification('載入兌換券失敗', 'error');
         });
 }
 
@@ -138,7 +138,7 @@ function renderVouchersTable(vouchers) {
         var emptyCell = document.createElement('td');
         emptyCell.setAttribute('colspan', '9');
         emptyCell.className = 'text-center text-muted';
-        emptyCell.textContent = 'No vouchers found';
+        emptyCell.textContent = '找不到兌換券';
         emptyRow.appendChild(emptyCell);
         tbody.appendChild(emptyRow);
         return;
@@ -175,7 +175,7 @@ function createVoucherRow(voucher) {
     var categoryCell = document.createElement('td');
     var categorySpan = document.createElement('span');
     categorySpan.className = 'voucher-category';
-    categorySpan.textContent = voucher.category || 'Uncategorized';
+    categorySpan.textContent = voucher.category || '未分類';
     categoryCell.appendChild(categorySpan);
     row.appendChild(categoryCell);
 
@@ -203,7 +203,7 @@ function createVoucherRow(voucher) {
     var conditions = [];
     if (voucher.min_score > 0) conditions.push('Score>=' + voucher.min_score);
     if (voucher.min_play_time > 0) conditions.push('Time>=' + voucher.min_play_time + 's');
-    conditionsCell.textContent = conditions.length > 0 ? conditions.join(', ') : 'No restrictions';
+    conditionsCell.textContent = conditions.length > 0 ? conditions.join(', ') : '無限制';
     row.appendChild(conditionsCell);
 
     // Status cell
@@ -265,7 +265,7 @@ function renderPagination(pagination) {
     if (!pagination) {
         var noInfo = document.createElement('div');
         noInfo.className = 'pagination-info';
-        noInfo.textContent = 'No pagination info';
+        noInfo.textContent = '無分頁資訊';
         container.appendChild(noInfo);
         return;
     }
@@ -280,7 +280,7 @@ function renderPagination(pagination) {
     infoDiv.className = 'pagination-info';
     var start = (page - 1) * limit + 1;
     var end = Math.min(page * limit, total);
-    infoDiv.textContent = 'Showing ' + start + ' - ' + end + ' of ' + total + ' records';
+    infoDiv.textContent = '顯示第 ' + start + ' - ' + end + ' 筆，共 ' + total + ' 筆';
     container.appendChild(infoDiv);
 
     // Pagination buttons
@@ -290,7 +290,7 @@ function renderPagination(pagination) {
     // Previous button
     var prevBtn = document.createElement('button');
     prevBtn.className = 'btn btn-sm btn-secondary';
-    prevBtn.textContent = 'Previous';
+    prevBtn.textContent = '上一頁';
     prevBtn.disabled = page === 1;
     prevBtn.addEventListener('click', function() {
         changePage(page - 1);
@@ -319,7 +319,7 @@ function renderPagination(pagination) {
     // Next button
     var nextBtn = document.createElement('button');
     nextBtn.className = 'btn btn-sm btn-secondary';
-    nextBtn.textContent = 'Next';
+    nextBtn.textContent = '下一頁';
     nextBtn.disabled = page === totalPages;
     nextBtn.addEventListener('click', function() {
         changePage(page + 1);
@@ -414,7 +414,7 @@ function createFormRow(elements) {
  */
 function showVoucherModal(voucherId) {
     var isEdit = voucherId !== null && voucherId !== undefined;
-    var title = isEdit ? 'Edit Voucher' : 'New Voucher';
+    var title = isEdit ? '編輯兌換券' : '新增兌換券';
 
     // Create modal structure
     var modal = document.createElement('div');
@@ -453,11 +453,11 @@ function showVoucherModal(voucherId) {
 
     // Row 1: Name and Category
     var row1 = createFormRow([
-        createFormInput('voucher_name', 'voucher_name', 'text', 'Voucher Name', true, { colClass: 'col-md-6' }),
-        createFormInput('category', 'category', 'select', 'Category', false, {
+        createFormInput('voucher_name', 'voucher_name', 'text', '兌換券名稱', true, { colClass: 'col-md-6' }),
+        createFormInput('category', 'category', 'select', '分類', false, {
             colClass: 'col-md-6',
             choices: [
-                { value: '', text: 'Uncategorized' },
+                { value: '', text: '未分類' },
                 { value: '餐飲', text: '餐飲' },
                 { value: '購物', text: '購物' },
                 { value: '娛樂', text: '娛樂' },
@@ -469,27 +469,27 @@ function showVoucherModal(voucherId) {
 
     // Row 2: Vendor and Sponsor
     var row2 = createFormRow([
-        createFormInput('vendor_name', 'vendor_name', 'text', 'Vendor Name', false, { colClass: 'col-md-6' }),
-        createFormInput('sponsor_name', 'sponsor_name', 'text', 'Sponsor Name', false, { colClass: 'col-md-6' })
+        createFormInput('vendor_name', 'vendor_name', 'text', '廠商名稱', false, { colClass: 'col-md-6' }),
+        createFormInput('sponsor_name', 'sponsor_name', 'text', '贊助商名稱', false, { colClass: 'col-md-6' })
     ]);
     form.appendChild(row2);
 
     // Row 3: Quantity, Value, Status
     var row3 = createFormRow([
-        createFormInput('total_quantity', 'total_quantity', 'number', 'Total Quantity', true, { colClass: 'col-md-4', min: 0 }),
-        createFormInput('voucher_value', 'voucher_value', 'number', 'Value ($)', false, { colClass: 'col-md-4', min: 0, step: 0.01, value: 0 }),
-        createFormInput('is_active', 'is_active', 'select', 'Status', false, {
+        createFormInput('total_quantity', 'total_quantity', 'number', '總數量', true, { colClass: 'col-md-4', min: 0 }),
+        createFormInput('voucher_value', 'voucher_value', 'number', '價值', false, { colClass: 'col-md-4', min: 0, step: 0.01, value: 0 }),
+        createFormInput('is_active', 'is_active', 'select', '狀態', false, {
             colClass: 'col-md-4',
             choices: [
-                { value: '1', text: 'Active' },
-                { value: '0', text: 'Inactive' }
+                { value: '1', text: '啟用' },
+                { value: '0', text: '停用' }
             ]
         })
     ]);
     form.appendChild(row3);
 
     // Description
-    form.appendChild(createFormInput('description', 'description', 'textarea', 'Description', false, { rows: 2 }));
+    form.appendChild(createFormInput('description', 'description', 'textarea', '描述', false, { rows: 2 }));
 
     // Separator
     var hr = document.createElement('hr');
@@ -497,13 +497,13 @@ function showVoucherModal(voucherId) {
 
     // Conditions header
     var conditionsHeader = document.createElement('h4');
-    conditionsHeader.textContent = 'Redemption Conditions';
+    conditionsHeader.textContent = '兌換條件';
     form.appendChild(conditionsHeader);
 
     // Row 4: Conditions
     var row4 = createFormRow([
-        createFormInput('min_score', 'min_score', 'number', 'Minimum Score', false, { colClass: 'col-md-6', min: 0, value: 0 }),
-        createFormInput('min_play_time', 'min_play_time', 'number', 'Minimum Play Time (seconds)', false, { colClass: 'col-md-6', min: 0, value: 0 })
+        createFormInput('min_score', 'min_score', 'number', '最低分數', false, { colClass: 'col-md-6', min: 0, value: 0 }),
+        createFormInput('min_play_time', 'min_play_time', 'number', '最低遊玩時間（秒）', false, { colClass: 'col-md-6', min: 0, value: 0 })
     ]);
     form.appendChild(row4);
 
@@ -516,13 +516,13 @@ function showVoucherModal(voucherId) {
 
     var cancelBtn = document.createElement('button');
     cancelBtn.className = 'btn btn-secondary';
-    cancelBtn.textContent = 'Cancel';
+    cancelBtn.textContent = '取消';
     cancelBtn.addEventListener('click', closeModal);
     modalFooter.appendChild(cancelBtn);
 
     var saveBtn = document.createElement('button');
     saveBtn.className = 'btn btn-primary';
-    saveBtn.textContent = 'Save';
+    saveBtn.textContent = '儲存';
     saveBtn.addEventListener('click', function() {
         saveVoucher(voucherId);
     });
@@ -561,8 +561,8 @@ function showVoucherModal(voucherId) {
                 }
             })
             .catch(function(error) {
-                console.error('Failed to load voucher data:', error);
-                showNotification('Failed to load voucher data', 'error');
+                console.error('載入兌換券資料失敗:', error);
+                showNotification('載入兌換券資料失敗', 'error');
             });
     }
 }
@@ -612,12 +612,12 @@ function saveVoucher(voucherId) {
             loadVouchers();
             loadVoucherStats();
         } else {
-            showNotification(data.message || 'Save failed', 'error');
+            showNotification(data.message || '儲存失敗', 'error');
         }
     })
     .catch(function(error) {
-        console.error('Failed to save voucher:', error);
-        showNotification('Failed to save voucher', 'error');
+        console.error('儲存兌換券失敗:', error);
+        showNotification('儲存兌換券失敗', 'error');
     });
 }
 
@@ -625,7 +625,7 @@ function saveVoucher(voucherId) {
  * Delete voucher
  */
 function deleteVoucher(voucherId) {
-    if (!confirm('Are you sure you want to delete this voucher? This action cannot be undone.')) {
+    if (!confirm('確定要刪除這個兌換券嗎？此操作無法復原。')) {
         return;
     }
 
@@ -640,12 +640,12 @@ function deleteVoucher(voucherId) {
             loadVouchers();
             loadVoucherStats();
         } else {
-            showNotification(data.message || 'Delete failed', 'error');
+            showNotification(data.message || '刪除失敗', 'error');
         }
     })
     .catch(function(error) {
-        console.error('Failed to delete voucher:', error);
-        showNotification('Failed to delete voucher', 'error');
+        console.error('刪除兌換券失敗:', error);
+        showNotification('刪除兌換券失敗', 'error');
     });
 }
 
