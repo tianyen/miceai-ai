@@ -153,6 +153,72 @@ router.get('/stats', authenticateSession, async (req, res) => {
     }
 });
 
+// 匯出追蹤記錄
+router.get('/export', authenticateSession, async (req, res) => {
+    try {
+        const { event, dateFrom, dateTo } = req.query;
+        const userId = req.user.id;
+        const userRole = req.user.role;
+
+        const participants = await trackingRepository.exportParticipants({
+            userId, userRole, event, dateFrom, dateTo
+        });
+
+        // 生成 CSV
+        const headers = ['ID', 'Trace ID', '姓名', 'Email', '電話', '公司', '職位', '報名時間', '報到時間', '活動名稱', '狀態'];
+        const csvRows = [headers.join(',')];
+
+        participants.forEach(p => {
+            const row = [
+                p.id,
+                p.trace_id,
+                `"${(p.submitter_name || '').replace(/"/g, '""')}"`,
+                p.submitter_email || '',
+                p.submitter_phone || '',
+                `"${(p.company_name || '').replace(/"/g, '""')}"`,
+                `"${(p.position || '').replace(/"/g, '""')}"`,
+                p.registration_time || '',
+                p.checkin_time || '',
+                `"${(p.project_name || '').replace(/"/g, '""')}"`,
+                p.status
+            ];
+            csvRows.push(row.join(','));
+        });
+
+        const csv = '\uFEFF' + csvRows.join('\n'); // BOM for Excel UTF-8
+        const filename = `tracking_export_${new Date().toISOString().slice(0, 10)}.csv`;
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(csv);
+    } catch (error) {
+        console.error('Export tracking error:', error);
+        responses.error(res, '匯出追蹤記錄失敗', 500);
+    }
+});
+
+// 取得參與者詳情
+router.get('/participant/:id/details', authenticateSession, async (req, res) => {
+    try {
+        const participantId = req.params.id;
+        const userId = req.user.id;
+        const userRole = req.user.role;
+
+        const participant = await trackingRepository.getParticipantDetails(participantId, {
+            userId, userRole
+        });
+
+        if (!participant) {
+            return responses.error(res, '參與者不存在或無權限', 404);
+        }
+
+        responses.success(res, participant);
+    } catch (error) {
+        console.error('Get participant details error:', error);
+        responses.error(res, '獲取參與者詳情失敗', 500);
+    }
+});
+
 // 搜尋追蹤記錄
 router.get('/search', authenticateSession, async (req, res) => {
     try {

@@ -413,6 +413,51 @@ router.get('/logs/search', authenticateSession, async (req, res) => {
     }
 });
 
+// 日誌匯出 API
+router.get('/logs/export', authenticateSession, async (req, res) => {
+    try {
+        const { dateFrom, dateTo, action, level } = req.query;
+
+        const logs = await logRepository.exportLogs({
+            dateFrom, dateTo, action, level
+        });
+
+        // 生成 CSV
+        const headers = ['ID', '動作', '資源類型', '資源ID', 'IP位址', '等級', '使用者', 'Email', '時間', '詳情'];
+        const csvRows = [headers.join(',')];
+
+        logs.forEach(log => {
+            const details = log.details ? JSON.stringify(log.details).replace(/"/g, '""') : '';
+            const row = [
+                log.id,
+                `"${(log.action || '').replace(/"/g, '""')}"`,
+                `"${(log.resource_type || '').replace(/"/g, '""')}"`,
+                log.resource_id || '',
+                log.ip_address || '',
+                log.level || '',
+                `"${(log.user_name || '系統').replace(/"/g, '""')}"`,
+                log.user_email || '',
+                log.created_at || '',
+                `"${details}"`
+            ];
+            csvRows.push(row.join(','));
+        });
+
+        const csv = '\uFEFF' + csvRows.join('\n'); // BOM for Excel UTF-8
+        const filename = `logs_export_${new Date().toISOString().slice(0, 10)}.csv`;
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(csv);
+    } catch (error) {
+        console.error('匯出日誌失敗:', error);
+        res.status(500).json({
+            success: false,
+            message: '匯出日誌失敗'
+        });
+    }
+});
+
 // 掛載子路由
 router.use('/business-cards', authenticateSession, businessCardsRouter);
 

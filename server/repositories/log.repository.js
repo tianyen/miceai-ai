@@ -213,6 +213,56 @@ class LogRepository extends BaseRepository {
 
         return this.rawAll(sql, params);
     }
+
+    /**
+     * 匯出日誌記錄
+     * @param {Object} options - 匯出選項
+     * @returns {Promise<Array>}
+     */
+    async exportLogs({ dateFrom, dateTo, action, level, limit = 10000 } = {}) {
+        let sql = `
+            SELECT
+                l.id,
+                l.action,
+                l.resource_type,
+                l.resource_id,
+                l.details,
+                l.ip_address,
+                l.level,
+                l.created_at,
+                u.full_name as user_name,
+                u.email as user_email
+            FROM activity_logs l
+            LEFT JOIN users u ON l.user_id = u.id
+            WHERE 1=1
+        `;
+        const params = [];
+
+        if (dateFrom) {
+            sql += ` AND DATE(l.created_at) >= ?`;
+            params.push(dateFrom);
+        }
+
+        if (dateTo) {
+            sql += ` AND DATE(l.created_at) <= ?`;
+            params.push(dateTo);
+        }
+
+        if (action) {
+            sql += ` AND l.action = ?`;
+            params.push(action);
+        }
+
+        if (level) {
+            sql += ` AND l.level = ?`;
+            params.push(level);
+        }
+
+        sql += ` ORDER BY l.created_at DESC LIMIT ?`;
+        params.push(limit);
+
+        return this.rawAll(sql, params);
+    }
 }
 
 // 單例模式
