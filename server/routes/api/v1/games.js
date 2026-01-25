@@ -36,9 +36,10 @@ function getClientIP(req) {
 function handleServiceError(res, error, defaultMessage) {
     console.error(`${defaultMessage}:`, error);
 
-    if (error.errorCode) {
+    if (error.statusCode) {
         // AppError
-        return responses.error(res, error.errorCode.httpStatus || 500, error.message);
+        const message = error.details?.message || error.message || defaultMessage;
+        return responses.error(res, message, error.statusCode);
     }
 
     return responses.serverError(res, defaultMessage);
