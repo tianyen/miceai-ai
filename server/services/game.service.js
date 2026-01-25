@@ -300,6 +300,7 @@ class GameService extends BaseService {
             const voucherResult = await this._processVoucherRedemption({
                 voucherId: binding.voucher_id,
                 sessionId: session.id,
+                boothId: session.booth_id,
                 traceId,
                 finalScore,
                 totalPlayTime
@@ -338,7 +339,7 @@ class GameService extends BaseService {
      * 內部方法：處理兌換券發放
      * @private
      */
-    async _processVoucherRedemption({ voucherId, sessionId, traceId, finalScore, totalPlayTime }) {
+    async _processVoucherRedemption({ voucherId, sessionId, boothId, traceId, finalScore, totalPlayTime }) {
         // 查詢兌換券資訊
         const voucher = await this.gameRepo.findActiveVoucher(voucherId);
 
@@ -388,6 +389,7 @@ class GameService extends BaseService {
                 voucherId: voucher.id,
                 traceId,
                 sessionId,
+                boothId,
                 redemptionCode,
                 qrCodeBase64
             });

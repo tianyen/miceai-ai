@@ -416,14 +416,14 @@ router.get('/logs/search', authenticateSession, async (req, res) => {
 // 日誌匯出 API
 router.get('/logs/export', authenticateSession, async (req, res) => {
     try {
-        const { dateFrom, dateTo, action, level } = req.query;
+        const { dateFrom, dateTo, action } = req.query;
 
         const logs = await logRepository.exportLogs({
-            dateFrom, dateTo, action, level
+            dateFrom, dateTo, action
         });
 
         // 生成 CSV
-        const headers = ['ID', '動作', '資源類型', '資源ID', 'IP位址', '等級', '使用者', 'Email', '時間', '詳情'];
+        const headers = ['ID', '動作', '目標類型', '目標ID', 'IP位址', '使用者', 'Email', '時間', '詳情'];
         const csvRows = [headers.join(',')];
 
         logs.forEach(log => {
@@ -431,10 +431,9 @@ router.get('/logs/export', authenticateSession, async (req, res) => {
             const row = [
                 log.id,
                 `"${(log.action || '').replace(/"/g, '""')}"`,
-                `"${(log.resource_type || '').replace(/"/g, '""')}"`,
-                log.resource_id || '',
+                `"${(log.target_type || '').replace(/"/g, '""')}"`,
+                log.target_id || '',
                 log.ip_address || '',
-                log.level || '',
                 `"${(log.user_name || '系統').replace(/"/g, '""')}"`,
                 log.user_email || '',
                 log.created_at || '',

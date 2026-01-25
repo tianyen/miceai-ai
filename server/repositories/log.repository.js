@@ -175,7 +175,7 @@ class LogRepository extends BaseRepository {
         const params = [];
 
         if (search && search.trim()) {
-            sql += ` AND (l.action LIKE ? OR l.resource_type LIKE ? OR u.full_name LIKE ? OR l.details LIKE ?)`;
+            sql += ` AND (l.action LIKE ? OR l.target_type LIKE ? OR u.full_name LIKE ? OR l.details LIKE ?)`;
             const searchTerm = `%${search.trim()}%`;
             params.push(searchTerm, searchTerm, searchTerm, searchTerm);
         }
@@ -219,20 +219,19 @@ class LogRepository extends BaseRepository {
      * @param {Object} options - 匯出選項
      * @returns {Promise<Array>}
      */
-    async exportLogs({ dateFrom, dateTo, action, level, limit = 10000 } = {}) {
+    async exportLogs({ dateFrom, dateTo, action, limit = 10000 } = {}) {
         let sql = `
             SELECT
                 l.id,
                 l.action,
-                l.resource_type,
-                l.resource_id,
+                l.target_type,
+                l.target_id,
                 l.details,
                 l.ip_address,
-                l.level,
                 l.created_at,
                 u.full_name as user_name,
                 u.email as user_email
-            FROM activity_logs l
+            FROM system_logs l
             LEFT JOIN users u ON l.user_id = u.id
             WHERE 1=1
         `;
@@ -249,13 +248,8 @@ class LogRepository extends BaseRepository {
         }
 
         if (action) {
-            sql += ` AND l.action = ?`;
-            params.push(action);
-        }
-
-        if (level) {
-            sql += ` AND l.level = ?`;
-            params.push(level);
+            sql += ` AND l.action LIKE ?`;
+            params.push(`%${action}%`);
         }
 
         sql += ` ORDER BY l.created_at DESC LIMIT ?`;

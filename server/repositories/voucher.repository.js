@@ -31,7 +31,7 @@ class VoucherRepository extends BaseRepository {
         const { isActive, limit = 100 } = options;
 
         let query = `
-            SELECT id, voucher_name, category, voucher_value, vendor,
+            SELECT id, voucher_name, category, voucher_value, vendor_name,
                    remaining_quantity, total_quantity, is_active, created_at
             FROM vouchers
             WHERE 1=1
@@ -112,7 +112,7 @@ class VoucherRepository extends BaseRepository {
             params.push(traceId);
         }
         if (redeemed !== undefined) {
-            query += ' AND vr.is_redeemed = ?';
+            query += ' AND vr.is_used = ?';
             params.push(redeemed ? 1 : 0);
         }
 
@@ -143,30 +143,29 @@ class VoucherRepository extends BaseRepository {
      */
     async createRedemption(redemptionData) {
         const {
-            voucherId, traceId, userId, sessionId,
+            voucherId, traceId, sessionId, boothId,
             redemptionCode, qrCodeBase64
         } = redemptionData;
 
         return this.db.run(`
             INSERT INTO voucher_redemptions (
-                voucher_id, trace_id, user_id, session_id,
-                redemption_code, qr_code_base64, is_redeemed, created_at
+                voucher_id, trace_id, session_id, booth_id,
+                redemption_code, qr_code_base64, is_used, redeemed_at
             ) VALUES (?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
-        `, [voucherId, traceId, userId, sessionId, redemptionCode, qrCodeBase64]);
+        `, [voucherId, traceId, sessionId, boothId, redemptionCode, qrCodeBase64]);
     }
 
     /**
-     * 標記已兌換
+     * 標記已使用
      * @param {string} redemptionCode - 兌換碼
-     * @param {number} redeemedBy - 兌換者 ID
      * @returns {Promise<Object>}
      */
-    async markRedeemed(redemptionCode, redeemedBy) {
+    async markRedeemed(redemptionCode) {
         return this.db.run(`
             UPDATE voucher_redemptions
-            SET is_redeemed = 1, redeemed_at = CURRENT_TIMESTAMP, redeemed_by = ?
-            WHERE redemption_code = ? AND is_redeemed = 0
-        `, [redeemedBy, redemptionCode]);
+            SET is_used = 1, used_at = CURRENT_TIMESTAMP
+            WHERE redemption_code = ? AND is_used = 0
+        `, [redemptionCode]);
     }
 
     /**
@@ -187,7 +186,7 @@ class VoucherRepository extends BaseRepository {
         const redemptionStats = await this.db.get(`
             SELECT
                 COUNT(*) as total_issued,
-                COUNT(CASE WHEN is_redeemed = 1 THEN 1 END) as total_redeemed
+                COUNT(CASE WHEN is_used = 1 THEN 1 END) as total_redeemed
             FROM voucher_redemptions
         `);
 
