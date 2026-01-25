@@ -324,7 +324,9 @@ router.post('/', authenticateSession, [
     body('category').optional().trim(),
     body('total_quantity').isInt({ min: 0 }).withMessage('總數量必須為非負整數'),
     body('voucher_value').optional().trim(),
-    body('description').optional().trim()
+    body('description').optional().trim(),
+    body('min_score').optional().isInt({ min: 0 }).withMessage('最低分數必須為非負整數'),
+    body('min_play_time').optional().isInt({ min: 0 }).withMessage('最低遊玩時間必須為非負整數')
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -401,7 +403,9 @@ router.put('/:id', authenticateSession, [
     body('total_quantity').optional().isInt({ min: 0 }).withMessage('總數量必須為非負整數'),
     body('voucher_value').optional().trim(),
     body('description').optional().trim(),
-    body('is_active').optional().isBoolean().withMessage('is_active 必須為布林值')
+    body('is_active').optional().isBoolean().withMessage('is_active 必須為布林值'),
+    body('min_score').optional().isInt({ min: 0 }).withMessage('最低分數必須為非負整數'),
+    body('min_play_time').optional().isInt({ min: 0 }).withMessage('最低遊玩時間必須為非負整數')
 ], async (req, res) => {
     try {
         const errors = validationResult(req);

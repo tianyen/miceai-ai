@@ -105,7 +105,9 @@ class VoucherService extends BaseService {
             total_quantity,
             description,
             is_active = 1,
-            created_by
+            created_by,
+            min_score = 0,
+            min_play_time = 0
         } = data;
 
         if (!voucher_name) {
@@ -126,9 +128,18 @@ class VoucherService extends BaseService {
             created_by
         });
 
-        const voucher = await this.repository.findById(result.lastID);
+        const voucherId = result.lastID;
 
-        this.log('create', { voucher_id: result.lastID, voucher_name, total_quantity });
+        // 創建兌換券條件
+        await this.repository.createVoucherConditions({
+            voucher_id: voucherId,
+            min_score,
+            min_play_time
+        });
+
+        const voucher = await this.repository.findVoucherByIdWithConditions(voucherId);
+
+        this.log('create', { voucher_id: voucherId, voucher_name, total_quantity, min_score, min_play_time });
 
         return { voucher };
     }
@@ -152,7 +163,18 @@ class VoucherService extends BaseService {
             data.remaining_quantity = voucher.remaining_quantity + diff;
         }
 
-        await this.repository.updateVoucher(voucherId, data);
+        // 分離 voucher 和 voucher_conditions 的資料
+        const { min_score, min_play_time, ...voucherData } = data;
+
+        await this.repository.updateVoucher(voucherId, voucherData);
+
+        // 更新兌換券條件（使用 upsert）
+        if (min_score !== undefined || min_play_time !== undefined) {
+            await this.repository.upsertVoucherConditions(voucherId, {
+                min_score: min_score ?? 0,
+                min_play_time: min_play_time ?? 0
+            });
+        }
 
         const updatedVoucher = await this.repository.findVoucherByIdWithConditions(voucherId);
 

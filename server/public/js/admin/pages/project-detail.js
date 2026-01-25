@@ -1318,6 +1318,7 @@ function toggleBusinessCardStatus(cardId, currentStatus) {
         $.ajax({
             url: `/api/admin/business-cards/${cardId}/status`,
             method: 'PATCH',
+            headers: { 'X-CSRF-Token': getCsrfToken() },
             data: { is_active: !currentStatus },
             success: function(response) {
                 if (response.success) {

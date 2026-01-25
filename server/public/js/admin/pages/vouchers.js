@@ -599,7 +599,8 @@ function saveVoucher(voucherId) {
     fetch(url, {
         method: method,
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCsrfToken()
         },
         body: JSON.stringify(formData)
     })

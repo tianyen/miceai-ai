@@ -542,6 +542,84 @@ class VoucherRepository extends BaseRepository {
     }
 
     // ============================================================================
+    // 兌換券條件 (voucher_conditions)
+    // ============================================================================
+
+    /**
+     * 查詢兌換券條件
+     * @param {number} voucherId - 兌換券 ID
+     * @returns {Promise<Object|null>}
+     */
+    async findConditionsByVoucherId(voucherId) {
+        return this.db.get(
+            'SELECT * FROM voucher_conditions WHERE voucher_id = ?',
+            [voucherId]
+        );
+    }
+
+    /**
+     * 新增兌換券條件
+     * @param {Object} data - 條件資料
+     * @returns {Promise<Object>}
+     */
+    async createVoucherConditions({ voucher_id, min_score = 0, min_play_time = 0, other_conditions = null }) {
+        return this.db.run(
+            `INSERT INTO voucher_conditions (voucher_id, min_score, min_play_time, other_conditions)
+             VALUES (?, ?, ?, ?)`,
+            [voucher_id, min_score, min_play_time, other_conditions]
+        );
+    }
+
+    /**
+     * 更新兌換券條件
+     * @param {number} voucherId - 兌換券 ID
+     * @param {Object} data - 條件資料
+     * @returns {Promise<Object>}
+     */
+    async updateVoucherConditions(voucherId, { min_score, min_play_time, other_conditions }) {
+        const updates = [];
+        const params = [];
+
+        if (min_score !== undefined) {
+            updates.push('min_score = ?');
+            params.push(min_score);
+        }
+        if (min_play_time !== undefined) {
+            updates.push('min_play_time = ?');
+            params.push(min_play_time);
+        }
+        if (other_conditions !== undefined) {
+            updates.push('other_conditions = ?');
+            params.push(other_conditions);
+        }
+
+        if (updates.length > 0) {
+            params.push(voucherId);
+            return this.db.run(
+                `UPDATE voucher_conditions SET ${updates.join(', ')} WHERE voucher_id = ?`,
+                params
+            );
+        }
+        return { changes: 0 };
+    }
+
+    /**
+     * 新增或更新兌換券條件 (upsert)
+     * @param {number} voucherId - 兌換券 ID
+     * @param {Object} data - 條件資料
+     * @returns {Promise<Object>}
+     */
+    async upsertVoucherConditions(voucherId, { min_score = 0, min_play_time = 0, other_conditions = null }) {
+        const existing = await this.findConditionsByVoucherId(voucherId);
+
+        if (existing) {
+            return this.updateVoucherConditions(voucherId, { min_score, min_play_time, other_conditions });
+        } else {
+            return this.createVoucherConditions({ voucher_id: voucherId, min_score, min_play_time, other_conditions });
+        }
+    }
+
+    // ============================================================================
     // 掃描和兌換
     // ============================================================================
 

@@ -168,26 +168,26 @@ async function seed() {
         runSQL(`
             INSERT INTO voucher_conditions (voucher_id, min_score, min_play_time, other_conditions)
             VALUES (?, ?, ?, ?)
-        `, [voucher1Id, 500, 300, JSON.stringify({ max_attempts: 3 })]);
-        console.log(`✅ 星巴克咖啡券條件: 分數 >= 500, 時間 >= 300 秒`);
+        `, [voucher1Id, 10, 5, JSON.stringify({ max_attempts: 3 })]);
+        console.log(`✅ 星巴克咖啡券條件: 分數 >= 10, 時間 >= 5 秒`);
 
         runSQL(`
             INSERT INTO voucher_conditions (voucher_id, min_score, min_play_time, other_conditions)
             VALUES (?, ?, ?, ?)
-        `, [voucher2Id, 800, 600, JSON.stringify({ max_attempts: 2 })]);
-        console.log(`✅ 誠品書店禮券條件: 分數 >= 800, 時間 >= 600 秒`);
+        `, [voucher2Id, 20, 10, JSON.stringify({ max_attempts: 2 })]);
+        console.log(`✅ 誠品書店禮券條件: 分數 >= 20, 時間 >= 10 秒`);
 
         runSQL(`
             INSERT INTO voucher_conditions (voucher_id, min_score, min_play_time, other_conditions)
             VALUES (?, ?, ?, ?)
-        `, [voucher3Id, 1000, 900, JSON.stringify({ max_attempts: 1 })]);
-        console.log(`✅ 電影票券條件: 分數 >= 1000, 時間 >= 900 秒`);
+        `, [voucher3Id, 30, 15, JSON.stringify({ max_attempts: 1 })]);
+        console.log(`✅ 電影票券條件: 分數 >= 30, 時間 >= 15 秒`);
 
         runSQL(`
             INSERT INTO voucher_conditions (voucher_id, min_score, min_play_time, other_conditions)
             VALUES (?, ?, ?, ?)
-        `, [voucher4Id, 300, 180, JSON.stringify({ max_attempts: 5 })]);
-        console.log(`✅ 便利商店禮券條件: 分數 >= 300, 時間 >= 180 秒`);
+        `, [voucher4Id, 5, 3, JSON.stringify({ max_attempts: 5 })]);
+        console.log(`✅ 便利商店禮券條件: 分數 >= 5, 時間 >= 3 秒`);
 
         // 4. 新增攤位資料（如果 booths 表存在）
         console.log('\n🏪 新增攤位資料...');
