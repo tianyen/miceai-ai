@@ -257,6 +257,7 @@ router.patch('/users/:id/status', authenticateSession, userController.updateUser
 
 // Submission APIs - 更具體的路由必須在更通用的路由之前
 router.get('/submissions/stats', authenticateSession, submissionController.getSubmissionStats);
+router.get('/submissions/search', authenticateSession, submissionController.searchSubmissions);
 router.get('/submissions/pagination', authenticateSession, submissionController.getSubmissionsPagination); // 分頁端點
 router.get('/submissions/export', authenticateSession, submissionController.exportSubmissions);
 // 便捷狀態更新端點

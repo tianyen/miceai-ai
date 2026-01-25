@@ -102,6 +102,30 @@ class SubmissionController {
         }
     }
 
+    /**
+     * 搜尋提交記錄
+     */
+    async searchSubmissions(req, res) {
+        try {
+            const { search, 'project-filter': projectFilter, 'status-filter': statusFilter } = req.query;
+            const submissions = await submissionService.search({
+                search,
+                projectId: projectFilter,
+                status: statusFilter,
+                limit: 50
+            });
+
+            const html = submissions.length === 0
+                ? vh.emptyTableRow('無符合條件的表單提交記錄', 9)
+                : submissions.map(s => vh.submissionTableRow(s)).join('');
+
+            res.send(html);
+        } catch (error) {
+            console.error('Search submissions error:', error);
+            res.send(vh.errorTableRow('搜尋失敗', 9));
+        }
+    }
+
     // ============================================================================
     // 詳情
     // ============================================================================
