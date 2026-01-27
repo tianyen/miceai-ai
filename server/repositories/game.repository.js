@@ -731,6 +731,7 @@ class GameRepository extends BaseRepository {
                 fs.company_name,
                 fs.submitter_phone,
                 fs.position,
+                fs.status,
                 fs.project_id,
                 p.project_name,
                 fs.created_at as registration_time,

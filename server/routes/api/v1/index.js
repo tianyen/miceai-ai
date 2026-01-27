@@ -17,6 +17,7 @@ const businessCardsRouter = require('./business-cards');
 const gamesRouter = require('./games');
 const vouchersRouter = require('./vouchers');
 const wishTreeRouter = require('./wish-tree');
+const usersRouter = require('./users');
 
 // V1 API 日誌中間件（記錄所有 GET query 和 POST body）
 router.use(v1ApiLogger);
@@ -37,7 +38,8 @@ router.get('/', (req, res) => {
                 business_cards: '/api/v1/business-cards',
                 games: '/api/v1/games',
                 vouchers: '/api/v1/vouchers',
-                wish_tree: '/api/v1/wish-tree'
+                wish_tree: '/api/v1/wish-tree',
+                users: '/api/v1/users'
             },
             documentation: '/api-docs',
             status: 'active'
@@ -67,6 +69,7 @@ router.use('/business-cards', businessCardsRouter);
 router.use('/games', gamesRouter);
 router.use('/vouchers', vouchersRouter);
 router.use('/wish-tree', wishTreeRouter);
+router.use('/users', usersRouter);
 
 // 404 處理
 router.use('*', (req, res) => {
@@ -108,7 +111,11 @@ router.use('*', (req, res) => {
                 'POST /api/v1/wish-tree/submit',
                 'GET /api/v1/wish-tree/stats',
                 'GET /api/v1/wish-tree/recent',
-                'GET /api/v1/wish-tree/wish/:wishId'
+                'GET /api/v1/wish-tree/wish/:wishId',
+                // Users (3)
+                'GET /api/v1/users/email/:email',
+                'GET /api/v1/users/:traceId',
+                'GET /api/v1/users/:traceId/journey'
             ]
         }
     });

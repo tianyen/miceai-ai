@@ -29,6 +29,31 @@ class SubmissionRepository extends BaseRepository {
     }
 
     /**
+     * 依 email 查詢用戶（V1 API 用）
+     * @param {string} email - 電子郵件
+     * @returns {Promise<Array>}
+     */
+    async findByEmail(email) {
+        const sql = `
+            SELECT
+                fs.id,
+                fs.trace_id,
+                fs.submitter_name,
+                fs.submitter_email,
+                fs.project_id,
+                p.project_name,
+                p.project_code,
+                fs.status,
+                fs.created_at
+            FROM form_submissions fs
+            LEFT JOIN event_projects p ON fs.project_id = p.id
+            WHERE LOWER(fs.submitter_email) = LOWER(?)
+            ORDER BY fs.created_at DESC
+        `;
+        return this.rawAll(sql, [email]);
+    }
+
+    /**
      * 取得提交記錄（含專案資訊與團體資訊）
      * @param {number} submissionId - 提交 ID
      * @returns {Promise<Object|null>}

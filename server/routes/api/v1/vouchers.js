@@ -13,6 +13,19 @@ const { validateTraceId } = require('../../../utils/traceId');
 
 /**
  * @swagger
+ * tags:
+ *   name: Vouchers (兌換券)
+ *   description: |
+ *     兌換券查詢 API - 提供用戶兌換券查詢功能
+ *
+ *     **使用流程**：
+ *     1. 用戶完成遊戲後獲得兌換券
+ *     2. 透過 trace_id 查詢所有兌換券: `GET /vouchers/my?trace_id=xxx`
+ *     3. 兌換券包含 QR Code 供現場兌換實體商品
+ */
+
+/**
+ * @swagger
  * /api/v1/vouchers/my:
  *   get:
  *     summary: 查詢用戶的兌換券

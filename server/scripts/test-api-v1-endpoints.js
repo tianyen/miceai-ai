@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * API v1 端點完整性測試腳本
- * 測試所有 14 個 API v1 端點是否正常工作
+ * 測試所有 17 個 API v1 端點是否正常工作
  */
 
 require('dotenv').config();
@@ -299,6 +299,100 @@ async function runTests() {
     // await testEndpoint('POST /api/v1/wish-tree/submit - 提交許願', async () => {
     //     // 需要實際提交，暫時跳過
     // });
+
+    console.log('\n📋 測試 Users API (3 個端點)\n');
+
+    // 測試用戶 email（從 form_submissions 取得）
+    const testUserEmail = 'wang@example.com';
+
+    // 17. GET /api/v1/users/email/{email}
+    await testEndpoint('GET /api/v1/users/email/{email} - 透過 email 查詢 trace_id', async () => {
+        const submissions = await query(
+            `SELECT fs.id, fs.trace_id, fs.submitter_name, fs.submitter_email, fs.project_id,
+                    p.project_name, p.project_code, fs.status, fs.created_at
+             FROM form_submissions fs
+             LEFT JOIN event_projects p ON fs.project_id = p.id
+             WHERE LOWER(fs.submitter_email) = LOWER(?)
+             ORDER BY fs.created_at DESC`,
+            [testUserEmail]
+        );
+        if (submissions.length === 0) throw new Error('找不到 email 對應的報名記錄');
+        if (!submissions[0].trace_id) throw new Error('報名記錄缺少 trace_id');
+        if (submissions[0].trace_id !== TEST_TRACE_IDS.user1) {
+            throw new Error(`trace_id 不符，預期 ${TEST_TRACE_IDS.user1}，實際 ${submissions[0].trace_id}`);
+        }
+    });
+
+    // 18. GET /api/v1/users/{traceId}
+    await testEndpoint('GET /api/v1/users/{traceId} - 透過 trace_id 查詢基本資料', async () => {
+        const user = await get(
+            `SELECT fs.id, fs.trace_id, fs.submitter_name, fs.submitter_email,
+                    fs.submitter_phone, fs.company_name, fs.position,
+                    fs.project_id, p.project_name, p.project_code,
+                    fs.status, fs.created_at,
+                    cr.checkin_time, cr.scanned_by
+             FROM form_submissions fs
+             LEFT JOIN event_projects p ON fs.project_id = p.id
+             LEFT JOIN checkin_records cr ON fs.trace_id = cr.trace_id
+             WHERE fs.trace_id = ?`,
+            [TEST_TRACE_IDS.user1]
+        );
+        if (!user) throw new Error('找不到 trace_id 對應的用戶');
+        if (!user.submitter_name) throw new Error('用戶名稱為空');
+        if (!user.submitter_email) throw new Error('用戶 email 為空');
+        if (!user.project_id) throw new Error('缺少 project_id');
+    });
+
+    // 19. GET /api/v1/users/{traceId}/journey
+    await testEndpoint('GET /api/v1/users/{traceId}/journey - 查詢用戶完整旅程', async () => {
+        // 驗證基本報名資料
+        const user = await get(
+            'SELECT * FROM form_submissions WHERE trace_id = ?',
+            [TEST_TRACE_IDS.user1]
+        );
+        if (!user) throw new Error('找不到用戶報名記錄');
+
+        // 驗證報到記錄
+        const checkin = await get(
+            'SELECT * FROM checkin_records WHERE trace_id = ?',
+            [TEST_TRACE_IDS.user1]
+        );
+        if (!checkin) throw new Error('找不到報到記錄');
+        if (!checkin.checkin_time) throw new Error('報到時間為空');
+
+        // 驗證遊戲記錄
+        const gameSessions = await query(
+            `SELECT gs.*, g.game_name_zh, g.game_name_en, b.booth_name
+             FROM game_sessions gs
+             JOIN games g ON gs.game_id = g.id
+             LEFT JOIN booths b ON gs.booth_id = b.id
+             WHERE gs.trace_id = ?
+             ORDER BY gs.session_start DESC`,
+            [TEST_TRACE_IDS.user1]
+        );
+        if (gameSessions.length === 0) throw new Error('找不到遊戲記錄');
+
+        const gameSession = gameSessions[0];
+        if (!gameSession.game_name_zh) throw new Error('遊戲名稱為空');
+        if (gameSession.final_score === undefined) throw new Error('遊戲分數為空');
+
+        // 驗證兌換券記錄
+        const redemptions = await query(
+            `SELECT vr.*, v.voucher_name, v.category
+             FROM voucher_redemptions vr
+             LEFT JOIN vouchers v ON vr.voucher_id = v.id
+             WHERE vr.trace_id = ?
+             ORDER BY vr.redeemed_at DESC`,
+            [TEST_TRACE_IDS.user1]
+        );
+        if (redemptions.length === 0) throw new Error('找不到兌換券記錄');
+
+        const redemption = redemptions[0];
+        if (!redemption.redemption_code) throw new Error('兌換碼為空');
+        if (!redemption.redemption_code.startsWith('GAME-')) {
+            throw new Error('兌換碼格式錯誤');
+        }
+    });
 
     // 顯示測試結果
     console.log('\n' + '='.repeat(80));

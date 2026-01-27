@@ -27,6 +27,8 @@ const templateService = require('./template.service');
 const userService = require('./user.service');
 const wishTreeService = require('./wish-tree.service');
 const emailService = require('./email.service');
+const userQueryService = require('./user-query.service');
+const trackingService = require('./tracking.service');
 
 module.exports = {
     authService,
@@ -47,5 +49,7 @@ module.exports = {
     templateService,
     userService,
     wishTreeService,
-    emailService
+    emailService,
+    userQueryService,
+    trackingService
 };

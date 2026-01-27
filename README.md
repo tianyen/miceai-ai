@@ -1,6 +1,6 @@
-# MICE AI Backend
+# MICE AI Backend v1.0.0
 
-> Version: **v1.0** · Last updated: 2025-12-23
+> Version: **v1.0.0** · Last updated: 2026-01-28
 
 專業的 MICE (會議、獎勵旅遊、大型會議、展覽) 活動管理系統後端，提供完整的活動管理、報名系統、遊戲室、問卷、許願樹等功能。
 
@@ -165,6 +165,8 @@ server/
 │   ├── admin/          # 後台管理路由
 │   ├── api/v1/         # 前端 API (Swagger 文檔)
 │   └── api/admin/      # 後台 API
+├── services/           # 業務邏輯層 ⭐
+├── repositories/       # 資料存取層 ⭐
 ├── views/admin/        # 後台 Handlebars 模板
 ├── public/             # 靜態文件
 ├── scripts/            # 工具腳本
@@ -175,6 +177,281 @@ server/
 │   └── mice_ai.db      # SQLite 資料庫文件
 ├── logs/               # 日誌文件
 └── .env                # 環境變數配置
+```
+
+## 🏗️ 系統架構
+
+### 三層架構模式
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        A[Frontend / Mobile App]
+        B[Swagger UI]
+    end
+
+    subgraph "Route Layer - HTTP 處理"
+        C[routes/api/v1/*.js]
+        D[routes/api/admin/*.js]
+    end
+
+    subgraph "Service Layer - 業務邏輯"
+        E[services/*.service.js]
+    end
+
+    subgraph "Repository Layer - 資料存取"
+        F[repositories/*.repository.js]
+    end
+
+    subgraph "Database"
+        G[(SQLite - mice_ai.db)]
+    end
+
+    A --> C
+    B --> C
+    A --> D
+    C --> E
+    D --> E
+    E --> F
+    F --> G
+```
+
+### V1 API 架構對照表
+
+| Route 檔案 | Service | Repository | 說明 |
+|-----------|---------|------------|------|
+| `business-cards.js` | businessCardService | businessCardRepository | QR Code 名片 |
+| `checkin.js` | checkinService | checkinRepository | 報到管理 |
+| `events.js` | eventService | eventRepository | 活動管理 |
+| `games.js` | gameService | gameRepository | 遊戲管理 |
+| `registrations.js` | registrationService | submissionRepository | 報名管理 |
+| `users.js` | userQueryService | submission/game/voucher | 用戶查詢 |
+| `vouchers.js` | voucherService | voucherRepository | 兌換券 |
+| `wish-tree.js` | wishTreeService | wishTreeRepository | 許願樹 |
+
+### 層級職責
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Route Layer (routes/api/v1/*.js)                           │
+│  ├── HTTP 請求/回應處理                                      │
+│  ├── 參數驗證 (express-validator)                           │
+│  ├── 回應格式化 (responses.success/badRequest/serverError)  │
+│  └── Swagger 文件註解                                        │
+├─────────────────────────────────────────────────────────────┤
+│  Service Layer (services/*.service.js)                       │
+│  ├── 業務邏輯封裝                                            │
+│  ├── 多 Repository 資料組合                                  │
+│  ├── 時間格式化 (formatGMT8Time)                            │
+│  └── 回傳格式: { found: bool, data: {} }                    │
+├─────────────────────────────────────────────────────────────┤
+│  Repository Layer (repositories/*.repository.js)             │
+│  ├── SQL 查詢封裝                                            │
+│  ├── 資料表 CRUD 操作                                        │
+│  └── 繼承 BaseRepository                                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 📊 Sequence Diagrams
+
+### 1. 用戶報名流程
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant R as Route (registrations.js)
+    participant S as Service (registrationService)
+    participant Repo as Repository
+    participant DB as SQLite
+    participant Email as EmailService
+
+    C->>R: POST /api/v1/events/{eventId}/registrations
+    R->>R: 參數驗證 (express-validator)
+    R->>S: submitRegistration(eventId, data)
+    S->>Repo: findEventById(eventId)
+    Repo->>DB: SELECT * FROM event_projects
+    DB-->>Repo: event data
+    Repo-->>S: event
+
+    alt 活動不存在或已額滿
+        S-->>R: { success: false, error }
+        R-->>C: 400 Bad Request
+    end
+
+    S->>Repo: createSubmission(data)
+    Repo->>DB: INSERT INTO form_submissions
+    DB-->>Repo: submission_id
+
+    S->>Repo: generateQRCode(trace_id)
+    Repo->>DB: INSERT INTO qr_codes
+
+    S->>Email: sendInvitationEmail(user)
+    Email-->>S: sent
+
+    S-->>R: { success: true, data: { trace_id, qr_code } }
+    R-->>C: 200 OK + JSON Response
+```
+
+### 2. 用戶查詢旅程流程
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant R as Route (users.js)
+    participant S as Service (userQueryService)
+    participant GR as gameRepository
+    participant VR as voucherRepository
+    participant DB as SQLite
+
+    C->>R: GET /api/v1/users/{traceId}/journey
+    R->>R: 驗證 trace_id 格式
+    R->>S: getUserJourney(traceId)
+
+    par 並行查詢
+        S->>GR: findUserInfoByTraceId(traceId)
+        GR->>DB: SELECT form_submissions + checkin_records
+        DB-->>GR: userInfo
+
+        S->>GR: findUserGameSessions(traceId)
+        GR->>DB: SELECT game_sessions + games
+        DB-->>GR: gameSessions[]
+
+        S->>VR: findAllRedemptionsByTraceId(traceId)
+        VR->>DB: SELECT voucher_redemptions + vouchers
+        DB-->>VR: redemptions[]
+    end
+
+    S->>S: _buildTimeline(userInfo, games, vouchers)
+    S->>S: _buildSummary(games, vouchers)
+    S-->>R: { found: true, data: { user, timeline, summary } }
+    R-->>C: 200 OK + Journey Data
+```
+
+### 3. 遊戲會話與兌換券流程
+
+```mermaid
+sequenceDiagram
+    participant C as Game Client
+    participant R as Route (games.js)
+    participant S as Service (gameService)
+    participant GR as gameRepository
+    participant VR as voucherRepository
+    participant DB as SQLite
+
+    Note over C,DB: 1. 開始遊戲
+    C->>R: POST /api/v1/games/{gameId}/sessions/start
+    R->>S: startSession(gameId, traceId, boothId)
+    S->>GR: findGameBinding(gameId, boothId)
+    GR->>DB: SELECT booth_games
+    S->>GR: createSession(data)
+    GR->>DB: INSERT INTO game_sessions
+    S-->>R: { session_id }
+    R-->>C: 200 OK
+
+    Note over C,DB: 2. 遊戲中記錄日誌
+    loop 遊戲進行中
+        C->>R: POST /api/v1/games/{gameId}/logs
+        R->>S: recordLog(sessionId, logData)
+        S->>GR: insertLog(data)
+        GR->>DB: INSERT INTO game_logs
+        S-->>R: { success: true }
+        R-->>C: 200 OK
+    end
+
+    Note over C,DB: 3. 結束遊戲
+    C->>R: POST /api/v1/games/{gameId}/sessions/end
+    R->>S: endSession(sessionId, score, result)
+    S->>GR: updateSession(sessionId, data)
+    GR->>DB: UPDATE game_sessions
+
+    alt 遊戲獲勝 (score >= threshold)
+        S->>VR: assignVoucher(traceId, gameId)
+        VR->>DB: SELECT vouchers WHERE remaining > 0
+        VR->>DB: INSERT INTO voucher_redemptions
+        VR->>DB: UPDATE vouchers SET remaining_quantity--
+        VR-->>S: { voucher, redemption_code, qr_code }
+        S-->>R: { won: true, voucher }
+    else 未達標準
+        S-->>R: { won: false }
+    end
+    R-->>C: 200 OK + Result
+```
+
+### 4. 報到流程
+
+```mermaid
+sequenceDiagram
+    participant Scanner as QR Scanner
+    participant R as Route (checkin.js)
+    participant S as Service (checkinService)
+    participant Repo as Repository
+    participant DB as SQLite
+
+    Scanner->>R: POST /api/v1/check-in
+    Note right of R: Body: { qr_data, scanner_location }
+
+    R->>R: 解析 QR Code 內容
+    R->>S: processCheckin(traceId, location)
+
+    S->>Repo: findByTraceId(traceId)
+    Repo->>DB: SELECT * FROM form_submissions
+    DB-->>Repo: submission
+
+    alt 找不到報名記錄
+        S-->>R: { success: false, error: 'NOT_FOUND' }
+        R-->>Scanner: 404 Not Found
+    end
+
+    S->>Repo: findCheckinRecord(traceId)
+    Repo->>DB: SELECT * FROM checkin_records
+
+    alt 已經報到過
+        S-->>R: { success: false, error: 'ALREADY_CHECKED_IN' }
+        R-->>Scanner: 400 Already Checked In
+    end
+
+    S->>Repo: createCheckinRecord(data)
+    Repo->>DB: INSERT INTO checkin_records
+    DB-->>Repo: checkin_id
+
+    S-->>R: { success: true, data: { checkin_time, attendee } }
+    R-->>Scanner: 200 OK + Attendee Info
+```
+
+### 5. 兌換券使用流程
+
+```mermaid
+sequenceDiagram
+    participant Vendor as 廠商掃描器
+    participant Admin as Admin API
+    participant S as Service (voucherService)
+    participant Repo as voucherRepository
+    participant DB as SQLite
+
+    Vendor->>Admin: POST /api/admin/vouchers/redeem
+    Note right of Admin: Body: { redemption_code }
+
+    Admin->>S: redeemVoucher(redemptionCode, vendorId)
+    S->>Repo: findByRedemptionCode(code)
+    Repo->>DB: SELECT * FROM voucher_redemptions
+    DB-->>Repo: redemption
+
+    alt 找不到兌換券
+        S-->>Admin: { success: false, error: 'NOT_FOUND' }
+        Admin-->>Vendor: 404 Not Found
+    end
+
+    alt 已經使用過
+        S-->>Admin: { success: false, error: 'ALREADY_USED' }
+        Admin-->>Vendor: 400 Already Used
+    end
+
+    S->>Repo: markAsUsed(redemptionId, vendorId)
+    Repo->>DB: UPDATE voucher_redemptions SET is_used=1, used_at=NOW()
+    DB-->>Repo: updated
+
+    S-->>Admin: { success: true, data: { voucher_name, user_name } }
+    Admin-->>Vendor: 200 OK + Redemption Confirmed
 ```
 
 ## 🎯 核心功能
@@ -197,7 +474,7 @@ server/
 **V1 API 詳細文檔**: [`server/docs/v1-api.md`](server/docs/v1-api.md)
 
 主要 API 端點：
-- `/api/v1/*` - 前端 API（25 個端點，完整 Swagger 文檔）
+- `/api/v1/*` - 前端 API（28 個端點，完整 Swagger 文檔）
   - Check-in: 報到管理（2 個端點）
   - Events: 活動管理（3 個端點）
     - `GET /events` - 活動列表
@@ -213,6 +490,8 @@ server/
     - `GET /qr-codes/{traceId}/data` - QR Code Base64 數據
     - `POST /verify-pass-code` - 驗證通行碼
   - Games: 遊戲管理（4 個端點）
+  - Vouchers: 兌換券查詢（1 個端點）
+    - `GET /vouchers/my` - 查詢用戶兌換券
   - Business Cards: 名片管理（3 個端點）
     - `POST /business-cards` - 創建名片
     - `GET /business-cards/:cardId` - 名片詳情
@@ -222,6 +501,10 @@ server/
     - `GET /wish-tree/stats` - 統計數據
     - `GET /wish-tree/recent` - 最近許願記錄
     - `GET /wish-tree/wish/:wishId` - 單一許願詳情（含圖片）
+  - 🆕 **Users: 用戶查詢（3 個端點）**
+    - `GET /users/email/{email}` - 透過 Email 查詢 trace_id
+    - `GET /users/{traceId}` - 查詢用戶基本資料
+    - `GET /users/{traceId}/journey` - 查詢用戶完整旅程
 - `/api/admin/*` - 後台管理 API（18+ 個端點）
   - Dashboard: 儀表板統計（4 個端點）
   - Email Management: 郵件管理（4 個端點）
@@ -231,7 +514,7 @@ server/
 - `/business-card/:traceId` - QR Code 名片展示
 
 測試數據（與 Swagger 範例一致）：
-- 測試報名用戶：王大明 (registration_id: 3, trace_id: `MICE-05207cf7-199967c04`)
+- 測試報名用戶：王大明 (registration_id: 1, trace_id: `MICE-d074dd3e-e3e27b6b0`, email: `wang@example.com`)
 - 測試專案：TECH2024 (project_id: 1)
 - 測試攤位：BOOTH-A1 (booth_id: 4)
 - 測試遊戲：幸運飛鏢 (game_id: 2)
@@ -499,6 +782,18 @@ pm2 startup
 **維護者**: MICE-AI Team
 
 ### 更新日誌
+
+#### 2026-01-28
+- 新增：Users API (`/api/v1/users`) - 用戶查詢功能
+  - `GET /users/email/{email}` - 透過 Email 查詢 trace_id
+  - `GET /users/{traceId}` - 透過 trace_id 查詢基本資料
+  - `GET /users/{traceId}/journey` - 查詢用戶完整旅程（報名→報到→遊戲→兌換券）
+- 新增：`user-query.service.js` - V1 用戶查詢 Service（與 admin user.service.js 區分）
+- 新增：`tracking.service.js` - 包裝 trackingRepository
+- 新增：README 架構圖和 Sequence Diagrams（Mermaid 格式）
+- 重構：`users.js` 改用 Service 層，移除直接 Repository 存取
+- 優化：`vouchers.js` 補充 Swagger tags 定義
+- 文件：更新 V1 API 架構對照表
 
 #### 2025-12-23
 - 新增：郵件發送 Logger 記錄（報名確認信重寄、行前通知發送）
