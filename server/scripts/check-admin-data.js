@@ -136,13 +136,15 @@ function checkAdminData() {
         });
 
         console.log('✅ 後台資料檢查完成！所有資料都能正確顯示。');
+        return true;
 
     } catch (error) {
         console.error('❌ 檢查失敗:', error);
+        return false;
     } finally {
         db.close();
     }
 }
 
-checkAdminData();
-
+const ok = checkAdminData();
+process.exit(ok ? 0 : 1);

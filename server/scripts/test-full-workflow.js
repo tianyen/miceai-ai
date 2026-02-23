@@ -53,6 +53,9 @@ async function testFullWorkflow() {
             `SELECT * FROM form_submissions WHERE trace_id = ?`,
             [traceId]
         );
+        if (!registration) {
+            throw new Error(`找不到測試報名資料: trace_id=${traceId}`);
+        }
         // registration.id 就是 API 返回的 registration_id 和 user_id
         const userId = registration.id;
         console.log(`   ✅ 報名 ID: ${registration.id}, 姓名: ${registration.submitter_name}`);
@@ -189,13 +192,19 @@ async function testFullWorkflow() {
         }
 
         console.log('✅ 完整業務流程測試通過！');
+        return true;
 
     } catch (error) {
         console.error('❌ 測試失敗:', error);
+        return false;
     } finally {
         db.close();
     }
 }
 
-testFullWorkflow();
-
+testFullWorkflow()
+    .then(ok => process.exit(ok ? 0 : 1))
+    .catch(error => {
+        console.error('❌ 測試失敗:', error);
+        process.exit(1);
+    });

@@ -1,872 +1,155 @@
-# MICE AI Backend v1.0.0
+# MICE-AI Backend
 
-> Version: **v1.0.0** · Last updated: 2026-01-28
+Node.js + Express + SQLite 的活動互動後端，支援：
+- 活動報名 / 報到 / QR Code
+- 攤位遊戲與兌換券
+- Admin 後台管理
+- V1 前端 API（Swagger）
 
-專業的 MICE (會議、獎勵旅遊、大型會議、展覽) 活動管理系統後端，提供完整的活動管理、報名系統、遊戲室、問卷、許願樹等功能。
-
-## 🚀 快速開始
+## 快速開始
 
 ```bash
-# 1. 安裝依賴
-cd server && npm install
-
-# 2. 環境配置（可選）
-cp .env.example .env
-
-# 3. 初始化資料庫
+cd server
+npm install
 npm run setup
-
-# 4. 啟動服務
-npm start
+npm run dev
 ```
 
-**訪問系統**:
-- 後台管理: http://localhost:3000/admin (預設帳號: admin / Admin1qa)
-- API 文檔: http://localhost:3000/api-docs
+啟動後：
+- API: `http://localhost:3000`
+- Swagger UI: `http://localhost:3000/api-docs`
+- API JSON: `http://localhost:3000/api-docs.json`
 
-## 📋 可用腳本
+## 資料庫策略（重要）
 
-### 基本運行
-| 命令 | 說明 |
-|------|------|
-| `npm start` | 啟動服務器（開發環境） |
-| `npm run dev` | 使用 nodemon 自動重啟 |
-| `npm run production` | 啟動服務器（生產環境） |
+本專案目前採 **schema-only**：
+- DB 結構唯一來源：`server/database/schema.sql`
+- `npm run setup` 不再執行 migration
+- `db:migrate*` 僅保留為 deprecated 提示，不會變更資料庫
 
-### 資料庫管理
-| 命令 | 說明 |
-|------|------|
-| `npm run setup` | 一鍵初始化（推薦） |
-| `npm run db:reset` | 重置資料庫 |
-| `npm run db:seed` | 載入基礎種子資料 |
-| `npm run db:clean:p0-indexes` | P0 索引前置資料清洗（check mode） |
-| `npm run db:info` | 查看資料庫資訊 |
-| `npm run db:check` | 檢查資料庫狀態 |
-| `npm run db:verify` | 驗證資料庫 Schema |
-| `npm run backup` | 備份資料庫 |
+建議流程：
+```bash
+cd server
+npm run db:reset
+npm run db:seed
+```
 
-### 資料庫遷移（已淘汰）
-| 命令 | 說明 |
-|------|------|
-| `npm run db:migrate*` | 已淘汰，僅提示改用 `schema.sql` + `db:reset/db:seed` |
+## 常用命令
 
-### 種子資料
-| 命令 | 說明 |
-|------|------|
-| `npm run db:seed:gameroom` | 遊戲室模組種子資料 |
-| `npm run db:seed:questionnaire` | 問卷種子資料 |
-| `npm run db:seed:wishtree` | 許願樹種子資料 |
-| `npm run db:seed:game-analytics` | 遊戲統計種子資料 |
+在 `server/` 目錄執行。
+
+### 啟動
+- `npm run dev`：開發模式
+- `npm start`：一般啟動
+- `npm run production`：`NODE_ENV=production` 啟動
+
+### 初始化與資料庫
+- `npm run setup`：完整初始化（推薦）
+- `npm run db:reset`：重建資料庫（依 `schema.sql`）
+- `npm run db:seed`：核心種子資料
+- `npm run db:seed:gameroom`：遊戲室種子
+- `npm run db:seed:questionnaire`：問卷種子
+- `npm run db:seed:wishtree`：許願樹種子
+- `npm run db:seed:game-analytics`：分析種子
+- `npm run db:seed:demo`：Demo 2026 流程資料
+- `npm run db:clean:p0-indexes`：P0 索引前置清洗（check mode）
+- `npm run db:clean:test-users`：清理驗證腳本建立的測試用戶
+- `npm run db:verify`：Schema 驗證
+- `npm run db:verify-paths`：資料庫路徑驗證
 
 ### 驗證與測試
-| 命令 | 說明 |
-|------|------|
-| `npm run verify` | 執行所有驗證測試（8 項） |
-| `npm run db:verify-paths` | 驗證資料庫路徑配置（34 個腳本） |
-| `npm run verify:workflow` | 驗證完整業務流程 |
-| `npm run verify:api` | 驗證 API 端點 |
-| `npm run verify:data` | 驗證資料流程 |
-| `npm run verify:batch-registration` | 驗證團體報名 API |
-| `npm run verify:group-full-flow` | 驗證團體報名完整流程（報名→報到→遊戲→兌換） |
-| `npm run verify:children-stats` | 驗證小孩統計功能 |
-| `npm run test:api` | 測試完整 API 流程 |
-| `npm run test:swagger` | 測試 Swagger 範例 |
+- `npm run verify`：完整驗證（verify-all）
+- `npm run verify:api`：V1 API 端點驗證
+- `npm run verify:data`：資料鏈檢查
+- `npm run verify:workflow`：完整業務流程
+- `npm run verify:admin`：後台資料顯示檢查
+- `npm run verify:batch-registration`：團體報名流程
+- `npm run verify:children-stats`：小孩統計流程
+- `npm run test:swagger`：Swagger 範例測試
 
-> 💡 `npm run verify` 包含：資料庫路徑配置、Schema 驗證、API 端點、資料流程、業務流程、後台資料、團體報名、小孩統計
-
-### 生成工具
-| 命令 | 說明 |
-|------|------|
-| `npm run generate:qrcodes` | 生成測試 QR Code |
-| `npm run generate:registration-qrcode` | 生成報名 QR Code |
-| `npm run generate-certs` | 生成 HTTPS 證書 |
-
-### 日誌管理
-| 命令 | 說明 |
-|------|------|
-| `npm run logs` | 查看所有日誌 |
-| `npm run logs:4xx` | 查看 4xx 錯誤日誌 |
-| `npm run logs:5xx` | 查看 5xx 錯誤日誌 |
-
-### 其他工具
-| 命令 | 說明 |
-|------|------|
-| `npm run status` | 查看系統狀態 |
-| `npm run analyze:imports` | 分析未使用的 imports |
-
-## ⚙️ 環境配置
-
-主要環境變數（`.env` 文件）：
-
-| 變數 | 預設值 | 說明 |
-|------|--------|------|
-| `PORT` | `3000` | 服務器端口 |
-| `BASE_URL` | `http://localhost:3000` | 基礎 URL（QR Code 使用） |
-| `DATABASE_PATH` | `./data/mice_ai.db` | 資料庫路徑（所有腳本統一遵守） |
-| `SESSION_SECRET` | 隨機密鑰 | Session 加密密鑰 |
-| `JWT_SECRET` | - | JWT Token 加密密鑰 |
-| `NODE_ENV` | `development` | 運行環境 |
-
-### 安全配置
-
-| 變數 | 預設值 | 說明 |
-|------|--------|------|
-| `CORS_ORIGIN` | `http://localhost:3000` | CORS 允許來源（逗號分隔多個域名） |
-| `API_RATE_LIMIT_WINDOW_MS` | `900000` | API 限流時間窗口（15分鐘） |
-| `API_RATE_LIMIT_MAX_REQUESTS` | `500` | API 限流最大請求數 |
-| `FRONTEND_API_RATE_LIMIT_WINDOW_MS` | `900000` | 前端 API 限流時間窗口 |
-| `FRONTEND_API_RATE_LIMIT_MAX_REQUESTS` | `1000` | 前端 API 限流最大請求數 |
-
-### 功能模組開關
-
-| 變數 | 預設值 | 說明 |
-|------|--------|------|
-| `FEATURE_QUESTIONNAIRES` | `false` | 問卷功能 Tab |
-| `FEATURE_BUSINESS_CARDS` | `false` | QR Code 名片功能 Tab |
-| `FEATURE_GAMES` | `false` | 遊戲設定功能 Tab |
-| `FEATURE_BOOTHS` | `false` | 攤位設定功能 Tab |
-
-> 💡 設為 `true` 啟用對應功能模組，設為 `false` 或留空則隱藏該 Tab
-
-### Email 配置 (Google SMTP)
-
-報名成功後系統會自動發送邀請信，需要配置 SMTP：
-
-| 變數 | 預設值 | 說明 |
-|------|--------|------|
-| `SMTP_ENABLED` | `false` | 是否啟用郵件功能 |
-| `SMTP_HOST` | `smtp.gmail.com` | SMTP 伺服器 |
-| `SMTP_PORT` | `587` | SMTP 端口 |
-| `SMTP_USER` | - | Gmail 帳號 |
-| `SMTP_PASS` | - | Gmail 應用程式密碼 |
-| `SMTP_FROM_NAME` | `MICE-AI 活動系統` | 寄件者名稱 |
-| `SMTP_FROM_EMAIL` | - | 寄件者 Email |
-
-> 💡 **Gmail 設定**: 需要啟用兩步驟驗證後，在 Google 帳戶 → 安全性 → 應用程式密碼 產生專用密碼。
-
-### 生產環境建議
-
-- `BASE_URL`: 設定為實際域名（含 https://）
-- `SESSION_SECRET`: 使用強密鑰
-- `NODE_ENV`: 設為 `production`
-- `SMTP_ENABLED`: 設為 `true` 以啟用邀請信
-
-## 📁 專案結構
-
+`test:swagger` 可透過 `BASE_URL` 覆寫測試目標：
+```bash
+cd server
+BASE_URL=http://localhost:9999 npm run test:swagger
 ```
+
+## API 合約現況
+
+V1 Events 的 `registration_config` 已提供：
+- `version`
+- `schema_id`
+- `contract_version`（目前 `v1.1`）
+- `features` / `assets`（新合約區塊）
+- 同時保留舊欄位 `feature_toggles` / `interstitial_effect` 供相容期使用
+
+## Admin 動態欄位與素材
+
+- 報名欄位配置：`/api/admin/projects/:projectId/registration-config`
+- 第二頁特效開關：`/api/admin/projects/:projectId/interstitial-effect`
+- 第二頁素材上傳：`/api/admin/projects/:projectId/interstitial-asset`
+
+素材安全策略：
+- 只允許 GIF / MP4
+- 副檔名 + MIME + 檔頭驗證
+- URL 僅允許本地 `/uploads/...`
+
+## 目錄結構（精簡）
+
+```text
 server/
-├── config/              # 配置文件
-├── controllers/         # 控制器
-├── middleware/          # 中間件
-├── routes/             # 路由
-│   ├── admin/          # 後台管理路由
-│   ├── api/v1/         # 前端 API (Swagger 文檔)
-│   └── api/admin/      # 後台 API
-├── services/           # 業務邏輯層 ⭐
-├── repositories/       # 資料存取層 ⭐
-├── views/admin/        # 後台 Handlebars 模板
-├── public/             # 靜態文件
-├── scripts/            # 工具腳本
-│   └── db-path.js      # 統一資料庫路徑模組
-├── database/           # 資料庫 Schema 定義
-│   └── schema.sql      # 資料庫結構（僅定義，不存放 .db 文件）
-├── data/               # 資料庫實際存放位置 ⭐
-│   └── mice_ai.db      # SQLite 資料庫文件
-├── logs/               # 日誌文件
-└── .env                # 環境變數配置
+  server.js
+  config/
+  controllers/
+  services/
+  repositories/
+  routes/
+    api/
+  middleware/
+  utils/
+  database/
+    schema.sql
+  data/
+  public/
+  views/
+  scripts/
+  docs/
 ```
 
-## 🏗️ 系統架構
+## 安全與設定
 
-### 三層架構模式
+1. 複製 `.env.example` 為 `.env`，設定至少：
+- `SESSION_SECRET`
+- `DATABASE_PATH`
+- `BASE_URL`
 
-```mermaid
-graph TB
-    subgraph "Client Layer"
-        A[Frontend / Mobile App]
-        B[Swagger UI]
-    end
+2. Admin 請求使用 CSRF 保護，前端統一用 `getCsrfToken()`。
 
-    subgraph "Route Layer - HTTP 處理"
-        C[routes/api/v1/*.js]
-        D[routes/api/admin/*.js]
-    end
+3. 不要提交以下檔案：
+- `.env`
+- `server/data/*.db`
+- `server/certs/*`
 
-    subgraph "Service Layer - 業務邏輯"
-        E[services/*.service.js]
-    end
+## 排錯
 
-    subgraph "Repository Layer - 資料存取"
-        F[repositories/*.repository.js]
-    end
-
-    subgraph "Database"
-        G[(SQLite - mice_ai.db)]
-    end
-
-    A --> C
-    B --> C
-    A --> D
-    C --> E
-    D --> E
-    E --> F
-    F --> G
-```
-
-### V1 API 架構對照表
-
-| Route 檔案 | Service | Repository | 說明 |
-|-----------|---------|------------|------|
-| `business-cards.js` | businessCardService | businessCardRepository | QR Code 名片 |
-| `checkin.js` | checkinService | checkinRepository | 報到管理 |
-| `events.js` | eventService | eventRepository | 活動管理 |
-| `games.js` | gameService | gameRepository | 遊戲管理 |
-| `registrations.js` | registrationService | submissionRepository | 報名管理 |
-| `users.js` | userQueryService | submission/game/voucher | 用戶查詢 |
-| `vouchers.js` | voucherService | voucherRepository | 兌換券 |
-| `wish-tree.js` | wishTreeService | wishTreeRepository | 許願樹 |
-
-### 層級職責
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Route Layer (routes/api/v1/*.js)                           │
-│  ├── HTTP 請求/回應處理                                      │
-│  ├── 參數驗證 (express-validator)                           │
-│  ├── 回應格式化 (responses.success/badRequest/serverError)  │
-│  └── Swagger 文件註解                                        │
-├─────────────────────────────────────────────────────────────┤
-│  Service Layer (services/*.service.js)                       │
-│  ├── 業務邏輯封裝                                            │
-│  ├── 多 Repository 資料組合                                  │
-│  ├── 時間格式化 (formatGMT8Time)                            │
-│  └── 回傳格式: { found: bool, data: {} }                    │
-├─────────────────────────────────────────────────────────────┤
-│  Repository Layer (repositories/*.repository.js)             │
-│  ├── SQL 查詢封裝                                            │
-│  ├── 資料表 CRUD 操作                                        │
-│  └── 繼承 BaseRepository                                     │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 📊 Sequence Diagrams
-
-### 1. 用戶報名流程
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant R as Route (registrations.js)
-    participant S as Service (registrationService)
-    participant Repo as Repository
-    participant DB as SQLite
-    participant Email as EmailService
-
-    C->>R: POST /api/v1/events/{eventId}/registrations
-    R->>R: 參數驗證 (express-validator)
-    R->>S: submitRegistration(eventId, data)
-    S->>Repo: findEventById(eventId)
-    Repo->>DB: SELECT * FROM event_projects
-    DB-->>Repo: event data
-    Repo-->>S: event
-
-    alt 活動不存在或已額滿
-        S-->>R: { success: false, error }
-        R-->>C: 400 Bad Request
-    end
-
-    S->>Repo: createSubmission(data)
-    Repo->>DB: INSERT INTO form_submissions
-    DB-->>Repo: submission_id
-
-    S->>Repo: generateQRCode(trace_id)
-    Repo->>DB: INSERT INTO qr_codes
-
-    S->>Email: sendInvitationEmail(user)
-    Email-->>S: sent
-
-    S-->>R: { success: true, data: { trace_id, qr_code } }
-    R-->>C: 200 OK + JSON Response
-```
-
-### 2. 用戶查詢旅程流程
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant R as Route (users.js)
-    participant S as Service (userQueryService)
-    participant GR as gameRepository
-    participant VR as voucherRepository
-    participant DB as SQLite
-
-    C->>R: GET /api/v1/users/{traceId}/journey
-    R->>R: 驗證 trace_id 格式
-    R->>S: getUserJourney(traceId)
-
-    par 並行查詢
-        S->>GR: findUserInfoByTraceId(traceId)
-        GR->>DB: SELECT form_submissions + checkin_records
-        DB-->>GR: userInfo
-
-        S->>GR: findUserGameSessions(traceId)
-        GR->>DB: SELECT game_sessions + games
-        DB-->>GR: gameSessions[]
-
-        S->>VR: findAllRedemptionsByTraceId(traceId)
-        VR->>DB: SELECT voucher_redemptions + vouchers
-        DB-->>VR: redemptions[]
-    end
-
-    S->>S: _buildTimeline(userInfo, games, vouchers)
-    S->>S: _buildSummary(games, vouchers)
-    S-->>R: { found: true, data: { user, timeline, summary } }
-    R-->>C: 200 OK + Journey Data
-```
-
-### 3. 遊戲會話與兌換券流程
-
-```mermaid
-sequenceDiagram
-    participant C as Game Client
-    participant R as Route (games.js)
-    participant S as Service (gameService)
-    participant GR as gameRepository
-    participant VR as voucherRepository
-    participant DB as SQLite
-
-    Note over C,DB: 1. 開始遊戲
-    C->>R: POST /api/v1/games/{gameId}/sessions/start
-    R->>S: startSession(gameId, traceId, boothId)
-    S->>GR: findGameBinding(gameId, boothId)
-    GR->>DB: SELECT booth_games
-    S->>GR: createSession(data)
-    GR->>DB: INSERT INTO game_sessions
-    S-->>R: { session_id }
-    R-->>C: 200 OK
-
-    Note over C,DB: 2. 遊戲中記錄日誌
-    loop 遊戲進行中
-        C->>R: POST /api/v1/games/{gameId}/logs
-        R->>S: recordLog(sessionId, logData)
-        S->>GR: insertLog(data)
-        GR->>DB: INSERT INTO game_logs
-        S-->>R: { success: true }
-        R-->>C: 200 OK
-    end
-
-    Note over C,DB: 3. 結束遊戲
-    C->>R: POST /api/v1/games/{gameId}/sessions/end
-    R->>S: endSession(sessionId, score, result)
-    S->>GR: updateSession(sessionId, data)
-    GR->>DB: UPDATE game_sessions
-
-    alt 遊戲獲勝 (score >= threshold)
-        S->>VR: assignVoucher(traceId, gameId)
-        VR->>DB: SELECT vouchers WHERE remaining > 0
-        VR->>DB: INSERT INTO voucher_redemptions
-        VR->>DB: UPDATE vouchers SET remaining_quantity--
-        VR-->>S: { voucher, redemption_code, qr_code }
-        S-->>R: { won: true, voucher }
-    else 未達標準
-        S-->>R: { won: false }
-    end
-    R-->>C: 200 OK + Result
-```
-
-### 4. 報到流程
-
-```mermaid
-sequenceDiagram
-    participant Scanner as QR Scanner
-    participant R as Route (checkin.js)
-    participant S as Service (checkinService)
-    participant Repo as Repository
-    participant DB as SQLite
-
-    Scanner->>R: POST /api/v1/check-in
-    Note right of R: Body: { qr_data, scanner_location }
-
-    R->>R: 解析 QR Code 內容
-    R->>S: processCheckin(traceId, location)
-
-    S->>Repo: findByTraceId(traceId)
-    Repo->>DB: SELECT * FROM form_submissions
-    DB-->>Repo: submission
-
-    alt 找不到報名記錄
-        S-->>R: { success: false, error: 'NOT_FOUND' }
-        R-->>Scanner: 404 Not Found
-    end
-
-    S->>Repo: findCheckinRecord(traceId)
-    Repo->>DB: SELECT * FROM checkin_records
-
-    alt 已經報到過
-        S-->>R: { success: false, error: 'ALREADY_CHECKED_IN' }
-        R-->>Scanner: 400 Already Checked In
-    end
-
-    S->>Repo: createCheckinRecord(data)
-    Repo->>DB: INSERT INTO checkin_records
-    DB-->>Repo: checkin_id
-
-    S-->>R: { success: true, data: { checkin_time, attendee } }
-    R-->>Scanner: 200 OK + Attendee Info
-```
-
-### 5. 兌換券使用流程
-
-```mermaid
-sequenceDiagram
-    participant Vendor as 廠商掃描器
-    participant Admin as Admin API
-    participant S as Service (voucherService)
-    participant Repo as voucherRepository
-    participant DB as SQLite
-
-    Vendor->>Admin: POST /api/admin/vouchers/redeem
-    Note right of Admin: Body: { redemption_code }
-
-    Admin->>S: redeemVoucher(redemptionCode, vendorId)
-    S->>Repo: findByRedemptionCode(code)
-    Repo->>DB: SELECT * FROM voucher_redemptions
-    DB-->>Repo: redemption
-
-    alt 找不到兌換券
-        S-->>Admin: { success: false, error: 'NOT_FOUND' }
-        Admin-->>Vendor: 404 Not Found
-    end
-
-    alt 已經使用過
-        S-->>Admin: { success: false, error: 'ALREADY_USED' }
-        Admin-->>Vendor: 400 Already Used
-    end
-
-    S->>Repo: markAsUsed(redemptionId, vendorId)
-    Repo->>DB: UPDATE voucher_redemptions SET is_used=1, used_at=NOW()
-    DB-->>Repo: updated
-
-    S-->>Admin: { success: true, data: { voucher_name, user_name } }
-    Admin-->>Vendor: 200 OK + Redemption Confirmed
-```
-
-## 🎯 核心功能
-
-| 模組 | 功能 |
-|------|------|
-| **活動管理** | 專案建立、活動模板、參加者管理 |
-| **報名系統** | 線上報名、**團體報名 (最多 5 人)**、**Email 邀請信**、QR Code 報到、trace_id 追蹤 |
-| **邀請信管理** | 後台郵件管理、批量重寄邀請信、發送記錄追蹤、SMTP 測試 |
-| **遊戲室** | 遊戲管理、會話追蹤、兌換券系統、統計報告 |
-| **問卷系統** | 問卷設計、統計分析、QR Code 連結 |
-| **許願樹** | 許願留言、統計分析、CSV 匯出 |
-| **攤位系統** | 攤位管理、遊戲綁定、統計 |
-| **QR Code 名片** | 數位名片、QR Code 生成 |
-| **後台管理** | 三級權限、操作日誌、資料統計 |
-
-## 📡 API 文檔
-
-**Swagger UI**: http://localhost:3000/api-docs
-**V1 API 詳細文檔**: [`server/docs/v1-api.md`](server/docs/v1-api.md)
-
-主要 API 端點：
-- `/api/v1/*` - 前端 API（28 個端點，完整 Swagger 文檔）
-  - Check-in: 報到管理（2 個端點）
-  - Events: 活動管理（3 個端點）
-    - `GET /events` - 活動列表
-    - `GET /events/:id` - 活動詳情（含報名狀態）
-    - `GET /events/code/:code` - 根據代碼查詢活動（含報名狀態）
-    - 🆕 **報名狀態欄位**: `max_participants`, `current_participants`, `remaining_slots`, `registration_open`
-    - 🆕 **動態報名欄位設定**: `registration_config`（`required_fields`/`optional_fields`/`fields`/`payload_example`）
-    - 🆕 **動態共用資料**: `common_data`（依 feature_toggles 回傳活動/攤位/兌換券/券商）
-  - Registrations: 報名管理（7 個端點，含團體報名）
-    - `POST /events/{eventId}/registrations` - 單人報名
-    - `POST /events/{eventId}/registrations/batch` - **團體報名 (最多 5 人)**
-    - `GET /registrations/{traceId}` - 查詢報名狀態
-    - `POST /registrations/{traceId}/resend-email` - **重寄邀請信**
-    - `GET /qr-codes/{traceId}` - QR Code 圖片
-    - `GET /qr-codes/{traceId}/data` - QR Code Base64 數據
-    - `POST /verify-pass-code` - 驗證通行碼
-  - Games: 遊戲管理（4 個端點）
-  - Vouchers: 兌換券查詢（1 個端點）
-    - `GET /vouchers/my` - 查詢用戶兌換券
-  - Business Cards: 名片管理（3 個端點）
-    - `POST /business-cards` - 創建名片
-    - `GET /business-cards/:cardId` - 名片詳情
-    - `GET /business-cards/project/:projectId` - 專案名片列表
-  - Wish Tree: 許願樹（4 個端點）
-    - `POST /wish-tree/submit` - 提交許願
-    - `GET /wish-tree/stats` - 統計數據
-    - `GET /wish-tree/recent` - 最近許願記錄
-    - `GET /wish-tree/wish/:wishId` - 單一許願詳情（含圖片）
-  - 🆕 **Users: 用戶查詢（3 個端點）**
-    - `GET /users/email/{email}` - 透過 Email 查詢 trace_id
-    - `GET /users/{traceId}` - 查詢用戶基本資料
-    - `GET /users/{traceId}/journey` - 查詢用戶完整旅程
-- `/api/admin/*` - 後台管理 API（18+ 個端點）
-  - Dashboard: 儀表板統計（4 個端點）
-  - Email Management: 郵件管理（4 個端點）
-  - Games: 遊戲管理（6 個端點）
-  - Vouchers: 兌換券管理（6 個端點）
-  - Booth Games: 攤位遊戲綁定（4 個端點）
-  - 🆕 Registration Config:
-    - `GET /api/admin/projects/{projectId}/registration-config`
-    - `PUT /api/admin/projects/{projectId}/registration-config`
-- `/business-card/:traceId` - QR Code 名片展示
-
-測試數據（與 Swagger 範例一致）：
-- 測試報名用戶：王大明 (registration_id: 1, trace_id: `MICE-d074dd3e-e3e27b6b0`, email: `wang@example.com`)
-- 測試專案：TECH2024 (project_id: 1)
-- 測試攤位：BOOTH-A1 (booth_id: 4)
-- 測試遊戲：幸運飛鏢 (game_id: 2)
-
-> ⚠️ **注意**：API 報名用戶的 `registration_id` (form_submissions.id) 與後台管理員的 `users.id` 是完全不同的概念！
-
-**詳細文檔**: 查看 Swagger UI (http://localhost:3000/api-docs)
-
-## 🗄️ 資料庫
-
-### 資料庫位置
-- **實際文件**: `server/data/mice_ai.db` ⭐
-- **Schema 定義**: `server/database/schema.sql`（僅定義，不存放 .db 文件）
-- **配置**: `.env` 中的 `DATABASE_PATH` 環境變數
-
-### 核心資料表
-- `event_projects` - 活動專案表
-- `booths` - 攤位表
-- `booth_games` - 攤位遊戲綁定表（P1-2: 從 project_games 重構）
-- `form_submissions` - 報名記錄表（含團體報名欄位：`group_id`, `is_primary`, `parent_submission_id`）
-- `qr_codes` - QR Code 表
-- `game_sessions` - 遊戲會話表
-- `business_cards` - 名片表
-
-> ✅ **Schema 完整性**: `npm run setup` 會使用完整的 `schema.sql` 建立資料庫，包含所有功能所需欄位（團體報名、尊稱/性別/備註等），無需額外執行 migration。
-
-### 報名 API 欄位對照表
-
-| API 欄位 | DB 欄位 | DB Schema | 單人報名 | 團體主報名人 | 團體同行者 |
-|----------|---------|-----------|:--------:|:-----------:|:---------:|
-| `name` | `submitter_name` | `NOT NULL` | ✅ 必填 | ✅ 必填 | ✅ 必填 |
-| `email` | `submitter_email` | `NOT NULL` | ✅ 必填 | ✅ 必填 | ⭕ 選填* |
-| `phone` | `submitter_phone` | `NULL OK` | ✅ 必填 | ✅ 必填 | ⭕ 選填 |
-| `company` | `company_name` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
-| `position` | `position` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
-| `gender` | `gender` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
-| `title` | `title` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
-| `notes` | `notes` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
-| `data_consent` | `data_consent` | `NOT NULL` | ✅ 必填 | ✅ 必填 | - |
-| `marketing_consent` | `marketing_consent` | `DEFAULT 0` | ⭕ 選填 | ⭕ 選填 | - |
-| `adult_age` | `adult_age` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
-| `children_count` | `children_count` | `DEFAULT 0` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
-| `children_ages` | `children_ages` | `NULL OK` | ⭕ 選填 | ⭕ 選填 | ⭕ 選填 |
-
-> *同行者若未填 email，系統自動使用主報名人的 email
-
-**年齡欄位說明**:
-| API 欄位 | 類型 | 範圍 | 說明 |
-|----------|------|------|------|
-| `adult_age` | Integer | 18-120 | 成年人年齡 |
-| `children_count` | Integer | 0-10 | 小朋友數量 |
-| `children_ages` | Array[Integer] | 每個 0-17 | 小朋友年齡陣列，例如 `[5, 8, 12]` |
-
-**團體報名專用欄位**:
-| DB 欄位 | 說明 |
-|---------|------|
-| `group_id` | 團體識別碼 (GRP-{timestamp}-{random}) |
-| `is_primary` | 是否為主報名人 (1=主, 0=同行者) |
-| `parent_submission_id` | 同行者指向主報名人的 form_submissions.id |
-
-**資料表欄位**: 查看 `server/database/schema.sql` 獲取完整定義
-
-### 在腳本中使用資料庫
-
-✅ **推薦方式**（統一路徑模組）:
-```javascript
-const { getDbPath } = require('./scripts/db-path');
-const dbPath = getDbPath();
-```
-
-❌ **不推薦**（硬編碼路徑）:
-```javascript
-const dbPath = './data/mice_ai.db';  // 不要這樣做！
-```
-
-### 欄位命名規範（v1.0）
-
-**時間欄位**: 使用 `_at` 後綴（如 `created_at`, `updated_at`）
-- ⚠️ **例外**: `qr_codes.last_scanned` 不使用 `_at` 後綴
-- ✅ `business_cards.last_scanned_at` 使用 `_at` 後綴
-
-**庫存欄位**: 使用 `_quantity` 後綴（如 `remaining_quantity`, `total_quantity`）
-- ❌ 不要使用 ~~`current_stock`~~ 或 ~~`total_stock`~~（已廢棄）
-
-**布林欄位**: 使用 `is_` 前綴（如 `is_active`, `is_required`）
-
-**外鍵欄位**: 使用 `_id` 後綴（如 `user_id`, `project_id`, `booth_id`）
-
-### 時區處理規範
-
-| 層級 | 時區 | 格式範例 |
-|------|------|----------|
-| **資料庫存儲** | UTC+0 | `2025-12-18 05:16:14` |
-| **UI 顯示** | GMT+8 (台北) | `2025/12/18 13:16:14` |
-| **Log 記錄** | GMT+8 (台北) | `2025-12-18 13:16:14` |
-
-**核心問題**：SQLite `CURRENT_TIMESTAMP` 存儲 UTC 時間但**無 timezone 標記**，JavaScript `new Date()` 會錯誤地當作本地時間解析。
-
-**解決方案**：使用統一的時區工具，明確將無 timezone 的時間當作 UTC 解析。
-
-#### 後端使用方式
-
-```javascript
-// 使用 server/utils/timezone.js
-const { formatGMT8Time, parseDbDate } = require('./utils/timezone');
-
-// 格式化資料庫時間為 GMT+8 顯示
-const displayTime = formatGMT8Time(row.created_at, 'datetime');
-
-// 解析資料庫時間為 Date 物件
-const date = parseDbDate(row.created_at);
-```
-
-#### 前端使用方式
-
-```javascript
-// 使用 Utils.formatDate（需引入 /js/common/utils.js）
-const displayTime = Utils.formatDate(created_at, 'datetime');
-```
-
-#### 驗證時區
-
+### setup 卡住或 DB 壞檔
+先重跑：
 ```bash
-npm run verify:timezone
+cd server
+npm run setup
 ```
+`pre-setup` 會嘗試清理壞掉的 `db/wal/shm` 後再重建。
 
-### user_id 與 registration_id 區分
+### Swagger 測試 HTTP 000
+代表 API 未成功啟動或測試 URL 不對。
+- 確認服務是否在目標 port 監聽
+- 或用 `BASE_URL` 指向正確位址
 
-| 概念 | 表格 | 欄位 | 說明 |
-|------|------|------|------|
-| 後台管理員 ID | `users` | `id` | 後台登入用戶 (admin, manager, vendor) |
-| 報名用戶 ID | `form_submissions` | `id` | API 報名參加者 (= registration_id) |
-| 遊戲 API user_id | 參數 | `user_id` | 可傳入 registration_id，用於追蹤玩家 |
+## 文檔索引
 
-```
-後台管理員 users.id:           API 報名用戶 registration_id:
-├── 1: admin (super_admin)     ├── 1: 張志明 (MICE-d074dd3e-e3e27b6b0)
-├── 2: manager (project_mgr)   ├── 2: 李美玲 (MICE-d74b09c8-6cfa4a823)
-├── 3: user (project_user)     └── 3: 王大明 (MICE-05207cf7-199967c04)
-└── 4: vendor
-```
-
-> 📖 詳細規範請參閱 `server/database/schema.sql` 中的註解
-
-### Trace ID 格式
-
-**新格式**（推薦）:
-```
-MICE-{timestamp}-{random}
-範例: MICE-05207cf7-199967c04
-```
-
-**舊格式**（向後相容）:
-```
-TRACE{timestamp}{random}
-範例: TRACED074DD3EE3E27B6B
-```
-
-兩種格式都支援，新建資料自動使用新格式。
-
-## 🔧 常見問題
-
-| 問題 | 解決方案 |
-|------|---------|
-| 端口被佔用 | 修改 `.env` 中的 `PORT` 或執行 `lsof -i :3000` 查看佔用 |
-| 資料庫連接失敗 | 執行 `npm run setup` 重新初始化 |
-| QR Code 掃描失敗 | 檢查 `.env` 中的 `BASE_URL` 設定 |
-| Session 失效 | 檢查 `SESSION_SECRET` 是否設定 |
-| 找不到資料庫 | 確認 `server/data/mice_ai.db` 存在 |
-
-## 🖥️ VPS 資料庫 Debug
-
-### 連線資訊（內網安全）
-
-| 項目 | 值 |
-|------|---|
-| Host | tianyen-service.com |
-| Port | 2022 |
-| User | tianyen |
-| Password | TODO |
-| 專案路徑 | `/home/tianyen/projects/rd0010/rd0010-miceai_backend-refactor-mvc` |
-| 資料庫路徑 | `server/data/mice_ai.db` |
-
-### 使用 sshpass 查詢資料庫
-
-```bash
-# 安裝 sshpass (macOS)
-brew install sshpass
-
-# 執行 SQL 查詢
-sshpass -p 'TODO' ssh -o StrictHostKeyChecking=no tianyen@tianyen-service.com -p 2022 \
-  "cd /home/tianyen/projects/rd0010/rd0010-miceai_backend-refactor-mvc && sqlite3 -header -column server/data/mice_ai.db 'SELECT * FROM form_submissions LIMIT 10;'"
-```
-
-### 常用查詢
-
-```sql
--- 查看報名資料
-SELECT id, submitter_name, group_id, is_primary, parent_submission_id, children_count
-FROM form_submissions WHERE project_id = 2 ORDER BY id DESC LIMIT 30;
-
--- 統計小孩人數（只算獨立記錄）
-SELECT COUNT(*) FROM form_submissions
-WHERE project_id = 2 AND parent_submission_id IS NOT NULL;
-```
-
-
-## 🎯 技術棧
-
-- **後端**: Node.js 22+ / Express.js 4.x
-- **資料庫**: better-sqlite3 (同步 API)
-- **模板引擎**: Handlebars 4.x
-- **認證**: express-session + bcrypt
-- **API 文檔**: Swagger/OpenAPI 3.0
-- **QR Code**: qrcode 套件
-- **CSV 匯出**: json2csv 套件
-
-## 🔐 權限系統
-
-三級角色權限：
-- `super_admin` - 超級管理員（完整權限）
-- `project_manager` - 專案管理員（專案管理）
-- `project_user` - 一般用戶（基本權限）
-
-預設管理員帳號：`admin` / `Admin1qa`
-
-### CSRF 防護（Admin）
-
-- 所有 `/admin/*` 表單與 `/api/admin/*` 請求都會驗證 Session 綁定的 CSRF Token。
-- Handlebars 版面會自動在 `<head>` 載入 `<meta name="csrf-token">`，並在送出表單或 `fetch`/`$.ajax` 時附加 `_csrf` 欄位與 `X-CSRF-Token` header。
-- 若自行撰寫前端程式碼，請從 `<meta name="csrf-token">` 讀取 token 並附加到請求；否則會收到 `403 CSRF_TOKEN_INVALID`。
-
-## 📚 文檔資源
-
-| 資源 | 位置 | 說明 |
-|------|------|------|
-| **V1 API 文檔** | [`server/docs/v1-api.md`](server/docs/v1-api.md) | 前端串接 API 完整文檔 |
-| **前端串接指南** | [`server/docs/frontend-flow.md`](server/docs/frontend-flow.md) | 完整前端整合流程（報名→報到→遊戲→兌換） |
-| **兌換券流程** | [`server/docs/voucher-flow.md`](server/docs/voucher-flow.md) | 兌換券庫存與核銷流程詳解 |
-| **Swagger UI** | http://localhost:3000/api-docs | 互動式 API 測試 |
-| **資料庫 Schema** | `server/database/schema.sql` | 完整資料表定義與註解 |
-| **遷移腳本** | `server/scripts/migrate-*.js` | 已淘汰（保留歷史參考，不納入 setup） |
-| **種子資料** | `server/scripts/seeds/` | 測試資料腳本 |
-| **驗證腳本** | `server/scripts/verify/` | 功能驗證測試 |
-
-## 🚀 生產環境部署
-
-### 推薦配置
-```bash
-# 使用 PM2 啟動
-pm2 start server/server.js --name mice-ai
-pm2 save
-pm2 startup
-```
-
-### 環境變數檢查清單
-- [ ] `BASE_URL` 設定為實際域名
-- [ ] `SESSION_SECRET` 使用強密鑰
-- [ ] `NODE_ENV` 設為 `production`
-- [ ] `DATABASE_PATH` 確認正確
-- [ ] 資料庫已備份
+- V1 API: `server/docs/v1-api.md`
+- 前端流程: `server/docs/frontend-flow.md`
+- 兌換券流程: `server/docs/voucher-flow.md`
 
 ---
 
-**維護者**: MICE-AI Team
-
-### 更新日誌
-
-#### 2026-02-23
-- 新增：V1 Events 回傳 `registration_config`（前端可動態判斷欄位開啟/必填/送出格式）
-- 新增：V1 Events 回傳 `common_data`（依 feature toggle 動態輸出活動/攤位/兌換券/券商資料）
-- 新增：V1 Events `registration_config` 回傳 `interstitial_effect`（第二頁特效開關 + GIF/MP4 素材 URL）
-- 新增：V1 Events `registration_config` 合約識別欄位 `version` + `schema_id`（避免前後端 drift）
-- 新增：V1 Events `registration_config.contract_version = v1.1`，並回傳 `features` + `assets` 區塊（舊欄位保留相容）
-- 新增：P1 雙寫落地 `project_feature_flags`、`project_media_assets`、`project_registration_field_settings`
-- 調整：`npm run setup` 改為純 `schema.sql` 初始化，不再執行 `db:migrate:*`（migration 已淘汰）
-- 新增：Admin API 專案報名欄位設定端點
-  - `GET /api/admin/projects/{projectId}/registration-config`
-  - `PUT /api/admin/projects/{projectId}/registration-config`
-- 新增：Admin API 第二頁特效管理端點
-  - `PUT /api/admin/projects/{projectId}/interstitial-effect`
-  - `POST /api/admin/projects/{projectId}/interstitial-asset`
-  - `DELETE /api/admin/projects/{projectId}/interstitial-asset`
-- 新增：專案詳情頁「報名設定」支援 feature toggles（活動資訊、攤位資訊、兌換券資訊、券商資訊、庫存資訊）
-- 新增：專案詳情頁新 Tab「第二頁特效」可開關、上傳與清除 GIF/MP4 素材
-- 對齊：V1 報名提交 (`POST /api/v1/events/:eventId/registrations`) 依活動 `form_config` 進行欄位標準化與 required 檢查
-- 強化：`schema.sql` 新增 trace/project/booth/game 核心複合索引，降低查詢成本
-- 強化：V1 遊戲流程防作弊新增 `trace_id / user_id / project_id` 一致性檢查，並強制 `project / booth / game` 啟用狀態驗證
-- 對齊：新增端點錯誤回應補上 `error.code`（對齊 `utils/error-codes.js`）
-
-#### 2026-01-28
-- 新增：Users API (`/api/v1/users`) - 用戶查詢功能
-  - `GET /users/email/{email}` - 透過 Email 查詢 trace_id
-  - `GET /users/{traceId}` - 透過 trace_id 查詢基本資料
-  - `GET /users/{traceId}/journey` - 查詢用戶完整旅程（報名→報到→遊戲→兌換券）
-- 新增：`user-query.service.js` - V1 用戶查詢 Service（與 admin user.service.js 區分）
-- 新增：`tracking.service.js` - 包裝 trackingRepository
-- 新增：README 架構圖和 Sequence Diagrams（Mermaid 格式）
-- 重構：`users.js` 改用 Service 層，移除直接 Repository 存取
-- 優化：`vouchers.js` 補充 Swagger tags 定義
-- 文件：更新 V1 API 架構對照表
-
-#### 2025-12-23
-- 新增：郵件發送 Logger 記錄（報名確認信重寄、行前通知發送）
-- 記錄內容：projectId、成功/失敗數量、成功的 traceId/Email、失敗項目含錯誤訊息
-- 日誌顯示格式優化：✓ 成功項目 / ✗ 失敗項目（含錯誤原因）
-
-#### 2025-12-22
-- 新增：系統日誌頁面操作類型篩選功能（登入/用戶/參加者/簽到/專案/問卷/郵件）
-- 新增：系統日誌操作類型中文化（ACTION_LABELS）和詳情格式化（formatLogDetails）
-- 新增：參加者管理表格排序功能（支援 ID、報名時間、報到時間）
-- 新增：兌換券統計專案篩選功能（類似遊戲分析頁面）
-- 優化：日誌搜尋也支援 details 欄位內容
-- 移除：郵件管理「行前通知」sub-tab 中的郵件預覽區塊
-- 移除：Admin Sidebar 重複的「專案管理 → 團隊管理」區塊
-- 修復：logs/search API 改用 viewHelpers.logTableRow
-
-#### 2025-12-20
-- 修復：security.js 改用 config 讀取 CORS 和 Rate Limit 配置（不再硬編碼）
-- 修復：4 個腳本改用 config.database.path（pre-setup.js, fix-checkin-inconsistency.js, test-checkin-flow.js, test-pass-code.js）
-- 新增：verify-all.sh 新增資料庫路徑配置驗證和 Schema 驗證（8 項測試）
-- 新增：verify-db-paths.js 支援更多配置模式識別（config/db-path/utils-db）
-- 新增：功能模組開關環境變數（FEATURE_QUESTIONNAIRES/BUSINESS_CARDS/GAMES/BOOTHS）
-- 更新：.env.example 新增 JWT_SECRET、CORS_ORIGIN、Rate Limit 配置
-- 清理：移除未使用的 LOG_RETENTION_DAYS 環境變數
-- 清理：刪除意外產生的空 database.sqlite 檔案
-
-#### 2025-12-18
-- 新增：活動人數限制功能 (`max_participants`, `registration_deadline`)
-- 新增：Events API 回傳報名狀態欄位 (`remaining_slots`, `registration_open`, `current_participants`)
-- 新增：後台專案詳情 → 報名設定 Tab 可修改人數上限
-- 更新：db-reset.js 種子資料 (TECH2024: 無限制, MOON2025: 91 人)
-
-#### 2025-12-07 (v1.0)
-- 文檔重整：以專案根目錄 README 為主，其他規格逐步移轉至 /claude 目錄
-- 版本號回歸 v1.0，作為長期維護基準
-
-#### 2025-12-06
-- 修正: pass_code
-- 修正: 驗證後台 Email 發送信件 + 暫時移除 pass_code 號碼在 Email template 中顯示
-
-#### 2025-12-05
-- 新增：個人報名 API 支援年齡相關欄位 (`adult_age`, `children_count`, `children_ages`)
-- 更新：Swagger 文檔同步更新
-- 驗證：所有測試 5/5 通過
-
-#### 2025-12-04
-- 新增：邀請信管理功能（後台郵件管理頁面）
-- 新增：批量重寄邀請信 API
-- 新增：儀表板郵件發送統計卡片
-- 新增：郵件操作日誌記錄
-- 優化：權限控制（super_admin / project_manager）
-- 清理：移除失效的文檔連結
+若需要舊版長篇架構說明或歷史更新記錄，請以 Git 歷史與 PR/MR 為準。

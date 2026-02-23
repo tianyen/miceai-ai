@@ -29,8 +29,7 @@ function checkDataFlow() {
         );
 
         if (!registration) {
-            console.log('❌ 找不到王大明的報名資料');
-            return;
+            throw new Error('找不到王大明的報名資料');
         }
 
         console.log(`   ✅ ID: ${registration.id}`);
@@ -90,8 +89,7 @@ function checkDataFlow() {
         );
 
         if (!session) {
-            console.log('   ❌ 找不到遊戲會話記錄');
-            return;
+            throw new Error('找不到遊戲會話記錄');
         }
 
         console.log(`   ✅ Session ID: ${session.id}`);
@@ -189,13 +187,15 @@ function checkDataFlow() {
         }
 
         console.log('✅ 資料鏈檢查完成！所有 ID 正確串聯。');
+        return true;
 
     } catch (error) {
         console.error('❌ 檢查失敗:', error);
+        return false;
     } finally {
         db.close();
     }
 }
 
-checkDataFlow();
-
+const ok = checkDataFlow();
+process.exit(ok ? 0 : 1);
