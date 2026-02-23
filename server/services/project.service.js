@@ -17,6 +17,10 @@ const BaseService = require('./base.service');
 const projectRepository = require('../repositories/project.repository');
 const boothRepository = require('../repositories/booth.repository');
 const QRCode = require('qrcode');
+const {
+    DEFAULT_FORM_CONFIG,
+    normalizeFormConfig
+} = require('../utils/registration-config');
 
 class ProjectService extends BaseService {
     constructor() {
@@ -736,33 +740,8 @@ class ProjectService extends BaseService {
             return null;
         }
 
-        // 預設配置
-        const defaultConfig = {
-            required_fields: ['name', 'email', 'phone'],
-            optional_fields: ['company', 'position', 'gender', 'title', 'notes'],
-            field_labels: {
-                name: '姓名',
-                email: '電子郵件',
-                phone: '手機號碼',
-                company: '公司名稱',
-                position: '職位',
-                gender: '性別',
-                title: '尊稱',
-                notes: '留言備註'
-            },
-            gender_options: ['男', '女', '其他'],
-            title_options: ['先生', '女士', '博士', '教授']
-        };
-
-        // 合併已存儲的配置
-        let formConfig = defaultConfig;
-        if (project.form_config) {
-            try {
-                formConfig = { ...defaultConfig, ...JSON.parse(project.form_config) };
-            } catch (e) {
-                // JSON 解析失敗，使用預設配置
-            }
-        }
+        // 合併已儲存配置與預設值
+        const formConfig = normalizeFormConfig(project.form_config || DEFAULT_FORM_CONFIG);
 
         return {
             project_id: project.id,
@@ -784,7 +763,9 @@ class ProjectService extends BaseService {
             return false;
         }
 
-        await this.repository.updateById(projectId, { form_config: formConfig });
+        const normalizedConfig = normalizeFormConfig(formConfig);
+
+        await this.repository.updateById(projectId, { form_config: normalizedConfig });
 
         this.log('updateFormConfig', { projectId, user: user?.id });
 

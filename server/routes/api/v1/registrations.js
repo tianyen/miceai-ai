@@ -42,7 +42,7 @@ function handleServiceError(res, error, defaultMessage) {
     // 檢查是否為 AppError（有 statusCode 屬性）
     if (error.statusCode) {
         const message = error.details?.message || error.message || defaultMessage;
-        return responses.error(res, message, error.statusCode);
+        return responses.error(res, message, error.statusCode, error.details || null, error.code || null);
     }
 
     return responses.error(res, defaultMessage, 500);
@@ -314,8 +314,8 @@ router.post('/events/:eventId/registrations', [
     body('phone').matches(phoneRegex).withMessage('手機號碼格式不正確'),
     body('company').optional().trim().isLength({ max: 100 }).withMessage('公司名稱不能超過 100 字符'),
     body('position').optional().trim().isLength({ max: 50 }).withMessage('職位不能超過 50 字符'),
-    body('gender').optional().trim().isIn(['男', '女', '其他']).withMessage('性別必須是：男、女、其他'),
-    body('title').optional().trim().isIn(['先生', '女士', '博士', '教授']).withMessage('尊稱必須是：先生、女士、博士、教授'),
+    body('gender').optional().trim().isLength({ max: 20 }).withMessage('性別不能超過 20 字符'),
+    body('title').optional().trim().isLength({ max: 20 }).withMessage('尊稱不能超過 20 字符'),
     body('notes').optional().trim().isLength({ max: 500 }).withMessage('留言備註不能超過 500 字符'),
     body('data_consent').isBoolean().custom(value => {
         if (value !== true) {
@@ -355,15 +355,15 @@ router.post('/events/:eventId/registrations', [
             name,
             email,
             phone,
-            company: company || '',
-            position: position || '',
-            gender: gender || null,
-            title: title || null,
-            notes: notes || null,
-            adultAge: adult_age || null,
-            childrenAges: children_ages || null,
-            dataConsent: data_consent === true || data_consent === 'true' || data_consent === 1 ? 1 : 0,
-            marketingConsent: marketing_consent === true || marketing_consent === 'true' || marketing_consent === 1 ? 1 : 0,
+            company,
+            position,
+            gender,
+            title,
+            notes,
+            adult_age,
+            children_ages,
+            data_consent,
+            marketing_consent,
             ipAddress: req.ip || req.connection.remoteAddress || null,
             userAgent: req.get('User-Agent') || null
         });

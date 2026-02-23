@@ -46,7 +46,7 @@ class ProjectRepository extends BaseRepository {
         const sql = `
             SELECT id, project_name, project_code, event_date, event_location,
                    status, max_participants, registration_deadline,
-                   contact_email, contact_phone
+                   contact_email, contact_phone, form_config
             FROM event_projects
             WHERE id = ? AND status = 'active'
         `;

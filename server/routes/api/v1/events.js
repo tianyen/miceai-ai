@@ -21,7 +21,7 @@ function handleServiceError(res, error, defaultMessage) {
 
     if (error.statusCode) {
         const message = error.details?.message || error.message || defaultMessage;
-        return responses.error(res, message, error.statusCode);
+        return responses.error(res, message, error.statusCode, error.details || null, error.code || null);
     }
 
     return responses.error(res, defaultMessage, 500);
@@ -353,6 +353,63 @@ router.get('/', [
  *                               photo_url:
  *                                 type: string
  *                                 example: ""
+ *                     registration_config:
+ *                       type: object
+ *                       description: 前端動態報名欄位設定（欄位啟用/必填/送出格式）
+ *                       properties:
+ *                         version:
+ *                           type: integer
+ *                           example: 1
+ *                         submit_endpoint:
+ *                           type: string
+ *                           example: "/api/v1/events/1/registrations"
+ *                         required_fields:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                         optional_fields:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                         fields:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               key:
+ *                                 type: string
+ *                                 example: "email"
+ *                               label:
+ *                                 type: string
+ *                                 example: "電子郵件"
+ *                               type:
+ *                                 type: string
+ *                                 example: "email"
+ *                               enabled:
+ *                                 type: boolean
+ *                               required:
+ *                                 type: boolean
+ *                               submit:
+ *                                 type: boolean
+ *                         payload_example:
+ *                           type: object
+ *                           description: 前端可直接參考的報名 payload 範例
+ *                         feature_toggles:
+ *                           type: object
+ *                           properties:
+ *                             show_event_info:
+ *                               type: boolean
+ *                             show_booth_info:
+ *                               type: boolean
+ *                             show_voucher_info:
+ *                               type: boolean
+ *                             show_vendor_info:
+ *                               type: boolean
+ *                             show_inventory_info:
+ *                               type: boolean
+ *                     common_data:
+ *                       type: object
+ *                       description: 依 feature_toggles 動態回傳的活動/攤位/券商/庫存資料
  *       404:
  *         description: 找不到活動
  *       500:
@@ -496,6 +553,12 @@ router.get('/code/:code', [
  *                               photo_url:
  *                                 type: string
  *                                 example: https://example.com/photo.jpg
+ *                     registration_config:
+ *                       type: object
+ *                       description: 前端動態報名欄位設定（欄位啟用/必填/送出格式）
+ *                     common_data:
+ *                       type: object
+ *                       description: 依 feature_toggles 動態回傳的活動/攤位/券商/庫存資料
  *       400:
  *         description: 參數驗證失敗
  *         content:

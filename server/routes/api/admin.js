@@ -23,7 +23,10 @@
  */
 const express = require('express');
 const router = express.Router();
-const { authenticateSession } = require('../../middleware/auth');
+const responses = require('../../utils/responses');
+const ErrorCodes = require('../../utils/error-codes');
+const { projectService } = require('../../services');
+const { authenticateSession, requireProjectPermission } = require('../../middleware/auth');
 
 // 導入子路由
 const businessCardsRouter = require('./admin/business-cards');
@@ -227,6 +230,135 @@ router.post('/projects/:id/duplicate', authenticateSession, projectController.du
 router.get('/projects/:id/export', authenticateSession, projectController.exportProject);
 router.put('/projects/:id', authenticateSession, projectController.updateProject);
 router.delete('/projects/:id', authenticateSession, projectController.deleteProject);
+
+/**
+ * @swagger
+ * /api/admin/projects/{projectId}/registration-config:
+ *   get:
+ *     summary: 取得專案報名動態欄位設定
+ *     description: 取得指定專案的報名欄位設定（必填、選填、feature toggles）
+ *     tags: [Projects]
+ *     security:
+ *       - sessionAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: 成功
+ *       403:
+ *         description: 權限不足
+ *       404:
+ *         description: 專案不存在
+ */
+router.get(
+    '/projects/:projectId/registration-config',
+    authenticateSession,
+    requireProjectPermission('admin'),
+    async (req, res) => {
+        try {
+            const result = await projectService.getFormConfig(req.params.projectId, req.user);
+            if (!result) {
+                return responses.error(
+                    res,
+                    '專案不存在',
+                    404,
+                    null,
+                    ErrorCodes.PROJECT_NOT_FOUND.code
+                );
+            }
+            return responses.success(res, result, '取得報名欄位設定成功');
+        } catch (error) {
+            console.error('取得報名欄位設定失敗:', error);
+            return responses.error(
+                res,
+                '取得報名欄位設定失敗',
+                500,
+                null,
+                ErrorCodes.INTERNAL_SERVER_ERROR.code
+            );
+        }
+    }
+);
+
+/**
+ * @swagger
+ * /api/admin/projects/{projectId}/registration-config:
+ *   put:
+ *     summary: 更新專案報名動態欄位設定
+ *     description: 更新指定專案的報名欄位設定（必填、選填、feature toggles）
+ *     tags: [Projects]
+ *     security:
+ *       - sessionAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [form_config]
+ *             properties:
+ *               form_config:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: 成功
+ *       400:
+ *         description: 參數錯誤
+ *       403:
+ *         description: 權限不足
+ *       404:
+ *         description: 專案不存在
+ */
+router.put(
+    '/projects/:projectId/registration-config',
+    authenticateSession,
+    requireProjectPermission('admin'),
+    async (req, res) => {
+        try {
+            const { form_config } = req.body || {};
+            if (!form_config || typeof form_config !== 'object') {
+                return responses.error(
+                    res,
+                    'form_config 必須為物件',
+                    400,
+                    null,
+                    ErrorCodes.VALIDATION_ERROR.code
+                );
+            }
+
+            const ok = await projectService.updateFormConfig(req.params.projectId, form_config, req.user);
+            if (!ok) {
+                return responses.error(
+                    res,
+                    '專案不存在',
+                    404,
+                    null,
+                    ErrorCodes.PROJECT_NOT_FOUND.code
+                );
+            }
+            return responses.success(res, null, '更新報名欄位設定成功');
+        } catch (error) {
+            console.error('更新報名欄位設定失敗:', error);
+            return responses.error(
+                res,
+                '更新報名欄位設定失敗',
+                500,
+                null,
+                ErrorCodes.INTERNAL_SERVER_ERROR.code
+            );
+        }
+    }
+);
 
 // Template APIs - 更具體的路由必須在更通用的路由之前
 router.get('/templates/search', authenticateSession, templateController.searchTemplates);

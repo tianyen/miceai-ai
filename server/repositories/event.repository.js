@@ -113,6 +113,7 @@ class EventRepository extends BaseRepository {
                 p.contact_email,
                 p.contact_phone,
                 p.agenda,
+                p.form_config,
                 p.template_id,
                 p.created_at,
                 p.updated_at,
@@ -269,6 +270,64 @@ class EventRepository extends BaseRepository {
 
         const count = await this.countParticipants(projectId);
         return count < maxParticipants;
+    }
+
+    // ============================================================================
+    // 活動共用資料（前端動態顯示）
+    // ============================================================================
+
+    /**
+     * 取得活動攤位列表
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Array>}
+     */
+    async findBoothsByProject(projectId) {
+        const sql = `
+            SELECT
+                id,
+                booth_name,
+                booth_code,
+                location,
+                description,
+                is_active
+            FROM booths
+            WHERE project_id = ?
+            ORDER BY booth_name ASC
+        `;
+        return this.rawAll(sql, [projectId]);
+    }
+
+    /**
+     * 取得活動內攤位與兌換券綁定資料
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Array>}
+     */
+    async findVoucherBindingsByProject(projectId) {
+        const sql = `
+            SELECT
+                b.id as booth_id,
+                b.booth_name,
+                b.booth_code,
+                bg.id as booth_game_id,
+                bg.game_id,
+                bg.voucher_id,
+                v.voucher_name,
+                v.vendor_name,
+                v.sponsor_name,
+                v.category,
+                v.total_quantity,
+                v.remaining_quantity,
+                v.voucher_value,
+                vc.min_score,
+                vc.min_play_time
+            FROM booths b
+            LEFT JOIN booth_games bg ON bg.booth_id = b.id AND bg.is_active = 1
+            LEFT JOIN vouchers v ON v.id = bg.voucher_id AND v.is_active = 1
+            LEFT JOIN voucher_conditions vc ON vc.voucher_id = v.id
+            WHERE b.project_id = ?
+            ORDER BY b.booth_name ASC, v.voucher_name ASC
+        `;
+        return this.rawAll(sql, [projectId]);
     }
 
     // ============================================================================

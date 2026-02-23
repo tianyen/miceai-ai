@@ -1867,7 +1867,7 @@ function escapeHtml(text) {
 // 載入報名表單配置
 function loadFormConfig() {
     $.ajax({
-        url: `/admin/projects/${projectId}/form-config`,
+        url: `/api/admin/projects/${projectId}/registration-config`,
         method: 'GET',
         success: function(response) {
             if (response.success) {
@@ -1891,6 +1891,13 @@ function loadFormConfig() {
                 if (config.title_options) {
                     $('#title_options').val(config.title_options.join(', '));
                 }
+
+                const toggles = config.feature_toggles || {};
+                $('#toggle_show_event_info').prop('checked', toggles.show_event_info !== false);
+                $('#toggle_show_booth_info').prop('checked', toggles.show_booth_info === true);
+                $('#toggle_show_voucher_info').prop('checked', toggles.show_voucher_info === true);
+                $('#toggle_show_vendor_info').prop('checked', toggles.show_vendor_info === true);
+                $('#toggle_show_inventory_info').prop('checked', toggles.show_inventory_info === true);
             }
         },
         error: function(xhr) {
@@ -1917,7 +1924,7 @@ function saveFormConfig() {
     const titleOptions = $('#title_options').val().split(',').map(s => s.trim()).filter(s => s);
 
     const formConfig = {
-        required_fields: ['name', 'email', 'phone'],
+        required_fields: ['name', 'email', 'phone', 'data_consent'],
         optional_fields: optionalFields,
         field_labels: {
             name: '姓名',
@@ -1930,10 +1937,19 @@ function saveFormConfig() {
             notes: '留言備註',
             adult_age: '成人年齡',
             children_count: '小孩人數（自動計算）',
-            children_ages: '小孩年齡區間'
+            children_ages: '小孩年齡區間',
+            data_consent: '資料使用同意',
+            marketing_consent: '行銷同意'
         },
         gender_options: genderOptions,
-        title_options: titleOptions
+        title_options: titleOptions,
+        feature_toggles: {
+            show_event_info: $('#toggle_show_event_info').is(':checked'),
+            show_booth_info: $('#toggle_show_booth_info').is(':checked'),
+            show_voucher_info: $('#toggle_show_voucher_info').is(':checked'),
+            show_vendor_info: $('#toggle_show_vendor_info').is(':checked'),
+            show_inventory_info: $('#toggle_show_inventory_info').is(':checked')
+        }
     };
 
     // 收集人數限制設定
@@ -1947,7 +1963,7 @@ function saveFormConfig() {
     const requests = [
         // 1. 更新表單配置
         $.ajax({
-            url: `/admin/projects/${projectId}/form-config`,
+            url: `/api/admin/projects/${projectId}/registration-config`,
             method: 'PUT',
             contentType: 'application/json',
             headers: { 'X-CSRF-Token': csrfToken },

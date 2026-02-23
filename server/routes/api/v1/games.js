@@ -39,7 +39,7 @@ function handleServiceError(res, error, defaultMessage) {
     if (error.statusCode) {
         // AppError
         const message = error.details?.message || error.message || defaultMessage;
-        return responses.error(res, message, error.statusCode);
+        return responses.error(res, message, error.statusCode, error.details || null, error.code || null);
     }
 
     return responses.serverError(res, defaultMessage);
@@ -50,7 +50,13 @@ function handleServiceError(res, error, defaultMessage) {
  * /api/v1/games/{gameId}/sessions/start:
  *   post:
  *     summary: 開始遊戲會話
- *     description: 創建新的遊戲會話，用於追蹤玩家遊戲進度
+ *     description: |
+ *       創建新的遊戲會話，用於追蹤玩家遊戲進度。
+ *
+ *       防作弊規則：
+ *       - `trace_id` 與 `user_id`（registration_id）必須對應同一報名來源
+ *       - `trace_id` 必須屬於指定 `project_id`
+ *       - `project / booth / game` 必須為啟用狀態且綁定關係有效
  *     tags: [Games (遊戲室)]
  *     parameters:
  *       - in: path
@@ -171,7 +177,12 @@ router.post('/:gameId/sessions/start', async (req, res) => {
  * /api/v1/games/{gameId}/logs:
  *   post:
  *     summary: 接收遊戲日誌
- *     description: 記錄玩家遊戲過程中的操作和事件
+ *     description: |
+ *       記錄玩家遊戲過程中的操作和事件。
+ *
+ *       防作弊規則：
+ *       - 必須存在進行中的遊戲會話
+ *       - `trace_id / user_id / project_id` 必須與會話來源一致
  *     tags: [Games (遊戲室)]
  *     parameters:
  *       - in: path
@@ -306,7 +317,13 @@ router.post('/:gameId/logs', async (req, res) => {
  * /api/v1/games/{gameId}/sessions/end:
  *   post:
  *     summary: 結束遊戲會話並檢查兌換券條件
- *     description: 結束遊戲會話，檢查玩家是否符合兌換券條件，自動發放兌換券
+ *     description: |
+ *       結束遊戲會話，檢查玩家是否符合兌換券條件，自動發放兌換券。
+ *
+ *       防作弊規則：
+ *       - 同一 Email 在同一專案（project_id）若已成功兌換過（is_used=1），不再發放新兌換券
+ *       - `trace_id / user_id / project_id` 必須與報名來源一致
+ *       - `project / booth / game` 必須為啟用狀態且綁定關係有效
  *     tags: [Games (遊戲室)]
  *     parameters:
  *       - in: path
@@ -380,6 +397,10 @@ router.post('/:gameId/logs', async (req, res) => {
  *                     voucher_earned:
  *                       type: boolean
  *                       example: true
+ *                     reason:
+ *                       type: string
+ *                       description: 當 voucher_earned 為 false 時，返回未發券原因（例如已成功兌換過）
+ *                       example: "此 Email 已於本專案成功兌換過，無法重複領券"
  *                     voucher:
  *                       type: object
  *                       properties:
@@ -425,6 +446,7 @@ router.post('/:gameId/sessions/end', async (req, res) => {
         const { gameId } = req.params;
         const {
             trace_id,
+            user_id,
             project_id,
             final_score = 0,
             total_play_time = 0
@@ -442,6 +464,7 @@ router.post('/:gameId/sessions/end', async (req, res) => {
         const result = await gameService.endSession({
             gameId,
             traceId: trace_id,
+            userId: user_id,
             projectId: project_id,
             finalScore: final_score,
             totalPlayTime: total_play_time
@@ -578,4 +601,3 @@ router.get('/:gameId/info', async (req, res) => {
 });
 
 module.exports = router;
-

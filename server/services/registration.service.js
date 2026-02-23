@@ -9,7 +9,12 @@ const qrCodeRepository = require('../repositories/qr-code.repository');
 const projectRepository = require('../repositories/project.repository');
 const emailService = require('./email.service');
 const { generateTraceId } = require('../utils/traceId');
+const { normalizeFormConfig } = require('../utils/registration-config');
 const QRCode = require('qrcode');
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^[0-9\-\+\s\(\)]{8,20}$/;
+const CHILDREN_AGE_KEYS = ['age_0_6', 'age_6_12', 'age_12_18'];
 
 class RegistrationService extends BaseService {
     constructor() {
@@ -26,18 +31,9 @@ class RegistrationService extends BaseService {
      */
     async submitRegistration(data) {
         const {
-            eventId, name, email, phone,
-            company, position,
-            gender, title, notes,
-            adultAge, childrenAges,
-            dataConsent, marketingConsent,
+            eventId,
             ipAddress, userAgent
         } = data;
-
-        // 自動計算 children_count（根據年齡區間人數加總）
-        const childrenCount = childrenAges
-            ? (childrenAges.age_0_6 || 0) + (childrenAges.age_6_12 || 0) + (childrenAges.age_12_18 || 0)
-            : 0;
 
         // 1. 檢查活動是否存在且開放報名
         const event = await this.projectRepo.findActiveById(eventId);
@@ -46,6 +42,28 @@ class RegistrationService extends BaseService {
                 message: '活動不存在或未開放報名'
             });
         }
+
+        // 1.5 依專案 form_config 過濾並標準化欄位
+        const formConfig = normalizeFormConfig(event.form_config);
+        const normalized = this._normalizeSingleRegistrationPayload(data, formConfig);
+
+        const {
+            name,
+            email,
+            phone,
+            company,
+            position,
+            gender,
+            title,
+            notes,
+            adultAge,
+            childrenAges,
+            dataConsent,
+            marketingConsent
+        } = normalized;
+
+        // 自動計算 children_count（根據年齡區間人數加總）
+        const childrenCount = this._calculateChildrenCount(childrenAges);
 
         // 2. 檢查報名截止時間
         if (event.registration_deadline) {
@@ -164,6 +182,194 @@ class RegistrationService extends BaseService {
                 data: traceId,
                 url: `/api/v1/qr-codes/${traceId}`
             }
+        };
+    }
+
+    _hasValue(value) {
+        return !(value === undefined || value === null || (typeof value === 'string' && value.trim() === ''));
+    }
+
+    _toBoolean(value) {
+        return value === true || value === 1 || value === '1' || value === 'true';
+    }
+
+    _calculateChildrenCount(childrenAges) {
+        if (!childrenAges || typeof childrenAges !== 'object') return 0;
+        return CHILDREN_AGE_KEYS.reduce((sum, key) => sum + (childrenAges[key] || 0), 0);
+    }
+
+    _normalizeSingleRegistrationPayload(data, formConfig) {
+        const enabledFieldSet = new Set([
+            ...(formConfig.required_fields || []),
+            ...(formConfig.optional_fields || [])
+        ]);
+        const requiredFieldSet = new Set(formConfig.required_fields || []);
+        const fieldLabels = formConfig.field_labels || {};
+
+        const assertRequired = (fieldKey, value) => {
+            if (requiredFieldSet.has(fieldKey) && !this._hasValue(value)) {
+                this.throwError(this.ErrorCodes.MISSING_REQUIRED_FIELD, {
+                    message: `${fieldLabels[fieldKey] || fieldKey}為必填欄位`,
+                    field: fieldKey
+                });
+            }
+        };
+
+        const normalizeStringField = (fieldKey, rawValue, { maxLength = null } = {}) => {
+            if (!enabledFieldSet.has(fieldKey)) return '';
+            const value = this._hasValue(rawValue) ? String(rawValue).trim() : '';
+            assertRequired(fieldKey, value);
+            if (maxLength && value.length > maxLength) {
+                this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                    message: `${fieldLabels[fieldKey] || fieldKey}不能超過 ${maxLength} 字元`,
+                    field: fieldKey
+                });
+            }
+            return value;
+        };
+
+        const name = normalizeStringField('name', data.name, { maxLength: 50 });
+        if (name.length < 2) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                message: '姓名長度必須在 2-50 字符之間',
+                field: 'name'
+            });
+        }
+
+        const email = normalizeStringField('email', data.email, { maxLength: 255 }).toLowerCase();
+        if (!EMAIL_REGEX.test(email)) {
+            this.throwError(this.ErrorCodes.INVALID_EMAIL, {
+                message: '請輸入有效的電子郵件地址',
+                field: 'email'
+            });
+        }
+
+        const phone = normalizeStringField('phone', data.phone, { maxLength: 20 });
+        if (!PHONE_REGEX.test(phone)) {
+            this.throwError(this.ErrorCodes.INVALID_PHONE, {
+                message: '手機號碼格式不正確',
+                field: 'phone'
+            });
+        }
+
+        const company = normalizeStringField('company', data.company, { maxLength: 100 });
+        const position = normalizeStringField('position', data.position, { maxLength: 50 });
+        const notesRaw = normalizeStringField('notes', data.notes, { maxLength: 500 });
+        const notes = notesRaw || null;
+
+        let gender = null;
+        if (enabledFieldSet.has('gender')) {
+            const value = normalizeStringField('gender', data.gender, { maxLength: 20 });
+            if (value) {
+                const options = Array.isArray(formConfig.gender_options) ? formConfig.gender_options : [];
+                if (options.length > 0 && !options.includes(value)) {
+                    this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                        message: `性別必須是：${options.join('、')}`,
+                        field: 'gender'
+                    });
+                }
+                gender = value;
+            }
+        }
+
+        let title = null;
+        if (enabledFieldSet.has('title')) {
+            const value = normalizeStringField('title', data.title, { maxLength: 20 });
+            if (value) {
+                const options = Array.isArray(formConfig.title_options) ? formConfig.title_options : [];
+                if (options.length > 0 && !options.includes(value)) {
+                    this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                        message: `尊稱必須是：${options.join('、')}`,
+                        field: 'title'
+                    });
+                }
+                title = value;
+            }
+        }
+
+        let adultAge = null;
+        if (enabledFieldSet.has('adult_age')) {
+            const raw = data.adultAge ?? data.adult_age;
+            assertRequired('adult_age', raw);
+            if (this._hasValue(raw)) {
+                const parsed = Number(raw);
+                if (!Number.isInteger(parsed) || parsed < 18 || parsed > 120) {
+                    this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                        message: '成年人年齡必須在 18-120 之間',
+                        field: 'adult_age'
+                    });
+                }
+                adultAge = parsed;
+            }
+        }
+
+        let childrenAges = null;
+        if (enabledFieldSet.has('children_ages')) {
+            const raw = data.childrenAges ?? data.children_ages;
+            assertRequired('children_ages', raw);
+
+            if (this._hasValue(raw)) {
+                if (typeof raw !== 'object' || Array.isArray(raw)) {
+                    this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                        message: '小朋友年齡必須是物件格式',
+                        field: 'children_ages'
+                    });
+                }
+
+                const normalized = {};
+                for (const key of CHILDREN_AGE_KEYS) {
+                    const value = raw[key];
+                    if (!this._hasValue(value)) {
+                        normalized[key] = 0;
+                        continue;
+                    }
+                    const parsed = Number(value);
+                    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 10) {
+                        this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                            message: `${key} 人數必須在 0-10 之間`,
+                            field: `children_ages.${key}`
+                        });
+                    }
+                    normalized[key] = parsed;
+                }
+                childrenAges = normalized;
+            }
+        }
+
+        const rawDataConsent = data.dataConsent ?? data.data_consent;
+        const dataConsent = enabledFieldSet.has('data_consent') ? this._toBoolean(rawDataConsent) : false;
+        if (requiredFieldSet.has('data_consent') && !dataConsent) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                message: '必須同意資料使用條款',
+                field: 'data_consent'
+            });
+        }
+
+        const rawMarketingConsent = data.marketingConsent ?? data.marketing_consent;
+        let marketingConsent = false;
+        if (enabledFieldSet.has('marketing_consent')) {
+            if (requiredFieldSet.has('marketing_consent') && !this._hasValue(rawMarketingConsent)) {
+                this.throwError(this.ErrorCodes.MISSING_REQUIRED_FIELD, {
+                    message: `${fieldLabels.marketing_consent || '行銷同意'}為必填欄位`,
+                    field: 'marketing_consent'
+                });
+            }
+            marketingConsent = this._toBoolean(rawMarketingConsent);
+        }
+
+        return {
+            name,
+            email,
+            phone,
+            company: company || '',
+            position: position || '',
+            gender,
+            title,
+            notes,
+            adultAge,
+            childrenAges,
+            dataConsent: dataConsent ? 1 : 0,
+            marketingConsent: marketingConsent ? 1 : 0
         };
     }
 

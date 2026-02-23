@@ -780,6 +780,11 @@ router.delete('/:projectId/booths/:boothId', async (req, res) => {
 router.get('/:projectId/form-config', async (req, res) => {
     try {
         const projectId = req.params.projectId;
+        const hasPermission = await projectService.checkAdminPermission(req.user.id, projectId, req.user.role);
+        if (!hasPermission) {
+            return responses.forbidden(res, '無權限查看報名表單配置');
+        }
+
         const result = await projectService.getFormConfig(projectId, req.user);
 
         if (!result) {
@@ -798,6 +803,11 @@ router.put('/:projectId/form-config', async (req, res) => {
     try {
         const projectId = req.params.projectId;
         const { form_config } = req.body;
+
+        const hasPermission = await projectService.checkAdminPermission(req.user.id, projectId, req.user.role);
+        if (!hasPermission) {
+            return responses.forbidden(res, '無權限修改報名表單配置');
+        }
 
         if (!form_config) {
             return responses.badRequest(res, '缺少 form_config 參數');

@@ -55,7 +55,9 @@ class GameRepository extends BaseRepository {
             FROM games g
             JOIN booth_games bg ON g.id = bg.game_id
             JOIN booths b ON bg.booth_id = b.id
+            JOIN event_projects p ON b.project_id = p.id
             WHERE b.project_id = ? AND bg.is_active = 1 AND g.is_active = 1
+              AND b.is_active = 1 AND p.status = 'active'
             ORDER BY g.game_name_zh
         `, [projectId]);
     }
@@ -87,6 +89,7 @@ class GameRepository extends BaseRepository {
             JOIN booths b ON bg.booth_id = b.id
             JOIN event_projects p ON b.project_id = p.id
             WHERE g.id = ? AND bg.is_active = 1 AND g.is_active = 1
+              AND b.is_active = 1 AND p.status = 'active'
         `;
         const params = [gameId];
 
@@ -283,7 +286,9 @@ class GameRepository extends BaseRepository {
             FROM booth_games bg
             JOIN games g ON bg.game_id = g.id
             JOIN booths b ON bg.booth_id = b.id
+            JOIN event_projects p ON b.project_id = p.id
             WHERE bg.booth_id = ? AND bg.game_id = ? AND bg.is_active = 1
+              AND g.is_active = 1 AND b.is_active = 1 AND p.status = 'active'
         `, [boothId, gameId]);
     }
 
@@ -299,7 +304,9 @@ class GameRepository extends BaseRepository {
             FROM booth_games bg
             JOIN games g ON bg.game_id = g.id
             JOIN booths b ON bg.booth_id = b.id
+            JOIN event_projects p ON b.project_id = p.id
             WHERE b.project_id = ? AND bg.game_id = ? AND bg.is_active = 1
+              AND g.is_active = 1 AND b.is_active = 1 AND p.status = 'active'
             ORDER BY b.id ASC
             LIMIT 1
         `, [projectId, gameId]);
@@ -915,7 +922,10 @@ class GameRepository extends BaseRepository {
             FROM vouchers v
             LEFT JOIN voucher_conditions vc ON v.id = vc.voucher_id
             INNER JOIN booth_games bg ON v.id = bg.voucher_id
+            INNER JOIN booths b ON bg.booth_id = b.id
+            INNER JOIN event_projects p ON b.project_id = p.id
             WHERE bg.booth_id = ? AND bg.game_id = ? AND v.is_active = 1
+              AND bg.is_active = 1 AND b.is_active = 1 AND p.status = 'active'
         `, [boothId, gameId]);
     }
 }

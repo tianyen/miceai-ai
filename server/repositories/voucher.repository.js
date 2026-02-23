@@ -722,6 +722,54 @@ class VoucherRepository extends BaseRepository {
     }
 
     /**
+     * 檢查同 Email 在同專案是否已有成功兌換紀錄（is_used = 1）
+     * @param {string} traceId - 目前玩家 trace_id
+     * @param {number} projectId - 專案 ID
+     * @returns {Promise<Object>} 防作弊檢查結果
+     */
+    async getRedeemGuardStatusByTraceIdAndProject(traceId, projectId) {
+        const participant = await this.db.get(`
+            SELECT submitter_email
+            FROM form_submissions
+            WHERE trace_id = ? AND project_id = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+        `, [traceId, projectId]);
+
+        if (!participant || !participant.submitter_email) {
+            return {
+                user_email: null,
+                has_successful_redemption: false,
+                redemption: null
+            };
+        }
+
+        const successfulRedemption = await this.db.get(`
+            SELECT
+                vr.id,
+                vr.trace_id,
+                vr.redemption_code,
+                vr.used_at,
+                vr.voucher_id,
+                v.voucher_name
+            FROM voucher_redemptions vr
+            JOIN form_submissions fs ON vr.trace_id = fs.trace_id
+            LEFT JOIN vouchers v ON vr.voucher_id = v.id
+            WHERE fs.project_id = ?
+              AND LOWER(fs.submitter_email) = LOWER(?)
+              AND vr.is_used = 1
+            ORDER BY vr.used_at DESC, vr.id DESC
+            LIMIT 1
+        `, [projectId, participant.submitter_email]);
+
+        return {
+            user_email: participant.submitter_email,
+            has_successful_redemption: !!successfulRedemption,
+            redemption: successfulRedemption || null
+        };
+    }
+
+    /**
      * 根據 trace_id 查詢所有兌換記錄 (含 QR Code)
      * @param {string} traceId - 追蹤 ID
      * @returns {Promise<Array>}

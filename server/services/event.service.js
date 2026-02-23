@@ -7,6 +7,11 @@
  */
 const BaseService = require('./base.service');
 const eventRepository = require('../repositories/event.repository');
+const {
+    normalizeFormConfig,
+    buildFrontendFields,
+    buildPayloadExample
+} = require('../utils/registration-config');
 
 class EventService extends BaseService {
     constructor() {
@@ -116,6 +121,9 @@ class EventService extends BaseService {
         // 獲取模板
         const template = await this._getEventTemplate(event.template_id);
 
+        // 合併活動報名欄位設定
+        const formConfig = normalizeFormConfig(event.form_config);
+
         // 解析 event_highlights
         const highlights = this._safeJsonParse(event.event_highlights, null);
 
@@ -126,6 +134,20 @@ class EventService extends BaseService {
 
         // 判斷是否開放報名
         const registrationOpen = this._checkRegistrationOpen(event, remainingSlots);
+
+        // 前端動態渲染欄位用設定
+        const registrationConfig = {
+            version: 1,
+            submit_endpoint: `/api/v1/events/${event.id}/registrations`,
+            required_fields: formConfig.required_fields,
+            optional_fields: formConfig.optional_fields,
+            field_labels: formConfig.field_labels,
+            fields: buildFrontendFields(formConfig),
+            payload_example: buildPayloadExample(formConfig),
+            feature_toggles: formConfig.feature_toggles
+        };
+
+        const commonData = await this._buildCommonData(event, formConfig.feature_toggles);
 
         return {
             id: event.id,
@@ -151,7 +173,108 @@ class EventService extends BaseService {
                 email: event.contact_email,
                 phone: event.contact_phone
             },
-            template
+            template,
+            registration_config: registrationConfig,
+            common_data: commonData
+        };
+    }
+
+    /**
+     * 內部方法：根據 feature_toggles 輸出活動共用資料
+     * @private
+     */
+    async _buildCommonData(event, toggles = {}) {
+        const showBooths = !!toggles.show_booth_info;
+        const showVouchers = !!toggles.show_voucher_info;
+        const showVendors = !!toggles.show_vendor_info;
+        const showInventory = !!toggles.show_inventory_info;
+
+        const needBoothData = showBooths;
+        const needVoucherData = showVouchers || showVendors || showInventory;
+
+        const [booths, bindings] = await Promise.all([
+            needBoothData ? this.repository.findBoothsByProject(event.id) : Promise.resolve([]),
+            needVoucherData ? this.repository.findVoucherBindingsByProject(event.id) : Promise.resolve([])
+        ]);
+
+        const vouchers = [];
+        const voucherById = new Map();
+        const vendorMap = new Map();
+
+        for (const row of bindings) {
+            if (!row.voucher_id) continue;
+
+            if (!voucherById.has(row.voucher_id)) {
+                const voucherItem = {
+                    id: row.voucher_id,
+                    name: row.voucher_name,
+                    category: row.category,
+                    value: row.voucher_value,
+                    booth_bindings: []
+                };
+
+                if (showInventory) {
+                    voucherItem.inventory = {
+                        total_quantity: row.total_quantity,
+                        remaining_quantity: row.remaining_quantity
+                    };
+                }
+
+                voucherById.set(row.voucher_id, voucherItem);
+                vouchers.push(voucherItem);
+            }
+
+            voucherById.get(row.voucher_id).booth_bindings.push({
+                booth_id: row.booth_id,
+                booth_name: row.booth_name,
+                booth_code: row.booth_code,
+                game_id: row.game_id,
+                min_score: row.min_score,
+                min_play_time: row.min_play_time
+            });
+
+            const vendorName = row.vendor_name || '';
+            const sponsorName = row.sponsor_name || '';
+
+            if (showVendors && vendorName && !vendorMap.has(`vendor:${vendorName}`)) {
+                vendorMap.set(`vendor:${vendorName}`, {
+                    type: 'vendor',
+                    name: vendorName
+                });
+            }
+
+            if (showVendors && sponsorName && !vendorMap.has(`sponsor:${sponsorName}`)) {
+                vendorMap.set(`sponsor:${sponsorName}`, {
+                    type: 'sponsor',
+                    name: sponsorName
+                });
+            }
+        }
+
+        return {
+            event_info: toggles.show_event_info
+                ? {
+                    id: event.id,
+                    name: event.name,
+                    code: event.code,
+                    date: event.date,
+                    start_date: event.event_start_date,
+                    end_date: event.event_end_date,
+                    location: event.location
+                }
+                : null,
+            booths: showBooths
+                ? booths.map(booth => ({
+                    id: booth.id,
+                    name: booth.booth_name,
+                    code: booth.booth_code,
+                    location: booth.location,
+                    description: booth.description,
+                    is_active: !!booth.is_active
+                }))
+                : [],
+            vouchers: showVouchers || showInventory ? vouchers : [],
+            vendors: showVendors ? Array.from(vendorMap.values()) : []
         };
     }
 

@@ -7,6 +7,7 @@
 const BaseService = require('./base.service');
 const gameRepository = require('../repositories/game.repository');
 const projectRepository = require('../repositories/project.repository');
+const submissionRepository = require('../repositories/submission.repository');
 const voucherRepository = require('../repositories/voucher.repository');
 const { checkVoucherRedemption } = require('../utils/voucher-checker');
 const { generateRedemptionCode } = require('../utils/redemption-code-generator');
@@ -17,6 +18,7 @@ class GameService extends BaseService {
         super('GameService');
         this.gameRepo = gameRepository;
         this.projectRepo = projectRepository;
+        this.submissionRepo = submissionRepository;
         this.voucherRepo = voucherRepository;
     }
 
@@ -215,15 +217,23 @@ class GameService extends BaseService {
      */
     async startSession(sessionData) {
         const { gameId, traceId, projectId, boothId, userId, ipAddress, userAgent } = sessionData;
+        const normalizedGameId = this._toPositiveInt(gameId, 'game_id', true);
+
+        const participantContext = await this._validateParticipantContext({
+            traceId,
+            userId,
+            projectId
+        });
 
         // 查詢攤位遊戲綁定
         let binding;
-        let actualBoothId = boothId;
+        const normalizedBoothId = this._toPositiveInt(boothId, 'booth_id', false);
+        let actualBoothId = normalizedBoothId;
 
-        if (boothId) {
-            binding = await this.gameRepo.findBoothGameBinding(boothId, gameId);
-        } else if (projectId) {
-            binding = await this.gameRepo.findBoothGameBindingByProject(projectId, gameId);
+        if (normalizedBoothId) {
+            binding = await this.gameRepo.findBoothGameBinding(normalizedBoothId, normalizedGameId);
+        } else if (participantContext.projectId) {
+            binding = await this.gameRepo.findBoothGameBindingByProject(participantContext.projectId, normalizedGameId);
             if (binding) {
                 actualBoothId = binding.booth_id;
             }
@@ -235,20 +245,26 @@ class GameService extends BaseService {
             });
         }
 
+        if (Number(binding.project_id) !== participantContext.projectId) {
+            this.throwError(this.ErrorCodes.PROJECT_ACCESS_DENIED, {
+                message: 'trace_id 不屬於此專案或攤位'
+            });
+        }
+
         // 建立會話
         const result = await this.gameRepo.createSession({
-            projectId: binding.project_id,
-            gameId,
+            projectId: participantContext.projectId,
+            gameId: normalizedGameId,
             boothId: actualBoothId,
             traceId,
-            userId,
+            userId: participantContext.userId,
             ipAddress,
             userAgent
         });
 
         this.log('startSession', {
             sessionId: result.lastID,
-            gameId,
+            gameId: normalizedGameId,
             traceId,
             boothId: actualBoothId
         });
@@ -271,10 +287,30 @@ class GameService extends BaseService {
      * @returns {Promise<Object>}
      */
     async endSession(endData) {
-        const { gameId, traceId, projectId, finalScore = 0, totalPlayTime = 0 } = endData;
+        const {
+            gameId,
+            traceId,
+            userId,
+            projectId,
+            finalScore = 0,
+            totalPlayTime = 0
+        } = endData;
+        const normalizedGameId = this._toPositiveInt(gameId, 'game_id', true);
+        const safeFinalScore = Number.isFinite(Number(finalScore)) ? Number(finalScore) : 0;
+        const safePlayTime = Number.isFinite(Number(totalPlayTime)) ? Number(totalPlayTime) : 0;
+
+        const participantContext = await this._validateParticipantContext({
+            traceId,
+            userId,
+            projectId
+        });
 
         // 查找進行中的會話
-        const session = await this.gameRepo.findActiveSession(traceId, gameId, projectId);
+        const session = await this.gameRepo.findActiveSession(
+            traceId,
+            normalizedGameId,
+            participantContext.projectId
+        );
 
         if (!session) {
             this.throwError(this.ErrorCodes.NOT_FOUND, {
@@ -282,14 +318,28 @@ class GameService extends BaseService {
             });
         }
 
+        if (session.user_id && Number(session.user_id) !== participantContext.userId) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                message: 'user_id 與 trace_id 不一致'
+            });
+        }
+
         // 結束會話
         await this.gameRepo.endSession(session.id, {
-            finalScore,
-            totalPlayTime
+            finalScore: safeFinalScore,
+            totalPlayTime: safePlayTime
         });
 
         // 查詢攤位綁定的兌換券
-        const binding = await this.gameRepo.findBoothGameBinding(session.booth_id, gameId);
+        let binding = null;
+        if (session.booth_id) {
+            binding = await this.gameRepo.findBoothGameBinding(session.booth_id, normalizedGameId);
+            if (!binding) {
+                this.throwError(this.ErrorCodes.NOT_FOUND, {
+                    message: '攤位未綁定此遊戲或遊戲未啟用'
+                });
+            }
+        }
 
         let voucherEarned = false;
         let voucherData = null;
@@ -302,8 +352,9 @@ class GameService extends BaseService {
                 sessionId: session.id,
                 boothId: session.booth_id,
                 traceId,
-                finalScore,
-                totalPlayTime
+                projectId: session.project_id,
+                finalScore: safeFinalScore,
+                totalPlayTime: safePlayTime
             });
 
             voucherEarned = voucherResult.earned;
@@ -313,16 +364,16 @@ class GameService extends BaseService {
 
         this.log('endSession', {
             sessionId: session.id,
-            finalScore,
-            totalPlayTime,
+            finalScore: safeFinalScore,
+            totalPlayTime: safePlayTime,
             voucherEarned
         });
 
         const result = {
             sessionId: session.id,
             traceId,
-            finalScore,
-            playTime: totalPlayTime,
+            finalScore: safeFinalScore,
+            playTime: safePlayTime,
             voucherEarned
         };
 
@@ -339,12 +390,21 @@ class GameService extends BaseService {
      * 內部方法：處理兌換券發放
      * @private
      */
-    async _processVoucherRedemption({ voucherId, sessionId, boothId, traceId, finalScore, totalPlayTime }) {
+    async _processVoucherRedemption({ voucherId, sessionId, boothId, traceId, projectId, finalScore, totalPlayTime }) {
         // 查詢兌換券資訊
         const voucher = await this.gameRepo.findActiveVoucher(voucherId);
 
         if (!voucher) {
             return { earned: false, reason: '兌換券不存在或未啟用' };
+        }
+
+        // 防作弊：同 Email 在同專案只允許成功兌換一次
+        const redeemGuard = await this.voucherRepo.getRedeemGuardStatusByTraceIdAndProject(traceId, projectId);
+        if (!redeemGuard.user_email) {
+            return { earned: false, reason: '查無使用者 Email，無法完成兌換資格驗證' };
+        }
+        if (redeemGuard.has_successful_redemption) {
+            return { earned: false, reason: '此 Email 已於本專案成功兌換過，無法重複領券' };
         }
 
         // 查詢兌換條件
@@ -428,6 +488,76 @@ class GameService extends BaseService {
     }
 
     /**
+     * 轉換正整數參數
+     * @private
+     */
+    _toPositiveInt(value, fieldName, required = true) {
+        if (value === undefined || value === null || value === '') {
+            if (required) {
+                this.throwError(this.ErrorCodes.INVALID_PARAMETER, {
+                    message: `缺少 ${fieldName} 參數`
+                });
+            }
+            return null;
+        }
+
+        const parsed = Number(value);
+        if (!Number.isInteger(parsed) || parsed <= 0) {
+            this.throwError(this.ErrorCodes.INVALID_PARAMETER, {
+                message: `${fieldName} 必須是正整數`
+            });
+        }
+
+        return parsed;
+    }
+
+    /**
+     * 驗證 trace/user/project 來源一致性
+     * @private
+     */
+    async _validateParticipantContext({ traceId, userId, projectId }) {
+        const submission = await this.submissionRepo.findByTraceId(traceId);
+        if (!submission) {
+            this.throwError(this.ErrorCodes.SUBMISSION_NOT_FOUND, {
+                message: '找不到對應報名資料'
+            });
+        }
+
+        const submissionProjectId = Number(submission.project_id);
+        const requestedProjectId = this._toPositiveInt(projectId, 'project_id', false);
+
+        if (requestedProjectId && requestedProjectId !== submissionProjectId) {
+            this.throwError(this.ErrorCodes.PROJECT_ACCESS_DENIED, {
+                message: 'trace_id 不屬於指定專案'
+            });
+        }
+
+        const activeProject = await this.projectRepo.findActiveById(submissionProjectId);
+        if (!activeProject) {
+            this.throwError(this.ErrorCodes.PROJECT_NOT_FOUND, {
+                message: '專案不存在或未啟用'
+            });
+        }
+
+        let normalizedUserId = Number(submission.id);
+        if (!(userId === undefined || userId === null || userId === '')) {
+            const requestedUserId = this._toPositiveInt(userId, 'user_id', true);
+            if (requestedUserId !== normalizedUserId) {
+                this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                    message: 'user_id 與 trace_id 不一致'
+                });
+            }
+            normalizedUserId = requestedUserId;
+        }
+
+        return {
+            submission,
+            projectId: submissionProjectId,
+            userId: normalizedUserId
+        };
+    }
+
+    /**
      * 查詢會話
      * @param {number} sessionId - 會話 ID
      * @returns {Promise<Object>}
@@ -455,12 +585,36 @@ class GameService extends BaseService {
             logLevel = 'info', message, userAction, score = 0, playTime = 0,
             ipAddress, userAgent
         } = logData;
-
-        const result = await this.gameRepo.createLog({
-            projectId,
-            gameId,
+        const normalizedGameId = this._toPositiveInt(gameId, 'game_id', true);
+        const participantContext = await this._validateParticipantContext({
             traceId,
             userId,
+            projectId
+        });
+
+        const session = await this.gameRepo.findActiveSession(
+            traceId,
+            normalizedGameId,
+            participantContext.projectId
+        );
+        if (!session) {
+            this.throwError(this.ErrorCodes.NOT_FOUND, {
+                message: '找不到進行中的遊戲會話，請先開始遊戲'
+            });
+        }
+
+        if (session.user_id && Number(session.user_id) !== participantContext.userId) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                message: 'user_id 與 trace_id 不一致'
+            });
+        }
+
+        const result = await this.gameRepo.createLog({
+            projectId: participantContext.projectId,
+            gameId: normalizedGameId,
+            boothId: session.booth_id || null,
+            traceId,
+            userId: participantContext.userId,
             logLevel,
             message,
             userAction,

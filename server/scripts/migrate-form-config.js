@@ -44,8 +44,18 @@ function migrate() {
 
         // 設定預設值
         const defaultConfig = JSON.stringify({
-            required_fields: ['name', 'email', 'phone'],
-            optional_fields: ['company', 'position', 'gender', 'title', 'notes'],
+            required_fields: ['name', 'email', 'phone', 'data_consent'],
+            optional_fields: [
+                'company',
+                'position',
+                'gender',
+                'title',
+                'notes',
+                'adult_age',
+                'children_ages',
+                'children_count',
+                'marketing_consent'
+            ],
             field_labels: {
                 name: '姓名',
                 email: '電子郵件',
@@ -54,10 +64,22 @@ function migrate() {
                 position: '職位',
                 gender: '性別',
                 title: '尊稱',
-                notes: '留言備註'
+                notes: '留言備註',
+                adult_age: '成人年齡',
+                children_ages: '小孩年齡區間',
+                children_count: '小孩人數（自動計算）',
+                data_consent: '資料使用同意',
+                marketing_consent: '行銷同意'
             },
             gender_options: ['男', '女', '其他'],
-            title_options: ['先生', '女士', '博士', '教授']
+            title_options: ['先生', '女士', '博士', '教授'],
+            feature_toggles: {
+                show_event_info: true,
+                show_booth_info: false,
+                show_voucher_info: false,
+                show_vendor_info: false,
+                show_inventory_info: false
+            }
         });
 
         // 更新現有專案的預設配置
@@ -100,4 +122,3 @@ function migrate() {
 }
 
 migrate();
-

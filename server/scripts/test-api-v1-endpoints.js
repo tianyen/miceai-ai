@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * API v1 端點完整性測試腳本
- * 測試所有 17 個 API v1 端點是否正常工作
+ * 測試主要 API v1 端點是否正常工作
  */
 
 require('dotenv').config();
@@ -12,6 +12,7 @@ const { TEST_REGISTRATIONS } = require('./utils/trace-id-generator');
 
 const dbPath = path.resolve(config.database.path);
 const db = new Database(dbPath);
+const API_BASE_URL = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
 
 console.log('🧪 開始測試 API v1 端點完整性...\n');
 
@@ -45,6 +46,50 @@ function get(sql, params = []) {
     return Promise.resolve(db.prepare(sql).get(...params));
 }
 
+/**
+ * 呼叫 API（僅用於需要驗證實際 v1 回應的測試）
+ */
+async function requestApi(method, apiPath, body = null) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    try {
+        const response = await fetch(`${API_BASE_URL}${apiPath}`, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            ...(body ? { body: JSON.stringify(body) } : {}),
+            signal: controller.signal
+        });
+
+        const text = await response.text();
+        let json;
+        try {
+            json = JSON.parse(text);
+        } catch (error) {
+            throw new Error(`API 回應非 JSON（status=${response.status}）`);
+        }
+
+        return { status: response.status, body: json };
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+/**
+ * 檢查 API 是否可用（避免單獨執行 verify:api 時誤報）
+ */
+async function isApiAvailable() {
+    try {
+        const { status, body } = await requestApi('GET', '/api/v1/health');
+        return status === 200 && body?.success === true;
+    } catch (error) {
+        return false;
+    }
+}
+
 // 測試函數
 async function testEndpoint(name, testFn) {
     results.total++;
@@ -64,6 +109,11 @@ async function testEndpoint(name, testFn) {
 
 // 開始測試
 async function runTests() {
+    const apiAvailable = await isApiAvailable();
+    if (!apiAvailable) {
+        console.log(`ℹ️  API 未啟動，將略過需要 HTTP 的測試（Base URL: ${API_BASE_URL}）\n`);
+    }
+
     console.log('📋 測試 Check-in API (2 個端點)\n');
     
     // 1. POST /api/v1/check-in
@@ -110,6 +160,31 @@ async function runTests() {
         );
         if (!event) throw new Error('找不到 TECH2024 活動');
         if (!event.project_name) throw new Error('活動名稱為空');
+    });
+
+    // 4.1 GET /api/v1/events/code/{code} - 動態報名欄位配置
+    await testEndpoint('GET /api/v1/events/code/{code} - 回傳 registration_config', async () => {
+        if (!apiAvailable) {
+            return; // API 未啟動時略過 HTTP 驗證
+        }
+
+        const { status, body } = await requestApi('GET', '/api/v1/events/code/TECH2024');
+        if (status !== 200 || body?.success !== true) {
+            throw new Error(`API 回應異常 (status=${status})`);
+        }
+
+        const config = body?.data?.registration_config;
+        if (!config) throw new Error('缺少 registration_config');
+        if (!Array.isArray(config.fields)) throw new Error('registration_config.fields 不是陣列');
+
+        const keys = config.fields.map(field => field.key);
+        ['name', 'email', 'phone', 'data_consent'].forEach(key => {
+            if (!keys.includes(key)) throw new Error(`缺少必要欄位定義: ${key}`);
+        });
+
+        if (!config.submit_endpoint || !config.submit_endpoint.includes('/api/v1/events/')) {
+            throw new Error('submit_endpoint 格式錯誤');
+        }
     });
 
     // 5. GET /api/v1/events/{id}
@@ -230,6 +305,127 @@ async function runTests() {
         }
         if (!redemption.qr_code_base64) throw new Error('QR Code Base64 為空');
     });
+
+    // 12.1 POST /api/v1/games/{gameId}/sessions/end - 防作弊：已成功兌換不可重複領券
+    if (apiAvailable) {
+        await testEndpoint('POST /api/v1/games/{gameId}/sessions/end - 已成功兌換防重複領券', async () => {
+            const candidate = await get(
+                `SELECT vr.trace_id, fs.id as user_id, fs.project_id
+                 FROM voucher_redemptions vr
+                 JOIN form_submissions fs ON vr.trace_id = fs.trace_id
+                 JOIN event_projects p ON fs.project_id = p.id
+                 JOIN booths b ON b.project_id = p.id AND b.is_active = 1
+                 JOIN booth_games bg ON bg.booth_id = b.id AND bg.game_id = ? AND bg.is_active = 1
+                 JOIN games g ON g.id = bg.game_id AND g.is_active = 1
+                 WHERE p.status = 'active'
+                 ORDER BY vr.id DESC
+                 LIMIT 1`,
+                [gameId]
+            );
+            if (!candidate) {
+                console.log('⏭️  略過已成功兌換防重複領券（找不到符合 active 條件樣本）');
+                return;
+            }
+
+            const traceId = candidate.trace_id;
+            const projectId = candidate.project_id;
+            const userId = candidate.user_id;
+
+            const beforeCountRow = await get(
+                'SELECT COUNT(*) as count FROM voucher_redemptions WHERE trace_id = ?',
+                [traceId]
+            );
+            const beforeCount = beforeCountRow?.count || 0;
+
+            const existingRedemption = await get(
+                'SELECT id FROM voucher_redemptions WHERE trace_id = ? ORDER BY redeemed_at DESC, id DESC LIMIT 1',
+                [traceId]
+            );
+            if (!existingRedemption?.id) throw new Error('找不到可用的兌換記錄做防作弊測試');
+
+            // 先將既有兌換標記為「成功兌換」(is_used=1)
+            db.prepare(
+                'UPDATE voucher_redemptions SET is_used = 1, used_at = COALESCE(used_at, CURRENT_TIMESTAMP) WHERE id = ?'
+            ).run(existingRedemption.id);
+
+            const startResp = await requestApi('POST', `/api/v1/games/${gameId}/sessions/start`, {
+                trace_id: traceId,
+                user_id: String(userId),
+                project_id: projectId
+            });
+            if (startResp.status !== 200 || startResp.body?.success !== true) {
+                throw new Error(`無法建立防作弊測試會話，status=${startResp.status}`);
+            }
+
+            const endResp = await requestApi('POST', `/api/v1/games/${gameId}/sessions/end`, {
+                trace_id: traceId,
+                user_id: String(userId),
+                project_id: projectId,
+                final_score: 999,
+                total_play_time: 120
+            });
+
+            if (endResp.status !== 200 || endResp.body?.success !== true) {
+                throw new Error(`結束會話 API 失敗，status=${endResp.status}`);
+            }
+
+            const data = endResp.body?.data || {};
+            if (data.voucher_earned !== false) {
+                throw new Error('預期 voucher_earned 應為 false（已成功兌換不可重複領券）');
+            }
+
+            if (!data.reason || !data.reason.includes('已於本專案成功兌換過')) {
+                throw new Error(`防作弊 reason 不符合預期，實際: ${data.reason || 'N/A'}`);
+            }
+
+            const afterCountRow = await get(
+                'SELECT COUNT(*) as count FROM voucher_redemptions WHERE trace_id = ?',
+                [traceId]
+            );
+            const afterCount = afterCountRow?.count || 0;
+            if (afterCount !== beforeCount) {
+                throw new Error(`不應新增兌換記錄，預期 ${beforeCount}、實際 ${afterCount}`);
+            }
+        });
+
+        await testEndpoint('POST /api/v1/games/{gameId}/sessions/start - trace_id/user_id 一致性檢查', async () => {
+            const context = await get(
+                `SELECT fs.trace_id, fs.id as user_id, fs.project_id
+                 FROM form_submissions fs
+                 JOIN event_projects p ON fs.project_id = p.id
+                 JOIN booths b ON b.project_id = p.id AND b.is_active = 1
+                 JOIN booth_games bg ON bg.booth_id = b.id AND bg.game_id = ? AND bg.is_active = 1
+                 JOIN games g ON g.id = bg.game_id AND g.is_active = 1
+                 WHERE p.status = 'active'
+                 ORDER BY fs.id ASC
+                 LIMIT 1`,
+                [gameId]
+            );
+            if (!context) {
+                console.log('⏭️  略過 trace/user 一致性測試（找不到符合 active 條件樣本）');
+                return;
+            }
+
+            const mismatchUserId = Number(context.user_id) + 999999;
+
+            const mismatchResp = await requestApi('POST', `/api/v1/games/${gameId}/sessions/start`, {
+                trace_id: context.trace_id,
+                user_id: String(mismatchUserId), // 刻意使用不同人的 user_id
+                project_id: context.project_id
+            });
+
+            if (mismatchResp.status !== 400 || mismatchResp.body?.success !== false) {
+                throw new Error(`預期 400 驗證失敗，實際 status=${mismatchResp.status}`);
+            }
+
+            const message = mismatchResp.body?.error?.message || mismatchResp.body?.message || '';
+            if (!message.includes('user_id 與 trace_id 不一致')) {
+                throw new Error(`錯誤訊息不符合預期，實際: ${message || 'N/A'}`);
+            }
+        });
+    } else {
+        console.log('⏭️  略過防作弊 HTTP 測試（API 未啟動）');
+    }
 
     // 13. GET /api/v1/games/{gameId}/info
     await testEndpoint('GET /api/v1/games/{gameId}/info - 獲取遊戲資訊', async () => {
@@ -424,4 +620,3 @@ runTests().catch(error => {
     db.close();
     process.exit(1);
 });
-

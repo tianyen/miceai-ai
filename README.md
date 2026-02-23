@@ -481,6 +481,8 @@ sequenceDiagram
     - `GET /events/:id` - 活動詳情（含報名狀態）
     - `GET /events/code/:code` - 根據代碼查詢活動（含報名狀態）
     - 🆕 **報名狀態欄位**: `max_participants`, `current_participants`, `remaining_slots`, `registration_open`
+    - 🆕 **動態報名欄位設定**: `registration_config`（`required_fields`/`optional_fields`/`fields`/`payload_example`）
+    - 🆕 **動態共用資料**: `common_data`（依 feature_toggles 回傳活動/攤位/兌換券/券商）
   - Registrations: 報名管理（7 個端點，含團體報名）
     - `POST /events/{eventId}/registrations` - 單人報名
     - `POST /events/{eventId}/registrations/batch` - **團體報名 (最多 5 人)**
@@ -511,6 +513,9 @@ sequenceDiagram
   - Games: 遊戲管理（6 個端點）
   - Vouchers: 兌換券管理（6 個端點）
   - Booth Games: 攤位遊戲綁定（4 個端點）
+  - 🆕 Registration Config:
+    - `GET /api/admin/projects/{projectId}/registration-config`
+    - `PUT /api/admin/projects/{projectId}/registration-config`
 - `/business-card/:traceId` - QR Code 名片展示
 
 測試數據（與 Swagger 範例一致）：
@@ -782,6 +787,17 @@ pm2 startup
 **維護者**: MICE-AI Team
 
 ### 更新日誌
+
+#### 2026-02-23
+- 新增：V1 Events 回傳 `registration_config`（前端可動態判斷欄位開啟/必填/送出格式）
+- 新增：V1 Events 回傳 `common_data`（依 feature toggle 動態輸出活動/攤位/兌換券/券商資料）
+- 新增：Admin API 專案報名欄位設定端點
+  - `GET /api/admin/projects/{projectId}/registration-config`
+  - `PUT /api/admin/projects/{projectId}/registration-config`
+- 新增：專案詳情頁「報名設定」支援 feature toggles（活動資訊、攤位資訊、兌換券資訊、券商資訊、庫存資訊）
+- 對齊：V1 報名提交 (`POST /api/v1/events/:eventId/registrations`) 依活動 `form_config` 進行欄位標準化與 required 檢查
+- 強化：V1 遊戲流程防作弊新增 `trace_id / user_id / project_id` 一致性檢查，並強制 `project / booth / game` 啟用狀態驗證
+- 對齊：新增端點錯誤回應補上 `error.code`（對齊 `utils/error-codes.js`）
 
 #### 2026-01-28
 - 新增：Users API (`/api/v1/users`) - 用戶查詢功能
