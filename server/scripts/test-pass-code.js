@@ -6,12 +6,13 @@
 const http = require('http');
 const sqlite3 = require('better-sqlite3');
 const path = require('path');
+const { resolveApiV1BaseUrl } = require('./utils/api-base-url');
 
 // 載入環境變數和配置
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const config = require('../config');
 
-const API_BASE = 'http://localhost:9999/api/v1';
+const API_BASE = resolveApiV1BaseUrl();
 
 // 從配置取得資料庫路徑（遵守 DATABASE_PATH 環境變數）
 const DB_PATH = path.resolve(config.database.path);

@@ -1,0 +1,291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "registration-config.v2",
+  "title": "Registration Config v2",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "version",
+    "schema_id",
+    "contract_version",
+    "submit_endpoint",
+    "required_fields",
+    "optional_fields",
+    "field_labels",
+    "fields",
+    "payload_example",
+    "features",
+    "assets"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "schema_id": {
+      "type": "string",
+      "pattern": "^registration-config\\.v[0-9]+$"
+    },
+    "contract_version": {
+      "type": "string",
+      "const": "v1.1"
+    },
+    "submit_endpoint": {
+      "type": "string",
+      "pattern": "^/api/v1/events/[0-9]+/registrations$"
+    },
+    "required_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "optional_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "field_labels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "key",
+          "label",
+          "type",
+          "enabled",
+          "required",
+          "submit"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "submit": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "payload_example": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "feature_toggles": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      },
+      "properties": {
+        "show_event_info": {
+          "type": "boolean"
+        },
+        "show_booth_info": {
+          "type": "boolean"
+        },
+        "show_voucher_info": {
+          "type": "boolean"
+        },
+        "show_vendor_info": {
+          "type": "boolean"
+        },
+        "show_inventory_info": {
+          "type": "boolean"
+        }
+      }
+    },
+    "interstitial_effect": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "enabled",
+        "asset"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "asset": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": true,
+              "required": [
+                "type",
+                "url",
+                "mime_type"
+              ],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "gif",
+                    "mp4"
+                  ]
+                },
+                "url": {
+                  "type": "string",
+                  "pattern": "^/uploads/"
+                },
+                "mime_type": {
+                  "type": "string"
+                },
+                "file_name": {
+                  "type": "string"
+                },
+                "file_size": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "contract_version",
+        "source",
+        "toggles"
+      ],
+      "properties": {
+        "contract_version": {
+          "type": "string",
+          "const": "v1.1"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "project_feature_flags",
+            "form_config"
+          ]
+        },
+        "toggles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "boolean"
+          }
+        },
+        "configs": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": true
+            }
+          ]
+        }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "contract_version",
+        "source",
+        "interstitial"
+      ],
+      "properties": {
+        "contract_version": {
+          "type": "string",
+          "const": "v1.1"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "project_media_assets",
+            "form_config"
+          ]
+        },
+        "interstitial": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "enabled",
+            "asset"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "asset": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "type",
+                    "url",
+                    "mime_type"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "gif",
+                        "mp4"
+                      ]
+                    },
+                    "url": {
+                      "type": "string",
+                      "pattern": "^/uploads/"
+                    },
+                    "mime_type": {
+                      "type": "string"
+                    },
+                    "file_name": {
+                      "type": "string"
+                    },
+                    "file_size": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -8,8 +8,9 @@
  */
 
 const http = require('http');
+const { resolveBaseUrl } = require('./utils/api-base-url');
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = resolveBaseUrl();
 
 // 測試結果
 const results = {

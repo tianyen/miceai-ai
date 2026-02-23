@@ -25,12 +25,33 @@ FAILED=0
 SERVER_PID=""
 SERVER_STARTED_BY_US=false
 
-# 測試用端口
-TEST_PORT=9999
+# 測試目標（可覆寫）
+TEST_PORT="${TEST_PORT:-9999}"
+BASE_URL="${BASE_URL:-http://localhost:${TEST_PORT}}"
+API_BASE_URL="${API_BASE_URL:-$BASE_URL}"
+API_URL="${API_URL:-${API_BASE_URL%/}/api/v1}"
+
+# 若 BASE_URL 帶有明確 port，優先同步 TEST_PORT
+if [[ "$API_BASE_URL" =~ ^https?://[^/:]+:([0-9]+) ]]; then
+    TEST_PORT="${BASH_REMATCH[1]}"
+fi
+
+HEALTH_URL="${HEALTH_URL:-${API_URL%/}/health}"
+export TEST_PORT BASE_URL API_BASE_URL API_URL HEALTH_URL
+
+TARGET_IS_LOCAL=false
+if [[ "$API_BASE_URL" =~ ^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$ ]]; then
+    TARGET_IS_LOCAL=true
+fi
 
 # 備份並修改 .env PORT
 configure_env_for_test() {
     echo "🔧 配置測試環境..."
+
+    if [ "$TARGET_IS_LOCAL" != true ]; then
+        echo "   ℹ️ 偵測到非本機目標，略過 .env PORT 覆寫"
+        return 0
+    fi
 
     # 備份 .env
     if [ ! -f ".env.bak" ]; then
@@ -65,10 +86,15 @@ restore_env() {
 check_and_start_server() {
     echo "🔍 檢查 API 伺服器狀態..."
 
-    # 檢查 port 9999 是否有服務
-    if curl -s --max-time 2 http://localhost:9999/api/v1/health > /dev/null 2>&1; then
+    # 檢查目標健康端點是否可用
+    if curl -s --max-time 2 "$HEALTH_URL" > /dev/null 2>&1; then
         echo -e "${GREEN}✅ API 伺服器已在運行${NC}"
         return 0
+    fi
+
+    if [ "$TARGET_IS_LOCAL" != true ]; then
+        echo -e "${RED}❌ 目標 API 無法連線: $HEALTH_URL${NC}"
+        return 1
     fi
 
     echo -e "${YELLOW}⚠️  API 伺服器未運行，正在啟動...${NC}"
@@ -81,7 +107,7 @@ check_and_start_server() {
     # 等待 server 啟動
     for i in {1..10}; do
         sleep 1
-        if curl -s --max-time 2 http://localhost:9999/api/v1/health > /dev/null 2>&1; then
+        if curl -s --max-time 2 "$HEALTH_URL" > /dev/null 2>&1; then
             echo -e "${GREEN}✅ API 伺服器啟動成功 (PID: $SERVER_PID)${NC}"
             echo ""
             return 0
@@ -183,4 +209,3 @@ else
     echo -e "${RED}⚠️  有 $FAILED 個測試失敗，請檢查錯誤訊息。${NC}"
     exit 1
 fi
-

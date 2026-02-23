@@ -73,14 +73,11 @@ cd server
 BASE_URL=http://localhost:9999 npm run test:swagger
 ```
 
-## API 合約現況
+## API 文件治理
 
-V1 Events 的 `registration_config` 已提供：
-- `version`
-- `schema_id`
-- `contract_version`（目前 `v1.1`）
-- `features` / `assets`（新合約區塊）
-- 同時保留舊欄位 `feature_toggles` / `interstitial_effect` 供相容期使用
+- 單一真相（Single Source of Truth）：`server/docs/v1-api.md`
+- `registration_config` JSON Schema：`server/contracts/registration-config.v2.json`
+- README 不重複維護 API 回傳欄位明細，避免文件漂移
 
 ## Admin 動態欄位與素材
 
@@ -147,6 +144,7 @@ npm run setup
 ## 文檔索引
 
 - V1 API: `server/docs/v1-api.md`
+- Registration Config Contract: `server/contracts/registration-config.v2.json`
 - 前端流程: `server/docs/frontend-flow.md`
 - 兌換券流程: `server/docs/voucher-flow.md`
 

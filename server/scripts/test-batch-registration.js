@@ -1,4 +1,5 @@
-const API_URL = 'http://localhost:9999/api/v1';
+const { resolveApiV1BaseUrl } = require('./utils/api-base-url');
+const API_URL = resolveApiV1BaseUrl();
 const EVENT_ID = 1;
 
 async function testBatchRegistration() {

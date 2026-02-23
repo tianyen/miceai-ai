@@ -9,9 +9,10 @@
  */
 
 const http = require('http');
+const { resolveBaseUrl } = require('./utils/api-base-url');
 
 // 配置
-const BASE_URL = process.env.API_BASE_URL || 'http://localhost:9999';
+const BASE_URL = resolveBaseUrl();
 const API_PREFIX = '/api/v1';
 
 // 測試用的資料（從 seed 資料）

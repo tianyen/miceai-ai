@@ -5,13 +5,16 @@
 echo "🧪 測試完整遊戲流程"
 echo ""
 
+BASE_URL="${BASE_URL:-http://localhost:${PORT:-3000}}"
+API_URL="${API_URL:-${BASE_URL%/}/api/v1}"
+
 TRACE_ID="MICE-test-$(date +%s)"
 echo "📝 使用 Trace ID: $TRACE_ID"
 echo ""
 
 # 步驟 1: 開始遊戲
 echo "📊 步驟 1: 開始遊戲會話"
-START_RESPONSE=$(curl -s -X POST http://localhost:3000/api/v1/games/1/sessions/start \
+START_RESPONSE=$(curl -s -X POST "$API_URL/games/1/sessions/start" \
   -H "Content-Type: application/json" \
   -d "{
     \"trace_id\": \"$TRACE_ID\",
@@ -32,7 +35,7 @@ sleep 2
 
 # 步驟 2: 記錄遊戲日誌
 echo "📊 步驟 2: 記錄遊戲日誌"
-curl -s -X POST http://localhost:3000/api/v1/games/1/logs \
+curl -s -X POST "$API_URL/games/1/logs" \
   -H "Content-Type: application/json" \
   -d "{
     \"trace_id\": \"$TRACE_ID\",
@@ -52,7 +55,7 @@ sleep 2
 
 # 步驟 3: 結束遊戲
 echo "📊 步驟 3: 結束遊戲會話"
-curl -s -X POST http://localhost:3000/api/v1/games/1/sessions/end \
+curl -s -X POST "$API_URL/games/1/sessions/end" \
   -H "Content-Type: application/json" \
   -d "{
     \"trace_id\": \"$TRACE_ID\",
@@ -66,4 +69,3 @@ echo ""
 echo "---"
 echo ""
 echo "✅ 測試完成！"
-

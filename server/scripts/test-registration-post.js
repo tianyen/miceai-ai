@@ -3,8 +3,9 @@
  * 驗證欄位驗證、重複報名、邊界情況等
  */
 const http = require('http');
+const { resolveBaseUrl } = require('./utils/api-base-url');
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = resolveBaseUrl();
 
 async function request(method, path, body = null) {
     return new Promise((resolve) => {
