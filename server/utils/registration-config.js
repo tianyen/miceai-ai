@@ -6,6 +6,8 @@
  */
 
 const CORE_REQUIRED_FIELDS = ['name', 'email', 'phone', 'data_consent'];
+const REGISTRATION_CONFIG_VERSION = 2;
+const REGISTRATION_CONFIG_SCHEMA_ID = 'registration-config.v2';
 
 const FIELD_ORDER = [
     'name',
@@ -80,6 +82,10 @@ const DEFAULT_FORM_CONFIG = {
         show_voucher_info: false,
         show_vendor_info: false,
         show_inventory_info: false
+    },
+    interstitial_effect: {
+        enabled: false,
+        asset: null
     }
 };
 
@@ -142,6 +148,8 @@ function normalizeFormConfig(rawConfig) {
         ...(parsed.feature_toggles || {})
     };
 
+    const interstitialEffect = normalizeInterstitialEffect(parsed.interstitial_effect);
+
     return {
         required_fields: requiredFields,
         optional_fields: optionalFields,
@@ -151,7 +159,56 @@ function normalizeFormConfig(rawConfig) {
         },
         gender_options: genderOptions,
         title_options: titleOptions,
-        feature_toggles: featureToggles
+        feature_toggles: featureToggles,
+        interstitial_effect: interstitialEffect
+    };
+}
+
+function normalizeInterstitialAsset(rawAsset) {
+    if (!rawAsset || typeof rawAsset !== 'object') {
+        return null;
+    }
+
+    const url = typeof rawAsset.url === 'string' ? rawAsset.url.trim() : '';
+    if (!url) {
+        return null;
+    }
+
+    // 安全策略收斂：僅允許本地 uploads 路徑，避免惡意外鏈素材
+    const isSafeLocalUploadUrl = /^\/uploads\/[A-Za-z0-9\-._~%!$&'()*+,;=:@/]*$/.test(url);
+    if (!isSafeLocalUploadUrl) {
+        return null;
+    }
+
+    const mimeType = typeof rawAsset.mime_type === 'string' ? rawAsset.mime_type.trim() : '';
+    let type = typeof rawAsset.type === 'string' ? rawAsset.type.trim().toLowerCase() : '';
+    if (!type) {
+        if (mimeType === 'video/mp4') type = 'mp4';
+        if (mimeType === 'image/gif') type = 'gif';
+    }
+    if (!['gif', 'mp4'].includes(type)) {
+        type = 'gif';
+    }
+
+    const fileName = typeof rawAsset.file_name === 'string' ? rawAsset.file_name.trim() : '';
+    const parsedFileSize = Number(rawAsset.file_size);
+    const fileSize = Number.isFinite(parsedFileSize) && parsedFileSize >= 0 ? parsedFileSize : 0;
+
+    return {
+        type,
+        url,
+        mime_type: mimeType || (type === 'mp4' ? 'video/mp4' : 'image/gif'),
+        file_name: fileName,
+        file_size: fileSize
+    };
+}
+
+function normalizeInterstitialEffect(rawEffect) {
+    const effect = rawEffect && typeof rawEffect === 'object' ? rawEffect : {};
+
+    return {
+        enabled: effect.enabled === true || effect.enabled === 1 || effect.enabled === '1' || effect.enabled === 'true',
+        asset: normalizeInterstitialAsset(effect.asset)
     };
 }
 
@@ -194,8 +251,12 @@ function buildPayloadExample(formConfig) {
 
 module.exports = {
     CORE_REQUIRED_FIELDS,
+    REGISTRATION_CONFIG_VERSION,
+    REGISTRATION_CONFIG_SCHEMA_ID,
     DEFAULT_FORM_CONFIG,
     normalizeFormConfig,
+    normalizeInterstitialEffect,
+    normalizeInterstitialAsset,
     buildFrontendFields,
     buildPayloadExample
 };

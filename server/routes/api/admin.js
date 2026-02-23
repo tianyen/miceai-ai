@@ -22,9 +22,13 @@
  *     description: 系統日誌 API
  */
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const router = express.Router();
 const responses = require('../../utils/responses');
 const ErrorCodes = require('../../utils/error-codes');
+const config = require('../../config');
 const { projectService } = require('../../services');
 const { authenticateSession, requireProjectPermission } = require('../../middleware/auth');
 
@@ -39,6 +43,131 @@ const userController = require('../../controllers/userController');
 const submissionController = require('../../controllers/submissionController');
 const checkinController = require('../../controllers/checkinController');
 const questionnaireController = require('../../controllers/questionnaireController');
+
+const INTERSTITIAL_ALLOWED_MIME_TYPES = new Set(['image/gif', 'video/mp4']);
+const INTERSTITIAL_ALLOWED_EXTENSIONS = new Set(['.gif', '.mp4']);
+
+function parseSizeToBytes(sizeText, fallbackBytes = 10 * 1024 * 1024) {
+    if (typeof sizeText === 'number' && Number.isFinite(sizeText) && sizeText > 0) {
+        return sizeText;
+    }
+    if (typeof sizeText !== 'string') {
+        return fallbackBytes;
+    }
+
+    const normalized = sizeText.trim().toLowerCase();
+    const match = normalized.match(/^(\d+(?:\.\d+)?)\s*(kb|mb|gb|b)?$/);
+    if (!match) return fallbackBytes;
+
+    const value = Number(match[1]);
+    const unit = match[2] || 'b';
+    const unitMap = {
+        b: 1,
+        kb: 1024,
+        mb: 1024 * 1024,
+        gb: 1024 * 1024 * 1024
+    };
+
+    return Math.floor(value * (unitMap[unit] || 1));
+}
+
+function toAssetType(mimeType) {
+    return mimeType === 'video/mp4' ? 'mp4' : 'gif';
+}
+
+function sanitizeUploadFileName(originalName) {
+    const ext = path.extname(originalName || '').toLowerCase();
+    const baseName = path.basename(originalName || 'asset', ext)
+        .replace(/[^a-zA-Z0-9_-]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 50) || 'asset';
+    return `${baseName}${ext}`;
+}
+
+function isMimeExtMatched(mimeType, ext) {
+    if (mimeType === 'image/gif') return ext === '.gif';
+    if (mimeType === 'video/mp4') return ext === '.mp4';
+    return false;
+}
+
+function hasValidFileSignature(filePath, mimeType) {
+    try {
+        const fd = fs.openSync(filePath, 'r');
+        const buffer = Buffer.alloc(16);
+        const bytesRead = fs.readSync(fd, buffer, 0, buffer.length, 0);
+        fs.closeSync(fd);
+
+        if (mimeType === 'image/gif') {
+            if (bytesRead < 6) return false;
+            const header = buffer.subarray(0, 6).toString('ascii');
+            return header === 'GIF87a' || header === 'GIF89a';
+        }
+
+        if (mimeType === 'video/mp4') {
+            if (bytesRead < 12) return false;
+            return buffer.subarray(4, 8).toString('ascii') === 'ftyp';
+        }
+
+        return false;
+    } catch (error) {
+        return false;
+    }
+}
+
+function safeUnlink(filePath) {
+    if (!filePath) return;
+    if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+    }
+}
+
+function resolveLocalPathFromAssetUrl(assetUrl) {
+    if (!assetUrl || typeof assetUrl !== 'string' || !assetUrl.startsWith('/uploads/interstitial-effects/')) {
+        return null;
+    }
+
+    const resolved = path.resolve(config.paths.public, `.${assetUrl}`);
+    const allowedRoot = path.resolve(config.paths.public, 'uploads', 'interstitial-effects');
+    if (!resolved.startsWith(allowedRoot)) {
+        return null;
+    }
+    return resolved;
+}
+
+const interstitialUpload = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+            const projectDir = path.join(
+                config.paths.public,
+                'uploads',
+                'interstitial-effects',
+                `project-${req.params.projectId}`
+            );
+            fs.mkdirSync(projectDir, { recursive: true });
+            cb(null, projectDir);
+        },
+        filename: (req, file, cb) => {
+            const safeName = sanitizeUploadFileName(file.originalname);
+            cb(null, `${Date.now()}-${safeName}`);
+        }
+    }),
+    limits: {
+        fileSize: parseSizeToBytes(config.upload.maxFileSize)
+    },
+    fileFilter: (req, file, cb) => {
+        const ext = path.extname(file.originalname || '').toLowerCase();
+
+        if (!INTERSTITIAL_ALLOWED_EXTENSIONS.has(ext)) {
+            return cb(new Error('僅支援 .gif 或 .mp4 檔案'));
+        }
+
+        if (!INTERSTITIAL_ALLOWED_MIME_TYPES.has(file.mimetype) || !isMimeExtMatched(file.mimetype, ext)) {
+            return cb(new Error('僅支援 GIF 或 MP4 檔案'));
+        }
+        return cb(null, true);
+    }
+});
 
 /**
  * @swagger
@@ -236,7 +365,7 @@ router.delete('/projects/:id', authenticateSession, projectController.deleteProj
  * /api/admin/projects/{projectId}/registration-config:
  *   get:
  *     summary: 取得專案報名動態欄位設定
- *     description: 取得指定專案的報名欄位設定（必填、選填、feature toggles）
+ *     description: 取得指定專案的報名欄位設定（必填、選填、feature toggles、第二頁特效）
  *     tags: [Projects]
  *     security:
  *       - sessionAuth: []
@@ -289,7 +418,7 @@ router.get(
  * /api/admin/projects/{projectId}/registration-config:
  *   put:
  *     summary: 更新專案報名動態欄位設定
- *     description: 更新指定專案的報名欄位設定（必填、選填、feature toggles）
+ *     description: 更新指定專案的報名欄位設定（必填、選填、feature toggles、第二頁特效）
  *     tags: [Projects]
  *     security:
  *       - sessionAuth: []
@@ -309,6 +438,27 @@ router.get(
  *             properties:
  *               form_config:
  *                 type: object
+ *                 properties:
+ *                   interstitial_effect:
+ *                     type: object
+ *                     properties:
+ *                       enabled:
+ *                         type: boolean
+ *                       asset:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           type:
+ *                             type: string
+ *                             enum: [gif, mp4]
+ *                           url:
+ *                             type: string
+ *                           mime_type:
+ *                             type: string
+ *                           file_name:
+ *                             type: string
+ *                           file_size:
+ *                             type: integer
  *     responses:
  *       200:
  *         description: 成功
@@ -352,6 +502,339 @@ router.put(
             return responses.error(
                 res,
                 '更新報名欄位設定失敗',
+                500,
+                null,
+                ErrorCodes.INTERNAL_SERVER_ERROR.code
+            );
+        }
+    }
+);
+
+/**
+ * @swagger
+ * /api/admin/projects/{projectId}/interstitial-effect:
+ *   put:
+ *     summary: 更新專案第二頁中間特效開關與素材設定
+ *     description: 僅更新 form_config.interstitial_effect，不影響其他報名欄位設定
+ *     tags: [Projects]
+ *     security:
+ *       - sessionAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               enabled:
+ *                 type: boolean
+ *               asset:
+ *                 type: object
+ *                 nullable: true
+ *                 properties:
+ *                   type:
+ *                     type: string
+ *                     enum: [gif, mp4]
+ *                   url:
+ *                     type: string
+ *                   mime_type:
+ *                     type: string
+ *                   file_name:
+ *                     type: string
+ *                   file_size:
+ *                     type: integer
+ *     responses:
+ *       200:
+ *         description: 成功
+ *       400:
+ *         description: 參數錯誤
+ *       404:
+ *         description: 專案不存在
+ */
+router.put(
+    '/projects/:projectId/interstitial-effect',
+    authenticateSession,
+    requireProjectPermission('admin'),
+    async (req, res) => {
+        try {
+            const hasEnabled = Object.prototype.hasOwnProperty.call(req.body || {}, 'enabled');
+            const hasAsset = Object.prototype.hasOwnProperty.call(req.body || {}, 'asset');
+
+            if (!hasEnabled && !hasAsset) {
+                return responses.error(
+                    res,
+                    '至少需要傳入 enabled 或 asset',
+                    400,
+                    null,
+                    ErrorCodes.VALIDATION_ERROR.code
+                );
+            }
+
+            if (hasEnabled && typeof req.body.enabled !== 'boolean') {
+                return responses.error(
+                    res,
+                    'enabled 必須為 boolean',
+                    400,
+                    null,
+                    ErrorCodes.VALIDATION_ERROR.code
+                );
+            }
+
+            if (hasAsset && req.body.asset !== null && typeof req.body.asset !== 'object') {
+                return responses.error(
+                    res,
+                    'asset 必須為 object 或 null',
+                    400,
+                    null,
+                    ErrorCodes.VALIDATION_ERROR.code
+                );
+            }
+
+            const patch = {};
+            if (hasEnabled) patch.enabled = req.body.enabled;
+            if (hasAsset) patch.asset = req.body.asset;
+
+            const interstitialEffect = await projectService.updateInterstitialEffect(
+                req.params.projectId,
+                patch,
+                req.user
+            );
+
+            if (!interstitialEffect) {
+                return responses.error(
+                    res,
+                    '專案不存在',
+                    404,
+                    null,
+                    ErrorCodes.PROJECT_NOT_FOUND.code
+                );
+            }
+
+            return responses.success(
+                res,
+                { interstitial_effect: interstitialEffect },
+                '更新中間特效設定成功'
+            );
+        } catch (error) {
+            if (error.statusCode) {
+                const message = error.details?.message || error.message || '更新中間特效設定失敗';
+                return responses.error(res, message, error.statusCode, error.details || null, error.code || null);
+            }
+
+            console.error('更新中間特效設定失敗:', error);
+            return responses.error(
+                res,
+                '更新中間特效設定失敗',
+                500,
+                null,
+                ErrorCodes.INTERNAL_SERVER_ERROR.code
+            );
+        }
+    }
+);
+
+/**
+ * @swagger
+ * /api/admin/projects/{projectId}/interstitial-asset:
+ *   post:
+ *     summary: 上傳專案第二頁特效素材（GIF/MP4）
+ *     tags: [Projects]
+ *     security:
+ *       - sessionAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [asset]
+ *             properties:
+ *               asset:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: 上傳成功
+ *       400:
+ *         description: 參數錯誤
+ */
+router.post(
+    '/projects/:projectId/interstitial-asset',
+    authenticateSession,
+    requireProjectPermission('admin'),
+    (req, res) => {
+        interstitialUpload.single('asset')(req, res, async (uploadError) => {
+            if (uploadError) {
+                const message = uploadError.code === 'LIMIT_FILE_SIZE'
+                    ? '素材檔案大小超過限制'
+                    : uploadError.message || '素材上傳失敗';
+                return responses.error(
+                    res,
+                    message,
+                    400,
+                    null,
+                    ErrorCodes.VALIDATION_ERROR.code
+                );
+            }
+
+            if (!req.file) {
+                return responses.error(
+                    res,
+                    '請上傳素材檔案',
+                    400,
+                    null,
+                    ErrorCodes.VALIDATION_ERROR.code
+                );
+            }
+
+            const filePath = req.file.path;
+            const assetUrl = `/uploads/interstitial-effects/project-${req.params.projectId}/${req.file.filename}`;
+
+            try {
+                if (!hasValidFileSignature(filePath, req.file.mimetype)) {
+                    safeUnlink(filePath);
+                    return responses.error(
+                        res,
+                        '素材檔案格式驗證失敗，請確認為有效 GIF 或 MP4',
+                        400,
+                        null,
+                        ErrorCodes.VALIDATION_ERROR.code
+                    );
+                }
+
+                const projectConfig = await projectService.getFormConfig(req.params.projectId, req.user);
+                if (!projectConfig) {
+                    safeUnlink(filePath);
+                    return responses.error(
+                        res,
+                        '專案不存在',
+                        404,
+                        null,
+                        ErrorCodes.PROJECT_NOT_FOUND.code
+                    );
+                }
+
+                const previousAssetUrl = projectConfig.form_config?.interstitial_effect?.asset?.url;
+
+                const interstitialEffect = await projectService.updateInterstitialEffect(
+                    req.params.projectId,
+                    {
+                        asset: {
+                            type: toAssetType(req.file.mimetype),
+                            url: assetUrl,
+                            mime_type: req.file.mimetype,
+                            file_name: req.file.originalname,
+                            file_size: req.file.size
+                        }
+                    },
+                    req.user
+                );
+
+                const oldLocalPath = resolveLocalPathFromAssetUrl(previousAssetUrl);
+                const newLocalPath = resolveLocalPathFromAssetUrl(assetUrl);
+                if (oldLocalPath && oldLocalPath !== newLocalPath) {
+                    safeUnlink(oldLocalPath);
+                }
+
+                return responses.success(
+                    res,
+                    { interstitial_effect: interstitialEffect },
+                    '上傳中間特效素材成功'
+                );
+            } catch (error) {
+                safeUnlink(filePath);
+
+                if (error.statusCode) {
+                    const message = error.details?.message || error.message || '上傳中間特效素材失敗';
+                    return responses.error(res, message, error.statusCode, error.details || null, error.code || null);
+                }
+
+                console.error('上傳中間特效素材失敗:', error);
+                return responses.error(
+                    res,
+                    '上傳中間特效素材失敗',
+                    500,
+                    null,
+                    ErrorCodes.INTERNAL_SERVER_ERROR.code
+                );
+            }
+        });
+    }
+);
+
+/**
+ * @swagger
+ * /api/admin/projects/{projectId}/interstitial-asset:
+ *   delete:
+ *     summary: 清除專案第二頁特效素材
+ *     tags: [Projects]
+ *     security:
+ *       - sessionAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: 清除成功
+ */
+router.delete(
+    '/projects/:projectId/interstitial-asset',
+    authenticateSession,
+    requireProjectPermission('admin'),
+    async (req, res) => {
+        try {
+            const projectConfig = await projectService.getFormConfig(req.params.projectId, req.user);
+            if (!projectConfig) {
+                return responses.error(
+                    res,
+                    '專案不存在',
+                    404,
+                    null,
+                    ErrorCodes.PROJECT_NOT_FOUND.code
+                );
+            }
+
+            const previousAssetUrl = projectConfig.form_config?.interstitial_effect?.asset?.url;
+
+            const interstitialEffect = await projectService.updateInterstitialEffect(
+                req.params.projectId,
+                { enabled: false, asset: null },
+                req.user
+            );
+
+            const localPath = resolveLocalPathFromAssetUrl(previousAssetUrl);
+            safeUnlink(localPath);
+
+            return responses.success(
+                res,
+                { interstitial_effect: interstitialEffect },
+                '中間特效素材已清除'
+            );
+        } catch (error) {
+            if (error.statusCode) {
+                const message = error.details?.message || error.message || '清除中間特效素材失敗';
+                return responses.error(res, message, error.statusCode, error.details || null, error.code || null);
+            }
+
+            console.error('清除中間特效素材失敗:', error);
+            return responses.error(
+                res,
+                '清除中間特效素材失敗',
                 500,
                 null,
                 ErrorCodes.INTERNAL_SERVER_ERROR.code

@@ -116,7 +116,7 @@ class VoucherRepository extends BaseRepository {
             params.push(redeemed ? 1 : 0);
         }
 
-        query += ' ORDER BY vr.created_at DESC LIMIT ?';
+        query += ' ORDER BY vr.redeemed_at DESC LIMIT ?';
         params.push(limit);
 
         return this.db.query(query, params);
@@ -143,16 +143,29 @@ class VoucherRepository extends BaseRepository {
      */
     async createRedemption(redemptionData) {
         const {
-            voucherId, traceId, sessionId, boothId,
+            voucherId, traceId, sessionId, boothId, projectId,
             redemptionCode, qrCodeBase64
         } = redemptionData;
 
+        let resolvedProjectId = projectId || null;
+        if (!resolvedProjectId && sessionId) {
+            const session = await this.db.get(
+                'SELECT project_id FROM game_sessions WHERE id = ? LIMIT 1',
+                [sessionId]
+            );
+            resolvedProjectId = session?.project_id || null;
+        }
+
+        if (!resolvedProjectId) {
+            throw new Error('createRedemption requires project_id (or resolvable session_id)');
+        }
+
         return this.db.run(`
             INSERT INTO voucher_redemptions (
-                voucher_id, trace_id, session_id, booth_id,
+                project_id, voucher_id, trace_id, session_id, booth_id,
                 redemption_code, qr_code_base64, is_used, redeemed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
-        `, [voucherId, traceId, sessionId, boothId, redemptionCode, qrCodeBase64]);
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
+        `, [resolvedProjectId, voucherId, traceId, sessionId, boothId, redemptionCode, qrCodeBase64]);
     }
 
     /**
@@ -753,9 +766,9 @@ class VoucherRepository extends BaseRepository {
                 vr.voucher_id,
                 v.voucher_name
             FROM voucher_redemptions vr
-            JOIN form_submissions fs ON vr.trace_id = fs.trace_id
+            JOIN form_submissions fs ON vr.trace_id = fs.trace_id AND vr.project_id = fs.project_id
             LEFT JOIN vouchers v ON vr.voucher_id = v.id
-            WHERE fs.project_id = ?
+            WHERE vr.project_id = ?
               AND LOWER(fs.submitter_email) = LOWER(?)
               AND vr.is_used = 1
             ORDER BY vr.used_at DESC, vr.id DESC

@@ -412,7 +412,7 @@ function ensureGameLogs(projectId, gameId, boothId, userId) {
     }
 }
 
-async function ensureVoucherRedemption(voucherId, sessionId, boothId) {
+async function ensureVoucherRedemption(projectId, voucherId, sessionId, boothId) {
     const existing = db.prepare(`
         SELECT id, redemption_code
         FROM voucher_redemptions
@@ -426,10 +426,11 @@ async function ensureVoucherRedemption(voucherId, sessionId, boothId) {
             UPDATE voucher_redemptions
             SET is_used = 1,
                 used_at = COALESCE(used_at, datetime('now', '-44 minutes')),
+                project_id = COALESCE(project_id, ?),
                 session_id = COALESCE(session_id, ?),
                 booth_id = COALESCE(booth_id, ?)
             WHERE id = ?
-        `).run(sessionId, boothId, existing.id);
+        `).run(projectId, sessionId, boothId, existing.id);
         return existing.redemption_code;
     }
 
@@ -455,10 +456,10 @@ async function ensureVoucherRedemption(voucherId, sessionId, boothId) {
 
     db.prepare(`
         INSERT INTO voucher_redemptions (
-            voucher_id, session_id, booth_id, trace_id,
+            project_id, voucher_id, session_id, booth_id, trace_id,
             redeemed_at, redemption_code, qr_code_base64, is_used, used_at
-        ) VALUES (?, ?, ?, ?, datetime('now', '-45 minutes'), ?, ?, 1, datetime('now', '-44 minutes'))
-    `).run(voucherId, sessionId, boothId, DEMO_PARTICIPANT.trace_id, redemptionCode, qrBase64);
+        ) VALUES (?, ?, ?, ?, ?, datetime('now', '-45 minutes'), ?, ?, 1, datetime('now', '-44 minutes'))
+    `).run(projectId, voucherId, sessionId, boothId, DEMO_PARTICIPANT.trace_id, redemptionCode, qrBase64);
 
     db.prepare(`
         UPDATE vouchers
@@ -487,7 +488,7 @@ async function seedDemo() {
 
         const sessionId = ensureGameSession(projectId, gameId, boothId, submissionId, voucherId);
         ensureGameLogs(projectId, gameId, boothId, submissionId);
-        const redemptionCode = await ensureVoucherRedemption(voucherId, sessionId, boothId);
+        const redemptionCode = await ensureVoucherRedemption(projectId, voucherId, sessionId, boothId);
 
         console.log('✅ Demo 資料建立完成！');
         console.log('\n📌 Demo 帳號:');

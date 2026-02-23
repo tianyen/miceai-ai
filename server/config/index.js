@@ -57,7 +57,7 @@ module.exports = {
     // 文件上傳配置
     upload: {
         maxFileSize: process.env.MAX_FILE_SIZE || '10mb',
-        allowedTypes: ['image/jpeg', 'image/png', 'image/gif']
+        allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'video/mp4']
     },
 
     // 分頁配置

@@ -2,7 +2,7 @@
 # Swagger API 範例測試腳本
 # 驗證所有 Swagger 文檔中的範例數據能正常運作
 
-BASE_URL="http://localhost:3000"
+BASE_URL="${BASE_URL:-http://localhost:${PORT:-3000}}"
 
 echo "🧪 Swagger API 範例測試"
 echo "======================================"
@@ -62,12 +62,12 @@ echo ""
 
 echo "🎮 2. 遊戲 API"
 echo "--------------------------------------"
-# 使用王大明 (registration_id=1, trace_id=MICE-d074dd3e-e3e27b6b0)
+# 使用 Demo 來賓 (registration_id=3, project_id=4, trace_id=MICE-05207cf7-199967c04)
 test_api "開始遊戲會話" "POST" "/api/v1/games/1/sessions/start" \
-    '{"trace_id":"MICE-d074dd3e-e3e27b6b0","user_id":"1","project_id":1}'
+    '{"trace_id":"MICE-05207cf7-199967c04","user_id":"3","project_id":4}'
 
 test_api "記錄遊戲日誌" "POST" "/api/v1/games/1/logs" \
-    '{"trace_id":"MICE-d074dd3e-e3e27b6b0","user_id":"1","project_id":1,"message":"測試日誌","log_level":"info"}'
+    '{"trace_id":"MICE-05207cf7-199967c04","user_id":"3","project_id":4,"message":"測試日誌","log_level":"info"}'
 
 test_api "查詢遊戲資訊" "GET" "/api/v1/games/1/info"
 test_api "查詢遊戲資訊(含專案)" "GET" "/api/v1/games/1/info?project_id=1"
@@ -100,4 +100,3 @@ else
     echo -e "${RED}❌ 有 $FAILED 個測試失敗${NC}"
     exit 1
 fi
-

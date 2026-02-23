@@ -813,6 +813,235 @@ class ProjectRepository extends BaseRepository {
     }
 
     /**
+     * Upsert 專案功能開關（P1 雙寫）
+     * @param {number} projectId
+     * @param {Object} flags - { feature_key: boolean | { enabled, config_json|config } }
+     * @param {number|null} updatedBy
+     * @returns {Promise<void>}
+     */
+    async upsertFeatureFlags(projectId, flags = {}, updatedBy = null) {
+        const entries = Object.entries(flags || {});
+        if (entries.length === 0) return;
+
+        const sql = `
+            INSERT INTO project_feature_flags (
+                project_id, feature_key, enabled, config_json, updated_by
+            ) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(project_id, feature_key) DO UPDATE SET
+                enabled = excluded.enabled,
+                config_json = excluded.config_json,
+                updated_by = excluded.updated_by,
+                updated_at = CURRENT_TIMESTAMP
+        `;
+
+        for (const [featureKey, rawValue] of entries) {
+            const isObject = rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue);
+            const enabled = isObject ? !!rawValue.enabled : !!rawValue;
+            const configValue = isObject
+                ? (rawValue.config_json ?? rawValue.config ?? null)
+                : null;
+            const configJson = configValue == null
+                ? null
+                : (typeof configValue === 'string' ? configValue : JSON.stringify(configValue));
+
+            await this.rawRun(sql, [
+                projectId,
+                String(featureKey),
+                enabled ? 1 : 0,
+                configJson,
+                updatedBy || null
+            ]);
+        }
+    }
+
+    /**
+     * 同步專案報名欄位設定（P1 雙寫）
+     * @param {number} projectId
+     * @param {Object} formConfig - normalize 後配置
+     * @param {number|null} updatedBy
+     * @returns {Promise<void>}
+     */
+    async syncRegistrationFieldSettings(projectId, formConfig = {}, updatedBy = null) {
+        const fields = await this.rawAll(`
+            SELECT id, field_key, default_required, default_enabled, default_label, display_order, default_options_json
+            FROM registration_fields
+            ORDER BY display_order ASC, id ASC
+        `);
+
+        if (!fields || fields.length === 0) return;
+
+        const requiredSet = new Set(Array.isArray(formConfig.required_fields) ? formConfig.required_fields : []);
+        const optionalSet = new Set(Array.isArray(formConfig.optional_fields) ? formConfig.optional_fields : []);
+        const enabledSet = new Set([...requiredSet, ...optionalSet]);
+        const fieldLabels = formConfig.field_labels && typeof formConfig.field_labels === 'object'
+            ? formConfig.field_labels
+            : {};
+
+        const sql = `
+            INSERT INTO project_registration_field_settings (
+                project_id, field_id, enabled, required, label, display_order, options_json, updated_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(project_id, field_id) DO UPDATE SET
+                enabled = excluded.enabled,
+                required = excluded.required,
+                label = excluded.label,
+                display_order = excluded.display_order,
+                options_json = excluded.options_json,
+                updated_by = excluded.updated_by,
+                updated_at = CURRENT_TIMESTAMP
+        `;
+
+        for (const field of fields) {
+            const key = field.field_key;
+            const enabled = enabledSet.has(key) ? 1 : 0;
+            const required = requiredSet.has(key) ? 1 : 0;
+            const label = fieldLabels[key] || field.default_label;
+
+            let optionsJson = field.default_options_json || null;
+            if (key === 'gender' && Array.isArray(formConfig.gender_options)) {
+                optionsJson = JSON.stringify(formConfig.gender_options);
+            } else if (key === 'title' && Array.isArray(formConfig.title_options)) {
+                optionsJson = JSON.stringify(formConfig.title_options);
+            }
+
+            await this.rawRun(sql, [
+                projectId,
+                field.id,
+                enabled,
+                required,
+                label,
+                field.display_order || 0,
+                optionsJson,
+                updatedBy || null
+            ]);
+        }
+    }
+
+    /**
+     * 同步專案中間特效素材（P1 雙寫）
+     * @param {number} projectId
+     * @param {Object|null} interstitialEffect - { enabled, asset }
+     * @param {number|null} createdBy
+     * @returns {Promise<void>}
+     */
+    async upsertInterstitialMediaAsset(projectId, interstitialEffect = null, createdBy = null) {
+        const asset = interstitialEffect && typeof interstitialEffect === 'object'
+            ? interstitialEffect.asset
+            : null;
+        const hasAsset = !!asset?.url;
+
+        if (!hasAsset) {
+            await this.rawRun(`
+                UPDATE project_media_assets
+                SET status = 'inactive', updated_at = CURRENT_TIMESTAMP
+                WHERE project_id = ? AND asset_type = 'interstitial' AND status = 'active'
+            `, [projectId]);
+            return;
+        }
+
+        const currentUrl = asset.url;
+        const storageKey = asset.storage_key || (
+            typeof currentUrl === 'string' && currentUrl.startsWith('/')
+                ? currentUrl.slice(1)
+                : null
+        );
+        const metadata = {
+            file_name: asset.file_name || null,
+            asset_type: asset.type || null,
+            source: 'form_config.interstitial_effect'
+        };
+
+        await this.rawRun(`
+            UPDATE project_media_assets
+            SET status = 'archived', updated_at = CURRENT_TIMESTAMP
+            WHERE project_id = ? AND asset_type = 'interstitial' AND status = 'active' AND storage_url != ?
+        `, [projectId, currentUrl]);
+
+        const existing = await this.rawGet(`
+            SELECT id FROM project_media_assets
+            WHERE project_id = ? AND asset_type = 'interstitial' AND storage_url = ? AND status = 'active'
+            ORDER BY id DESC
+            LIMIT 1
+        `, [projectId, currentUrl]);
+
+        if (existing) {
+            await this.rawRun(`
+                UPDATE project_media_assets
+                SET
+                    mime_type = ?,
+                    storage_key = ?,
+                    checksum = ?,
+                    size_bytes = ?,
+                    metadata_json = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            `, [
+                asset.mime_type || 'application/octet-stream',
+                storageKey,
+                asset.checksum || null,
+                Number.isFinite(asset.file_size) ? Number(asset.file_size) : 0,
+                JSON.stringify(metadata),
+                existing.id
+            ]);
+            return;
+        }
+
+        await this.rawRun(`
+            INSERT INTO project_media_assets (
+                project_id, asset_type, mime_type, storage_url, storage_key,
+                checksum, size_bytes, status, metadata_json, created_by
+            ) VALUES (?, 'interstitial', ?, ?, ?, ?, ?, 'active', ?, ?)
+        `, [
+            projectId,
+            asset.mime_type || 'application/octet-stream',
+            currentUrl,
+            storageKey,
+            asset.checksum || null,
+            Number.isFinite(asset.file_size) ? Number(asset.file_size) : 0,
+            JSON.stringify(metadata),
+            createdBy || null
+        ]);
+    }
+
+    /**
+     * 取得專案功能開關（P1）
+     * @param {number} projectId
+     * @returns {Promise<Array>}
+     */
+    async getFeatureFlags(projectId) {
+        return this.rawAll(`
+            SELECT feature_key, enabled, config_json, updated_at
+            FROM project_feature_flags
+            WHERE project_id = ?
+            ORDER BY feature_key ASC
+        `, [projectId]);
+    }
+
+    /**
+     * 取得專案啟用中的素材（P1）
+     * @param {number} projectId
+     * @param {string|null} assetType
+     * @returns {Promise<Array>}
+     */
+    async getActiveMediaAssets(projectId, assetType = null) {
+        const params = [projectId];
+        let where = 'project_id = ? AND status = ?';
+        params.push('active');
+
+        if (assetType) {
+            where += ' AND asset_type = ?';
+            params.push(assetType);
+        }
+
+        return this.rawAll(`
+            SELECT id, asset_type, mime_type, storage_url, storage_key, checksum, size_bytes, metadata_json, created_at, updated_at
+            FROM project_media_assets
+            WHERE ${where}
+            ORDER BY id DESC
+        `, params);
+    }
+
+    /**
      * 級聯刪除專案（不含交易）
      * @param {number} projectId - 專案 ID
      * @returns {Promise<void>}

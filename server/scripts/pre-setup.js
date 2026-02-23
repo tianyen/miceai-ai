@@ -21,6 +21,19 @@ console.log('🔧 Pre-Setup: 檢查環境...\n');
 const dbPath = path.resolve(config.database.path);
 console.log(`📁 資料庫路徑: ${dbPath}\n`);
 const walPath = dbPath + '-wal';
+const shmPath = dbPath + '-shm';
+
+function removeDbArtifacts() {
+    const targets = [dbPath, walPath, shmPath];
+    let removed = 0;
+    for (const target of targets) {
+        if (fs.existsSync(target)) {
+            fs.unlinkSync(target);
+            removed += 1;
+        }
+    }
+    return removed;
+}
 
 /**
  * 嘗試終止佔用資料庫的進程
@@ -67,6 +80,12 @@ function checkDatabaseLock() {
                 db.close();
                 console.log('  ✅ WAL 已清理');
             } catch (e) {
+                if (String(e.message || '').includes('malformed')) {
+                    const removed = removeDbArtifacts();
+                    console.log(`  ⚠️  偵測到損毀資料庫，已清理舊檔（${removed} 個）`);
+                    console.log('  ℹ️  setup 會以 schema.sql 重建資料庫');
+                    return;
+                }
                 console.log('  ❌ 無法清理 WAL:', e.message);
                 console.log('  💡 請手動停止 server 後重試');
                 process.exit(1);
@@ -82,6 +101,12 @@ function checkDatabaseLock() {
         db.close();
         console.log('  ✅ 資料庫可正常存取');
     } catch (error) {
+        if (String(error.message || '').includes('malformed')) {
+            const removed = removeDbArtifacts();
+            console.log(`  ⚠️  偵測到損毀資料庫，已清理舊檔（${removed} 個）`);
+            console.log('  ℹ️  setup 會以 schema.sql 重建資料庫');
+            return;
+        }
         console.error('  ❌ 資料庫被鎖定:', error.message);
         console.log('\n💡 解決方法:');
         console.log('   1. 停止正在運行的 server: pkill -f "node server.js"');

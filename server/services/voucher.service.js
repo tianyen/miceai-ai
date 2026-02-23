@@ -334,7 +334,7 @@ class VoucherService extends BaseService {
      */
     async issueVoucher(issueData) {
         const {
-            voucherId, traceId, userId, sessionId,
+            voucherId, traceId, userId, sessionId, projectId,
             redemptionCode, qrCodeBase64
         } = issueData;
 
@@ -358,6 +358,7 @@ class VoucherService extends BaseService {
             traceId,
             userId,
             sessionId,
+            projectId,
             redemptionCode,
             qrCodeBase64
         });

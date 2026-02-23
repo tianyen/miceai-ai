@@ -359,7 +359,13 @@ router.get('/', [
  *                       properties:
  *                         version:
  *                           type: integer
- *                           example: 1
+ *                           example: 2
+ *                         schema_id:
+ *                           type: string
+ *                           example: "registration-config.v2"
+ *                         contract_version:
+ *                           type: string
+ *                           example: "v1.1"
  *                         submit_endpoint:
  *                           type: string
  *                           example: "/api/v1/events/1/registrations"
@@ -407,6 +413,65 @@ router.get('/', [
  *                               type: boolean
  *                             show_inventory_info:
  *                               type: boolean
+ *                         interstitial_effect:
+ *                           type: object
+ *                           description: 第二頁中間特效設定
+ *                           properties:
+ *                             enabled:
+ *                               type: boolean
+ *                               example: false
+ *                             asset:
+ *                               type: object
+ *                               nullable: true
+ *                               properties:
+ *                                 type:
+ *                                   type: string
+ *                                   enum: [gif, mp4]
+ *                                 url:
+ *                                   type: string
+ *                                   example: "/uploads/interstitial-effects/project-1/123456-demo.gif"
+ *                                 mime_type:
+ *                                   type: string
+ *                                   example: "image/gif"
+ *                                 file_name:
+ *                                   type: string
+ *                                   example: "demo.gif"
+ *                                 file_size:
+ *                                   type: integer
+ *                                   example: 204800
+ *                         features:
+ *                           type: object
+ *                           description: v1.1 功能開關區塊（P1 雙寫來源）
+ *                           properties:
+ *                             contract_version:
+ *                               type: string
+ *                               example: "v1.1"
+ *                             source:
+ *                               type: string
+ *                               example: "project_feature_flags"
+ *                             toggles:
+ *                               type: object
+ *                             configs:
+ *                               type: object
+ *                               nullable: true
+ *                         assets:
+ *                           type: object
+ *                           description: v1.1 素材區塊（P1 雙寫來源）
+ *                           properties:
+ *                             contract_version:
+ *                               type: string
+ *                               example: "v1.1"
+ *                             source:
+ *                               type: string
+ *                               example: "project_media_assets"
+ *                             interstitial:
+ *                               type: object
+ *                               properties:
+ *                                 enabled:
+ *                                   type: boolean
+ *                                 asset:
+ *                                   type: object
+ *                                   nullable: true
  *                     common_data:
  *                       type: object
  *                       description: 依 feature_toggles 動態回傳的活動/攤位/券商/庫存資料
@@ -555,7 +620,7 @@ router.get('/code/:code', [
  *                                 example: https://example.com/photo.jpg
  *                     registration_config:
  *                       type: object
- *                       description: 前端動態報名欄位設定（欄位啟用/必填/送出格式）
+ *                       description: 前端動態報名欄位設定（含 `version/schema_id`、`contract_version(v1.1)`、`feature_toggles/interstitial_effect` 與 `features/assets` 區塊）
  *                     common_data:
  *                       type: object
  *                       description: 依 feature_toggles 動態回傳的活動/攤位/券商/庫存資料

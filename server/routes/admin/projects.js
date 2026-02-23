@@ -732,7 +732,7 @@ router.post('/:projectId/booths', async (req, res) => {
         }
 
         // 使用 Repository 檢查代碼是否已存在
-        const existing = await boothRepository.findByCode(booth_code);
+        const existing = await boothRepository.findByCode(booth_code, projectId);
         if (existing) {
             return responses.badRequest(res, '攤位代碼已存在');
         }

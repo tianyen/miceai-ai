@@ -67,9 +67,9 @@ class BoothService extends BaseService {
         }
 
         // 檢查攤位代碼是否已存在
-        const existing = await this.repository.findByCode(booth_code);
+        const existing = await this.repository.findByCode(booth_code, project_id);
         if (existing) {
-            this.throwError(this.ErrorCodes.DUPLICATE_ENTRY, '攤位代碼已存在');
+            this.throwError(this.ErrorCodes.DUPLICATE_ENTRY, '該專案內攤位代碼已存在');
         }
 
         // 建立攤位
@@ -105,9 +105,9 @@ class BoothService extends BaseService {
 
         // 如果更新攤位代碼，檢查是否重複
         if (booth_code) {
-            const existing = await this.repository.findByCodeExcluding(booth_code, boothId);
+            const existing = await this.repository.findByCodeExcluding(booth_code, boothId, booth.project_id);
             if (existing) {
-                this.throwError(this.ErrorCodes.DUPLICATE_ENTRY, '攤位代碼已存在');
+                this.throwError(this.ErrorCodes.DUPLICATE_ENTRY, '該專案內攤位代碼已存在');
             }
         }
 

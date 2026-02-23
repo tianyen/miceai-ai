@@ -7,7 +7,10 @@
  */
 const BaseService = require('./base.service');
 const eventRepository = require('../repositories/event.repository');
+const projectRepository = require('../repositories/project.repository');
 const {
+    REGISTRATION_CONFIG_VERSION,
+    REGISTRATION_CONFIG_SCHEMA_ID,
     normalizeFormConfig,
     buildFrontendFields,
     buildPayloadExample
@@ -17,6 +20,7 @@ class EventService extends BaseService {
     constructor() {
         super('EventService');
         this.repository = eventRepository;
+        this.projectRepository = projectRepository;
     }
 
     /**
@@ -114,6 +118,80 @@ class EventService extends BaseService {
     }
 
     /**
+     * 內部方法：組裝 v1.1 features/assets（P1 新表優先，form_config 為 fallback）
+     * @private
+     */
+    async _buildV11FeatureAndAssetBlocks(projectId, formConfig) {
+        const fallbackToggles = {
+            ...formConfig.feature_toggles,
+            interstitial_effect: !!formConfig?.interstitial_effect?.enabled
+        };
+        const fallbackAsset = formConfig?.interstitial_effect?.asset || null;
+
+        let featureRows = [];
+        let assetRows = [];
+
+        try {
+            [featureRows, assetRows] = await Promise.all([
+                this.projectRepository.getFeatureFlags(projectId),
+                this.projectRepository.getActiveMediaAssets(projectId, 'interstitial')
+            ]);
+        } catch (error) {
+            this.logError('_buildV11FeatureAndAssetBlocks', error);
+        }
+
+        const hasFeatureRows = Array.isArray(featureRows) && featureRows.length > 0;
+        const hasAssetRows = Array.isArray(assetRows) && assetRows.length > 0;
+
+        const featureMap = {};
+        if (hasFeatureRows) {
+            for (const row of featureRows) {
+                featureMap[row.feature_key] = {
+                    enabled: !!row.enabled,
+                    config: this._safeJsonParse(row.config_json, null)
+                };
+            }
+        }
+
+        const interstitialAsset = hasAssetRows
+            ? assetRows[0]
+            : null;
+
+        const interstitialAssetPayload = interstitialAsset
+            ? {
+                type: interstitialAsset.mime_type === 'image/gif' ? 'gif' : 'mp4',
+                url: interstitialAsset.storage_url,
+                mime_type: interstitialAsset.mime_type,
+                file_size: interstitialAsset.size_bytes
+            }
+            : fallbackAsset;
+
+        return {
+            features: {
+                contract_version: 'v1.1',
+                source: hasFeatureRows ? 'project_feature_flags' : 'form_config',
+                toggles: hasFeatureRows
+                    ? Object.keys(featureMap).reduce((acc, key) => {
+                        acc[key] = !!featureMap[key].enabled;
+                        return acc;
+                    }, { ...fallbackToggles })
+                    : fallbackToggles,
+                configs: hasFeatureRows ? featureMap : null
+            },
+            assets: {
+                contract_version: 'v1.1',
+                source: hasAssetRows ? 'project_media_assets' : 'form_config',
+                interstitial: {
+                    enabled: hasFeatureRows
+                        ? !!featureMap.interstitial_effect?.enabled
+                        : !!formConfig?.interstitial_effect?.enabled,
+                    asset: interstitialAssetPayload
+                }
+            }
+        };
+    }
+
+    /**
      * 內部方法：格式化活動回應
      * @private
      */
@@ -136,15 +214,22 @@ class EventService extends BaseService {
         const registrationOpen = this._checkRegistrationOpen(event, remainingSlots);
 
         // 前端動態渲染欄位用設定
+        const v11Blocks = await this._buildV11FeatureAndAssetBlocks(event.id, formConfig);
+
         const registrationConfig = {
-            version: 1,
+            version: REGISTRATION_CONFIG_VERSION,
+            schema_id: REGISTRATION_CONFIG_SCHEMA_ID,
+            contract_version: 'v1.1',
             submit_endpoint: `/api/v1/events/${event.id}/registrations`,
             required_fields: formConfig.required_fields,
             optional_fields: formConfig.optional_fields,
             field_labels: formConfig.field_labels,
             fields: buildFrontendFields(formConfig),
             payload_example: buildPayloadExample(formConfig),
-            feature_toggles: formConfig.feature_toggles
+            feature_toggles: formConfig.feature_toggles,
+            interstitial_effect: formConfig.interstitial_effect,
+            features: v11Blocks.features,
+            assets: v11Blocks.assets
         };
 
         const commonData = await this._buildCommonData(event, formConfig.feature_toggles);

@@ -440,6 +440,95 @@ async function addSeedData() {
             }
         }
 
+        // 初始化報名欄位字典（P1）
+        console.log('🧩 初始化 registration_fields 欄位字典...');
+        const registrationFields = [
+            { key: 'name', type: 'string', label: '姓名', required: 1, enabled: 1, order: 10 },
+            { key: 'email', type: 'email', label: '電子郵件', required: 1, enabled: 1, order: 20 },
+            { key: 'phone', type: 'phone', label: '手機號碼', required: 1, enabled: 1, order: 30 },
+            { key: 'company', type: 'string', label: '公司名稱', required: 0, enabled: 1, order: 40 },
+            { key: 'position', type: 'string', label: '職位', required: 0, enabled: 1, order: 50 },
+            { key: 'gender', type: 'enum', label: '性別', required: 0, enabled: 1, order: 60, options: ['男', '女', '其他'] },
+            { key: 'title', type: 'enum', label: '尊稱', required: 0, enabled: 1, order: 70, options: ['先生', '女士', '博士', '教授'] },
+            { key: 'notes', type: 'string', label: '留言備註', required: 0, enabled: 1, order: 80 },
+            { key: 'adult_age', type: 'integer', label: '成人年齡', required: 0, enabled: 1, order: 90 },
+            { key: 'children_ages', type: 'object', label: '小孩年齡區間', required: 0, enabled: 1, order: 100 },
+            { key: 'children_count', type: 'integer', label: '小孩人數（自動計算）', required: 0, enabled: 1, order: 110 },
+            { key: 'data_consent', type: 'boolean', label: '資料使用同意', required: 1, enabled: 1, order: 120 },
+            { key: 'marketing_consent', type: 'boolean', label: '行銷同意', required: 0, enabled: 1, order: 130 }
+        ];
+
+        const registrationFieldStmt = db.prepare(`
+            INSERT OR IGNORE INTO registration_fields (
+                field_key, data_type, default_label, default_required, default_enabled,
+                default_options_json, display_order, validation_rules_json, is_system
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        `);
+
+        for (const field of registrationFields) {
+            registrationFieldStmt.run(
+                field.key,
+                field.type,
+                field.label,
+                field.required,
+                field.enabled,
+                field.options ? JSON.stringify(field.options) : null,
+                field.order,
+                null
+            );
+        }
+        console.log(`   ✅ registration_fields: ${registrationFields.length} 個欄位完成`);
+
+        // 初始化專案功能開關（P1）
+        console.log('🎛️ 初始化 project_feature_flags...');
+        const projects = db.prepare(`SELECT id FROM event_projects`).all();
+        const featureDefaults = [
+            { key: 'show_event_info', enabled: 1 },
+            { key: 'show_booth_info', enabled: 0 },
+            { key: 'show_voucher_info', enabled: 0 },
+            { key: 'show_vendor_info', enabled: 0 },
+            { key: 'show_inventory_info', enabled: 0 },
+            { key: 'interstitial_effect', enabled: 0 }
+        ];
+        const featureStmt = db.prepare(`
+            INSERT OR IGNORE INTO project_feature_flags (
+                project_id, feature_key, enabled, config_json, updated_by
+            ) VALUES (?, ?, ?, ?, 1)
+        `);
+        for (const project of projects) {
+            for (const feature of featureDefaults) {
+                featureStmt.run(project.id, feature.key, feature.enabled, null);
+            }
+        }
+        console.log(`   ✅ project_feature_flags: ${projects.length * featureDefaults.length} 筆預設`);
+
+        // 初始化專案報名欄位設定（P1）
+        console.log('🧾 初始化 project_registration_field_settings...');
+        const fieldRows = db.prepare(`
+            SELECT id, default_required, default_enabled, default_label, display_order, default_options_json
+            FROM registration_fields
+            ORDER BY display_order ASC
+        `).all();
+        const projectFieldStmt = db.prepare(`
+            INSERT OR IGNORE INTO project_registration_field_settings (
+                project_id, field_id, enabled, required, label, display_order, options_json, updated_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+        `);
+        for (const project of projects) {
+            for (const field of fieldRows) {
+                projectFieldStmt.run(
+                    project.id,
+                    field.id,
+                    field.default_enabled,
+                    field.default_required,
+                    field.default_label,
+                    field.display_order,
+                    field.default_options_json
+                );
+            }
+        }
+        console.log(`   ✅ project_registration_field_settings: ${projects.length * fieldRows.length} 筆預設`);
+
         // 添加表單提交資料
         console.log('📝 添加表單提交資料（使用確定性 trace_id）...');
         const submissionStmt = db.prepare(`

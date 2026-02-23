@@ -19,7 +19,8 @@ const boothRepository = require('../repositories/booth.repository');
 const QRCode = require('qrcode');
 const {
     DEFAULT_FORM_CONFIG,
-    normalizeFormConfig
+    normalizeFormConfig,
+    normalizeInterstitialEffect
 } = require('../utils/registration-config');
 
 class ProjectService extends BaseService {
@@ -729,6 +730,34 @@ class ProjectService extends BaseService {
     // ===== 報名表單配置 =====
 
     /**
+     * 由 form_config 轉換為 project_feature_flags payload（P1 雙寫）
+     * @param {Object} formConfig
+     * @returns {Object}
+     * @private
+     */
+    _buildFeatureFlagPayload(formConfig) {
+        const toggles = formConfig?.feature_toggles || {};
+        const defaultKeys = Object.keys(DEFAULT_FORM_CONFIG.feature_toggles || {});
+        const payload = {};
+
+        for (const key of defaultKeys) {
+            payload[key] = {
+                enabled: !!toggles[key],
+                config: null
+            };
+        }
+
+        payload.interstitial_effect = {
+            enabled: !!formConfig?.interstitial_effect?.enabled,
+            config: formConfig?.interstitial_effect?.asset
+                ? { asset: formConfig.interstitial_effect.asset }
+                : null
+        };
+
+        return payload;
+    }
+
+    /**
      * 取得專案報名表單配置
      * @param {number} projectId - 專案 ID
      * @param {Object} user - 當前用戶
@@ -766,10 +795,86 @@ class ProjectService extends BaseService {
         const normalizedConfig = normalizeFormConfig(formConfig);
 
         await this.repository.updateById(projectId, { form_config: normalizedConfig });
+        await this.repository.upsertFeatureFlags(
+            projectId,
+            this._buildFeatureFlagPayload(normalizedConfig),
+            user?.id || null
+        );
+        await this.repository.syncRegistrationFieldSettings(
+            projectId,
+            normalizedConfig,
+            user?.id || null
+        );
+        await this.repository.upsertInterstitialMediaAsset(
+            projectId,
+            normalizedConfig.interstitial_effect,
+            user?.id || null
+        );
 
         this.log('updateFormConfig', { projectId, user: user?.id });
 
         return true;
+    }
+
+    /**
+     * 更新專案第二頁中間特效設定（僅 patch interstitial_effect）
+     * @param {number} projectId - 專案 ID
+     * @param {Object} interstitialPatch - 部分更新資料
+     * @param {Object} user - 當前用戶
+     * @returns {Promise<Object|null>} interstitial_effect
+     */
+    async updateInterstitialEffect(projectId, interstitialPatch, user) {
+        const project = await this.repository.findById(projectId);
+        if (!project) {
+            return null;
+        }
+
+        const currentConfig = normalizeFormConfig(project.form_config || DEFAULT_FORM_CONFIG);
+        const currentEffect = normalizeInterstitialEffect(currentConfig.interstitial_effect);
+        const patch = interstitialPatch && typeof interstitialPatch === 'object' ? interstitialPatch : {};
+
+        const mergedRawEffect = {
+            enabled: Object.prototype.hasOwnProperty.call(patch, 'enabled')
+                ? patch.enabled
+                : currentEffect.enabled,
+            asset: Object.prototype.hasOwnProperty.call(patch, 'asset')
+                ? patch.asset
+                : currentEffect.asset
+        };
+
+        const nextEffect = normalizeInterstitialEffect(mergedRawEffect);
+
+        if (nextEffect.enabled && !nextEffect.asset?.url) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                message: '啟用第二頁特效前，請先設定 GIF 或 MP4 素材'
+            });
+        }
+
+        const nextConfig = {
+            ...currentConfig,
+            interstitial_effect: nextEffect
+        };
+
+        await this.repository.updateById(projectId, { form_config: nextConfig });
+        await this.repository.upsertFeatureFlags(
+            projectId,
+            this._buildFeatureFlagPayload(nextConfig),
+            user?.id || null
+        );
+        await this.repository.upsertInterstitialMediaAsset(
+            projectId,
+            nextEffect,
+            user?.id || null
+        );
+
+        this.log('updateInterstitialEffect', {
+            projectId,
+            user: user?.id,
+            enabled: nextEffect.enabled,
+            hasAsset: !!nextEffect.asset?.url
+        });
+
+        return nextEffect;
     }
 }
 

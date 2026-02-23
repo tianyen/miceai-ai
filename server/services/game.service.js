@@ -446,6 +446,7 @@ class GameService extends BaseService {
 
             // 建立兌換記錄
             await this.voucherRepo.createRedemption({
+                projectId,
                 voucherId: voucher.id,
                 traceId,
                 sessionId,

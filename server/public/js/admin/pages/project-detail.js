@@ -6,6 +6,7 @@
 // projectId is set by inline script in handlebars
 const projectId = window.projectId;
 let currentTab = 'participants';
+let currentFormConfig = null;
 
 $(document).ready(function() {
     // 載入初始數據
@@ -77,6 +78,9 @@ function switchTab(tabName) {
             break;
         case 'form-settings':
             loadFormConfig();
+            break;
+        case 'interstitial-effect':
+            loadInterstitialEffectConfig();
             break;
         case 'email-management':
             // 首次載入報名確認信 sub-tab
@@ -1864,46 +1868,143 @@ function escapeHtml(text) {
 
 // ===== 報名表單配置 =====
 
+function getDefaultInterstitialEffect() {
+    return {
+        enabled: false,
+        asset: null
+    };
+}
+
+function normalizeInterstitialEffectForUi(rawEffect) {
+    const base = getDefaultInterstitialEffect();
+    if (!rawEffect || typeof rawEffect !== 'object') {
+        return base;
+    }
+
+    const enabled = rawEffect.enabled === true;
+    const rawAsset = rawEffect.asset;
+    let asset = null;
+
+    if (rawAsset && typeof rawAsset === 'object') {
+        const url = typeof rawAsset.url === 'string' ? rawAsset.url.trim() : '';
+        if (url) {
+            asset = {
+                type: rawAsset.type === 'mp4' ? 'mp4' : 'gif',
+                url,
+                mime_type: typeof rawAsset.mime_type === 'string' ? rawAsset.mime_type : '',
+                file_name: typeof rawAsset.file_name === 'string' ? rawAsset.file_name : '',
+                file_size: Number(rawAsset.file_size) > 0 ? Number(rawAsset.file_size) : 0
+            };
+        }
+    }
+
+    return { enabled, asset };
+}
+
+function formatAssetSize(bytes) {
+    if (!bytes || !Number.isFinite(bytes) || bytes <= 0) return '-';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function renderInterstitialAssetPreview(effect) {
+    const normalized = normalizeInterstitialEffectForUi(effect);
+    const previewEl = $('#interstitial-asset-preview');
+    const metaEl = $('#interstitial-asset-meta');
+
+    previewEl.empty();
+
+    if (!normalized.asset || !normalized.asset.url) {
+        metaEl.text('尚未設定素材');
+        return;
+    }
+
+    const asset = normalized.asset;
+    const assetName = asset.file_name || asset.url;
+    const assetInfo = `${assetName} (${asset.type.toUpperCase()}, ${formatAssetSize(asset.file_size)})`;
+    metaEl.text(`目前素材：${assetInfo}`);
+
+    if (asset.type === 'mp4') {
+        const video = $('<video controls playsinline preload="metadata"></video>');
+        video.attr('src', asset.url);
+        previewEl.append(video);
+    } else {
+        const image = $('<img alt="interstitial effect preview">');
+        image.attr('src', asset.url);
+        previewEl.append(image);
+    }
+}
+
+function applyInterstitialEffectConfig(rawEffect) {
+    const normalized = normalizeInterstitialEffectForUi(rawEffect);
+    $('#interstitial_effect_enabled').prop('checked', normalized.enabled);
+    renderInterstitialAssetPreview(normalized);
+
+    if (!currentFormConfig) {
+        currentFormConfig = {};
+    }
+    currentFormConfig.interstitial_effect = normalized;
+}
+
+function applyFormConfigToUi(config) {
+    // 設置選填欄位
+    const optionalFields = config.optional_fields || [];
+    $('#field_company').prop('checked', optionalFields.includes('company'));
+    $('#field_position').prop('checked', optionalFields.includes('position'));
+    $('#field_gender').prop('checked', optionalFields.includes('gender'));
+    $('#field_title').prop('checked', optionalFields.includes('title'));
+    $('#field_notes').prop('checked', optionalFields.includes('notes'));
+    $('#field_adult_age').prop('checked', optionalFields.includes('adult_age'));
+    $('#field_children_count').prop('checked', optionalFields.includes('children_count'));
+    $('#field_children_ages').prop('checked', optionalFields.includes('children_ages'));
+
+    // 設置選項
+    if (config.gender_options) {
+        $('#gender_options').val(config.gender_options.join(', '));
+    }
+    if (config.title_options) {
+        $('#title_options').val(config.title_options.join(', '));
+    }
+
+    const toggles = config.feature_toggles || {};
+    $('#toggle_show_event_info').prop('checked', toggles.show_event_info !== false);
+    $('#toggle_show_booth_info').prop('checked', toggles.show_booth_info === true);
+    $('#toggle_show_voucher_info').prop('checked', toggles.show_voucher_info === true);
+    $('#toggle_show_vendor_info').prop('checked', toggles.show_vendor_info === true);
+    $('#toggle_show_inventory_info').prop('checked', toggles.show_inventory_info === true);
+
+    applyInterstitialEffectConfig(config.interstitial_effect);
+}
+
 // 載入報名表單配置
-function loadFormConfig() {
+function loadFormConfig(forceReload = false) {
+    if (!forceReload && currentFormConfig) {
+        applyFormConfigToUi(currentFormConfig);
+        return;
+    }
+
     $.ajax({
         url: `/api/admin/projects/${projectId}/registration-config`,
         method: 'GET',
         success: function(response) {
             if (response.success) {
-                const config = response.data.form_config;
-
-                // 設置選填欄位
-                const optionalFields = config.optional_fields || [];
-                $('#field_company').prop('checked', optionalFields.includes('company'));
-                $('#field_position').prop('checked', optionalFields.includes('position'));
-                $('#field_gender').prop('checked', optionalFields.includes('gender'));
-                $('#field_title').prop('checked', optionalFields.includes('title'));
-                $('#field_notes').prop('checked', optionalFields.includes('notes'));
-                $('#field_adult_age').prop('checked', optionalFields.includes('adult_age'));
-                $('#field_children_count').prop('checked', optionalFields.includes('children_count'));
-                $('#field_children_ages').prop('checked', optionalFields.includes('children_ages'));
-
-                // 設置選項
-                if (config.gender_options) {
-                    $('#gender_options').val(config.gender_options.join(', '));
-                }
-                if (config.title_options) {
-                    $('#title_options').val(config.title_options.join(', '));
-                }
-
-                const toggles = config.feature_toggles || {};
-                $('#toggle_show_event_info').prop('checked', toggles.show_event_info !== false);
-                $('#toggle_show_booth_info').prop('checked', toggles.show_booth_info === true);
-                $('#toggle_show_voucher_info').prop('checked', toggles.show_voucher_info === true);
-                $('#toggle_show_vendor_info').prop('checked', toggles.show_vendor_info === true);
-                $('#toggle_show_inventory_info').prop('checked', toggles.show_inventory_info === true);
+                currentFormConfig = response.data.form_config || {};
+                applyFormConfigToUi(currentFormConfig);
             }
         },
         error: function(xhr) {
             console.error('載入報名配置失敗:', xhr);
         }
     });
+}
+
+function loadInterstitialEffectConfig() {
+    if (currentFormConfig) {
+        applyInterstitialEffectConfig(currentFormConfig.interstitial_effect);
+        return;
+    }
+    loadFormConfig(true);
 }
 
 // 儲存報名表單配置
@@ -1949,7 +2050,8 @@ function saveFormConfig() {
             show_voucher_info: $('#toggle_show_voucher_info').is(':checked'),
             show_vendor_info: $('#toggle_show_vendor_info').is(':checked'),
             show_inventory_info: $('#toggle_show_inventory_info').is(':checked')
-        }
+        },
+        interstitial_effect: normalizeInterstitialEffectForUi(currentFormConfig?.interstitial_effect)
     };
 
     // 收集人數限制設定
@@ -1957,7 +2059,7 @@ function saveFormConfig() {
     const registrationDeadline = $('#registration_deadline').val() || null;
 
     // 取得 CSRF token
-    const csrfToken = window.__CSRF_TOKEN__ || $('meta[name="csrf-token"]').attr('content');
+    const csrfToken = getCsrfToken();
 
     // 同時更新表單配置和專案設定
     const requests = [
@@ -1986,6 +2088,7 @@ function saveFormConfig() {
         .then(function(responses) {
             const allSuccess = responses.every(r => r.success !== false);
             if (allSuccess) {
+                currentFormConfig = formConfig;
                 alert('報名設定已儲存');
                 // 更新頁面顯示
                 updateParticipantStats();
@@ -1997,6 +2100,105 @@ function saveFormConfig() {
             console.error('儲存失敗:', error);
             alert('儲存失敗：' + (error.responseJSON?.message || '系統錯誤'));
         });
+}
+
+function saveInterstitialEffectConfig() {
+    const enabled = $('#interstitial_effect_enabled').is(':checked');
+    const currentEffect = normalizeInterstitialEffectForUi(currentFormConfig?.interstitial_effect);
+
+    if (enabled && !currentEffect.asset?.url) {
+        alert('請先上傳 GIF 或 MP4 素材，再啟用第二頁特效');
+        return;
+    }
+
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/interstitial-effect`,
+        method: 'PUT',
+        contentType: 'application/json',
+        headers: { 'X-CSRF-Token': getCsrfToken() },
+        data: JSON.stringify({ enabled }),
+        success: function(response) {
+            if (response.success) {
+                const nextEffect = normalizeInterstitialEffectForUi(response.data?.interstitial_effect);
+                if (!currentFormConfig) currentFormConfig = {};
+                currentFormConfig.interstitial_effect = nextEffect;
+                applyInterstitialEffectConfig(nextEffect);
+                showNotification('第二頁特效設定已儲存', 'success');
+            } else {
+                showNotification(response.message || '儲存失敗', 'error');
+            }
+        },
+        error: function(xhr) {
+            const message = xhr.responseJSON?.message || '儲存失敗';
+            showNotification(message, 'error');
+        }
+    });
+}
+
+function uploadInterstitialAsset() {
+    const inputEl = document.getElementById('interstitial_asset_file');
+    const file = inputEl?.files?.[0];
+
+    if (!file) {
+        alert('請先選擇 GIF 或 MP4 檔案');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('asset', file);
+
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/interstitial-asset`,
+        method: 'POST',
+        processData: false,
+        contentType: false,
+        headers: { 'X-CSRF-Token': getCsrfToken() },
+        data: formData,
+        success: function(response) {
+            if (response.success) {
+                const nextEffect = normalizeInterstitialEffectForUi(response.data?.interstitial_effect);
+                if (!currentFormConfig) currentFormConfig = {};
+                currentFormConfig.interstitial_effect = nextEffect;
+                applyInterstitialEffectConfig(nextEffect);
+                $('#interstitial_asset_file').val('');
+                showNotification('素材上傳成功', 'success');
+            } else {
+                showNotification(response.message || '素材上傳失敗', 'error');
+            }
+        },
+        error: function(xhr) {
+            const message = xhr.responseJSON?.message || '素材上傳失敗';
+            showNotification(message, 'error');
+        }
+    });
+}
+
+function clearInterstitialAsset() {
+    if (!confirm('確定要清除目前素材並關閉第二頁特效嗎？')) {
+        return;
+    }
+
+    $.ajax({
+        url: `/api/admin/projects/${projectId}/interstitial-asset`,
+        method: 'DELETE',
+        headers: { 'X-CSRF-Token': getCsrfToken() },
+        success: function(response) {
+            if (response.success) {
+                const nextEffect = normalizeInterstitialEffectForUi(response.data?.interstitial_effect);
+                if (!currentFormConfig) currentFormConfig = {};
+                currentFormConfig.interstitial_effect = nextEffect;
+                applyInterstitialEffectConfig(nextEffect);
+                $('#interstitial_asset_file').val('');
+                showNotification('素材已清除', 'success');
+            } else {
+                showNotification(response.message || '清除素材失敗', 'error');
+            }
+        },
+        error: function(xhr) {
+            const message = xhr.responseJSON?.message || '清除素材失敗';
+            showNotification(message, 'error');
+        }
+    });
 }
 
 /**

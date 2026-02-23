@@ -592,19 +592,19 @@ async function seed() {
             if (boothsTableExists) {
                 runSQL(`
                     INSERT INTO voucher_redemptions (
-                        voucher_id, session_id, trace_id, booth_id, redemption_code,
+                        project_id, voucher_id, session_id, trace_id, booth_id, redemption_code,
                         qr_code_base64, redeemed_at, is_used, used_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-25 minutes'), ?, NULL)
-                `, [voucher1Id, wangSessionId, wangTraceId, wangBoothId, wangRedemptionCode, voucherQrBase64, 0]);
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '-25 minutes'), ?, NULL)
+                `, [projectId, voucher1Id, wangSessionId, wangTraceId, wangBoothId, wangRedemptionCode, voucherQrBase64, 0]);
                 console.log(`✅ 王大明兌換記錄: ${wangRedemptionCode} (未使用)`);
                 console.log(`   攤位: A區攤位 (ID: ${booth1Id})`);
             } else {
                 runSQL(`
                     INSERT INTO voucher_redemptions (
-                        voucher_id, session_id, trace_id, redemption_code,
+                        project_id, voucher_id, session_id, trace_id, redemption_code,
                         qr_code_base64, redeemed_at, is_used, used_at
-                    ) VALUES (?, ?, ?, ?, ?, datetime('now', '-25 minutes'), ?, NULL)
-                `, [voucher1Id, wangSessionId, wangTraceId, wangRedemptionCode, voucherQrBase64, 0]);
+                    ) VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-25 minutes'), ?, NULL)
+                `, [projectId, voucher1Id, wangSessionId, wangTraceId, wangRedemptionCode, voucherQrBase64, 0]);
                 console.log(`✅ 王大明兌換記錄: ${wangRedemptionCode} (未使用)`);
             }
         } else {
@@ -640,4 +640,3 @@ async function seed() {
 
 // 執行種子資料
 seed();
-

@@ -185,6 +185,46 @@ async function runTests() {
         if (!config.submit_endpoint || !config.submit_endpoint.includes('/api/v1/events/')) {
             throw new Error('submit_endpoint 格式錯誤');
         }
+
+        if (!Number.isInteger(config.version) || config.version < 1) {
+            throw new Error('registration_config.version 必須是正整數');
+        }
+
+        if (typeof config.schema_id !== 'string' || !config.schema_id.trim()) {
+            throw new Error('registration_config.schema_id 必須是非空字串');
+        }
+
+        if (config.contract_version !== 'v1.1') {
+            throw new Error('registration_config.contract_version 必須為 v1.1');
+        }
+
+        if (!config.interstitial_effect || typeof config.interstitial_effect !== 'object') {
+            throw new Error('缺少 interstitial_effect 設定');
+        }
+
+        if (typeof config.interstitial_effect.enabled !== 'boolean') {
+            throw new Error('interstitial_effect.enabled 必須是 boolean');
+        }
+
+        if (config.interstitial_effect.enabled && !config.interstitial_effect.asset?.url) {
+            throw new Error('interstitial_effect 啟用時必須提供 asset.url');
+        }
+
+        if (!config.features || typeof config.features !== 'object') {
+            throw new Error('缺少 registration_config.features');
+        }
+
+        if (!config.assets || typeof config.assets !== 'object') {
+            throw new Error('缺少 registration_config.assets');
+        }
+
+        if (!config.features.toggles || typeof config.features.toggles !== 'object') {
+            throw new Error('registration_config.features.toggles 格式錯誤');
+        }
+
+        if (!config.assets.interstitial || typeof config.assets.interstitial !== 'object') {
+            throw new Error('registration_config.assets.interstitial 格式錯誤');
+        }
     });
 
     // 5. GET /api/v1/events/{id}

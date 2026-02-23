@@ -24,6 +24,7 @@
 
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="/js/common/csrf.js"></script>
 
     <!-- CSRF Token 配置 -->
     <script>
@@ -31,7 +32,9 @@
         // jQuery 全域 AJAX 配置 - 自動帶入 CSRF Token
         $.ajaxSetup({
             beforeSend: function(xhr, settings) {
-                const token = window.__CSRF_TOKEN__ || $('meta[name="csrf-token"]').attr('content');
+                const token = (typeof getCsrfToken === 'function')
+                    ? getCsrfToken()
+                    : (window.__CSRF_TOKEN__ || $('meta[name="csrf-token"]').attr('content'));
                 if (token && !settings.crossDomain) {
                     xhr.setRequestHeader('X-CSRF-Token', token);
                 }

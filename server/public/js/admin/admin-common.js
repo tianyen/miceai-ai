@@ -3,12 +3,14 @@
  */
 
 /**
- * 取得 CSRF Token
- * @returns {string} CSRF token
+ * 取得 CSRF Token（統一委派至 /js/common/csrf.js）
+ * 保留 fallback 避免舊頁面載入順序差異造成 side effect。
  */
-window.getCsrfToken = function() {
-    return window.__CSRF_TOKEN__ || document.querySelector('meta[name="csrf-token"]')?.content || '';
-};
+if (typeof window.getCsrfToken !== 'function') {
+    window.getCsrfToken = function() {
+        return window.__CSRF_TOKEN__ || document.querySelector('meta[name="csrf-token"]')?.content || '';
+    };
+}
 
 /**
  * 帶有 CSRF Token 的 fetch 包裝函數

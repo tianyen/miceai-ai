@@ -39,19 +39,16 @@ npm start
 | `npm run setup` | 一鍵初始化（推薦） |
 | `npm run db:reset` | 重置資料庫 |
 | `npm run db:seed` | 載入基礎種子資料 |
+| `npm run db:clean:p0-indexes` | P0 索引前置資料清洗（check mode） |
 | `npm run db:info` | 查看資料庫資訊 |
 | `npm run db:check` | 檢查資料庫狀態 |
 | `npm run db:verify` | 驗證資料庫 Schema |
 | `npm run backup` | 備份資料庫 |
 
-### 資料庫遷移
+### 資料庫遷移（已淘汰）
 | 命令 | 說明 |
 |------|------|
-| `npm run db:migrate` | API 日誌表遷移 |
-| `npm run db:migrate:gameroom` | 遊戲室模組遷移 |
-| `npm run db:migrate:booths` | 攤位資料表遷移 |
-| `npm run db:migrate:wishtree` | 許願樹遷移 |
-| `npm run db:migrate:form-config` | 表單設定遷移 |
+| `npm run db:migrate*` | 已淘汰，僅提示改用 `schema.sql` + `db:reset/db:seed` |
 
 ### 種子資料
 | 命令 | 說明 |
@@ -761,7 +758,7 @@ WHERE project_id = 2 AND parent_submission_id IS NOT NULL;
 | **兌換券流程** | [`server/docs/voucher-flow.md`](server/docs/voucher-flow.md) | 兌換券庫存與核銷流程詳解 |
 | **Swagger UI** | http://localhost:3000/api-docs | 互動式 API 測試 |
 | **資料庫 Schema** | `server/database/schema.sql` | 完整資料表定義與註解 |
-| **遷移腳本** | `server/database/migrations/` | 資料庫版本遷移 |
+| **遷移腳本** | `server/scripts/migrate-*.js` | 已淘汰（保留歷史參考，不納入 setup） |
 | **種子資料** | `server/scripts/seeds/` | 測試資料腳本 |
 | **驗證腳本** | `server/scripts/verify/` | 功能驗證測試 |
 
@@ -791,11 +788,22 @@ pm2 startup
 #### 2026-02-23
 - 新增：V1 Events 回傳 `registration_config`（前端可動態判斷欄位開啟/必填/送出格式）
 - 新增：V1 Events 回傳 `common_data`（依 feature toggle 動態輸出活動/攤位/兌換券/券商資料）
+- 新增：V1 Events `registration_config` 回傳 `interstitial_effect`（第二頁特效開關 + GIF/MP4 素材 URL）
+- 新增：V1 Events `registration_config` 合約識別欄位 `version` + `schema_id`（避免前後端 drift）
+- 新增：V1 Events `registration_config.contract_version = v1.1`，並回傳 `features` + `assets` 區塊（舊欄位保留相容）
+- 新增：P1 雙寫落地 `project_feature_flags`、`project_media_assets`、`project_registration_field_settings`
+- 調整：`npm run setup` 改為純 `schema.sql` 初始化，不再執行 `db:migrate:*`（migration 已淘汰）
 - 新增：Admin API 專案報名欄位設定端點
   - `GET /api/admin/projects/{projectId}/registration-config`
   - `PUT /api/admin/projects/{projectId}/registration-config`
+- 新增：Admin API 第二頁特效管理端點
+  - `PUT /api/admin/projects/{projectId}/interstitial-effect`
+  - `POST /api/admin/projects/{projectId}/interstitial-asset`
+  - `DELETE /api/admin/projects/{projectId}/interstitial-asset`
 - 新增：專案詳情頁「報名設定」支援 feature toggles（活動資訊、攤位資訊、兌換券資訊、券商資訊、庫存資訊）
+- 新增：專案詳情頁新 Tab「第二頁特效」可開關、上傳與清除 GIF/MP4 素材
 - 對齊：V1 報名提交 (`POST /api/v1/events/:eventId/registrations`) 依活動 `form_config` 進行欄位標準化與 required 檢查
+- 強化：`schema.sql` 新增 trace/project/booth/game 核心複合索引，降低查詢成本
 - 強化：V1 遊戲流程防作弊新增 `trace_id / user_id / project_id` 一致性檢查，並強制 `project / booth / game` 啟用狀態驗證
 - 對齊：新增端點錯誤回應補上 `error.code`（對齊 `utils/error-codes.js`）
 

@@ -53,6 +53,77 @@ CREATE TABLE IF NOT EXISTS event_projects (
     FOREIGN KEY (template_id) REFERENCES invitation_templates(id)
 );
 
+-- 專案功能開關表（P1）
+CREATE TABLE IF NOT EXISTS project_feature_flags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    feature_key VARCHAR(100) NOT NULL,
+    enabled BOOLEAN DEFAULT 0 NOT NULL,
+    config_json TEXT,
+    updated_by INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES event_projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES users(id),
+    UNIQUE(project_id, feature_key)
+);
+
+-- 專案素材資產表（P1）
+CREATE TABLE IF NOT EXISTS project_media_assets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    asset_type VARCHAR(50) NOT NULL, -- e.g. interstitial
+    mime_type VARCHAR(100) NOT NULL,
+    storage_url TEXT NOT NULL,
+    storage_key VARCHAR(255),
+    checksum VARCHAR(128),
+    size_bytes INTEGER DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'archived', 'deleted')),
+    metadata_json TEXT,
+    created_by INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES event_projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- 報名欄位字典表（P1）
+CREATE TABLE IF NOT EXISTS registration_fields (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    field_key VARCHAR(100) UNIQUE NOT NULL,
+    data_type VARCHAR(30) NOT NULL CHECK (data_type IN ('string', 'email', 'phone', 'integer', 'boolean', 'object', 'enum')),
+    default_label VARCHAR(100) NOT NULL,
+    default_required BOOLEAN DEFAULT 0 NOT NULL,
+    default_enabled BOOLEAN DEFAULT 1 NOT NULL,
+    default_options_json TEXT,
+    display_order INTEGER DEFAULT 0,
+    validation_rules_json TEXT,
+    is_system BOOLEAN DEFAULT 1 NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 專案報名欄位設定表（P1）
+CREATE TABLE IF NOT EXISTS project_registration_field_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    field_id INTEGER NOT NULL,
+    enabled BOOLEAN DEFAULT 1 NOT NULL,
+    required BOOLEAN DEFAULT 0 NOT NULL,
+    label VARCHAR(100),
+    placeholder VARCHAR(200),
+    display_order INTEGER DEFAULT 0,
+    options_json TEXT,
+    rules_json TEXT,
+    updated_by INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES event_projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (field_id) REFERENCES registration_fields(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES users(id),
+    UNIQUE(project_id, field_id)
+);
+
 -- 用戶項目權限表
 CREATE TABLE IF NOT EXISTS user_project_permissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -355,18 +426,19 @@ CREATE TABLE IF NOT EXISTS booths (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL,
     booth_name VARCHAR(100) NOT NULL,
-    booth_code VARCHAR(50) UNIQUE NOT NULL,
+    booth_code VARCHAR(50) NOT NULL,
     location VARCHAR(200),
     description TEXT,
     is_active BOOLEAN DEFAULT 1,
     qr_code_base64 TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (project_id) REFERENCES event_projects(id) ON DELETE CASCADE
+    FOREIGN KEY (project_id) REFERENCES event_projects(id) ON DELETE CASCADE,
+    UNIQUE(project_id, booth_code)
 );
 
 CREATE INDEX IF NOT EXISTS idx_booths_project_id ON booths(project_id);
-CREATE INDEX IF NOT EXISTS idx_booths_booth_code ON booths(booth_code);
+CREATE INDEX IF NOT EXISTS idx_booths_project_code ON booths(project_id, booth_code);
 
 -- 兌換券表
 CREATE TABLE IF NOT EXISTS vouchers (
@@ -457,6 +529,7 @@ CREATE INDEX IF NOT EXISTS idx_game_sessions_booth_id ON game_sessions(booth_id)
 -- 兌換券兌換記錄表
 CREATE TABLE IF NOT EXISTS voucher_redemptions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
     voucher_id INTEGER NOT NULL,
     session_id INTEGER,
     booth_id INTEGER,
@@ -466,6 +539,7 @@ CREATE TABLE IF NOT EXISTS voucher_redemptions (
     qr_code_base64 TEXT,
     is_used BOOLEAN DEFAULT 0,
     used_at TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES event_projects(id),
     FOREIGN KEY (voucher_id) REFERENCES vouchers(id),
     FOREIGN KEY (session_id) REFERENCES game_sessions(id)
 );
@@ -585,3 +659,25 @@ CREATE INDEX IF NOT EXISTS idx_form_submissions_parent_id ON form_submissions(pa
 CREATE INDEX IF NOT EXISTS idx_booth_games_booth_id ON booth_games(booth_id);
 CREATE INDEX IF NOT EXISTS idx_booth_games_game_id ON booth_games(game_id);
 CREATE INDEX IF NOT EXISTS idx_booth_games_voucher_id ON booth_games(voucher_id);
+
+-- P0 核心複合索引（trace_id / project_id / booth_id / game_id）
+CREATE INDEX IF NOT EXISTS idx_form_submissions_project_trace ON form_submissions(project_id, trace_id);
+CREATE INDEX IF NOT EXISTS idx_form_submissions_project_email ON form_submissions(project_id, submitter_email);
+CREATE INDEX IF NOT EXISTS idx_booths_project_active_code ON booths(project_id, is_active, booth_code);
+CREATE INDEX IF NOT EXISTS idx_booth_games_booth_game_active ON booth_games(booth_id, game_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_project_trace_game ON game_sessions(project_id, trace_id, game_id);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_project_trace_game_start ON game_sessions(project_id, trace_id, game_id, session_start);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_project_booth_game ON game_sessions(project_id, booth_id, game_id);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_trace_game_session_end ON game_sessions(trace_id, game_id, session_end);
+CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_project_trace_booth_voucher_redeemed ON voucher_redemptions(project_id, trace_id, booth_id, voucher_id, redeemed_at);
+CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_trace_booth_voucher ON voucher_redemptions(trace_id, booth_id, voucher_id);
+CREATE INDEX IF NOT EXISTS idx_voucher_redemptions_session_trace ON voucher_redemptions(session_id, trace_id);
+
+-- P1 表索引
+CREATE INDEX IF NOT EXISTS idx_project_feature_flags_project_key ON project_feature_flags(project_id, feature_key);
+CREATE INDEX IF NOT EXISTS idx_project_feature_flags_enabled ON project_feature_flags(project_id, enabled);
+CREATE INDEX IF NOT EXISTS idx_project_media_assets_project_type_status ON project_media_assets(project_id, asset_type, status);
+CREATE INDEX IF NOT EXISTS idx_project_media_assets_checksum ON project_media_assets(checksum);
+CREATE INDEX IF NOT EXISTS idx_registration_fields_key_order ON registration_fields(field_key, display_order);
+CREATE INDEX IF NOT EXISTS idx_project_registration_settings_project_order ON project_registration_field_settings(project_id, enabled, display_order);
+CREATE INDEX IF NOT EXISTS idx_project_registration_settings_field ON project_registration_field_settings(field_id);

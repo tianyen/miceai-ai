@@ -30,10 +30,17 @@ function generateDate(daysOffset = 0) {
 
 console.log('🔄 正在重置資料庫...');
 
-// 刪除現有資料庫文件
-if (fs.existsSync(dbPath)) {
-    fs.unlinkSync(dbPath);
-    console.log('🗑️  已刪除現有資料庫文件');
+// 刪除現有資料庫與 WAL/SHM 檔案，避免殘留導致資料庫損毀
+const dbArtifacts = [dbPath, `${dbPath}-wal`, `${dbPath}-shm`];
+let removedCount = 0;
+for (const target of dbArtifacts) {
+    if (fs.existsSync(target)) {
+        fs.unlinkSync(target);
+        removedCount += 1;
+    }
+}
+if (removedCount > 0) {
+    console.log('🗑️  已刪除現有資料庫檔案（含 WAL/SHM）');
 }
 
 // 建立新資料庫

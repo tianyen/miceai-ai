@@ -85,6 +85,7 @@
         <button class="tab-btn active" data-tab="participants">參加者管理</button>
         <button class="tab-btn" data-tab="email-management">📧 郵件管理</button>
         <button class="tab-btn" data-tab="form-settings">報名設定</button>
+        <button class="tab-btn" data-tab="interstitial-effect">第二頁特效</button>
         <button class="tab-btn" data-tab="checkin">簽到管理</button>
         <button class="tab-btn" data-tab="tracking">參加者追蹤</button>
         {{#if features.questionnaires}}
@@ -283,6 +284,43 @@
                     <input type="datetime-local" id="registration_deadline" class="form-control" value="{{project.registration_deadline}}">
                     <small class="form-text text-muted">留空表示不設定截止時間</small>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 第二頁特效設定 -->
+    <div class="tab-content" id="interstitial-effect-tab">
+        <div class="section-header">
+            <h3>第二頁中間特效設定</h3>
+            <div class="section-actions">
+                <button class="btn btn-success" onclick="saveInterstitialEffectConfig()">
+                    <i class="fas fa-save"></i> 儲存設定
+                </button>
+            </div>
+        </div>
+
+        <div class="form-settings-container">
+            <div class="settings-group">
+                <h4>特效開關</h4>
+                <label class="field-checkbox">
+                    <input type="checkbox" id="interstitial_effect_enabled"> 啟用報名第二頁中間特效
+                </label>
+                <small class="form-text text-muted">啟用後，前端從 V1 Events API 可收到素材 URL（GIF 或 MP4）</small>
+            </div>
+
+            <div class="settings-group">
+                <h4>素材上傳（GIF / MP4）</h4>
+                <div class="interstitial-upload-row">
+                    <input type="file" id="interstitial_asset_file" class="form-control" accept=".gif,.mp4,image/gif,video/mp4">
+                    <button class="btn btn-primary" onclick="uploadInterstitialAsset()">
+                        <i class="fas fa-upload"></i> 上傳素材
+                    </button>
+                    <button class="btn btn-danger" onclick="clearInterstitialAsset()">
+                        <i class="fas fa-trash"></i> 清除素材
+                    </button>
+                </div>
+                <div id="interstitial-asset-meta" class="interstitial-asset-meta">尚未設定素材</div>
+                <div id="interstitial-asset-preview" class="interstitial-asset-preview"></div>
             </div>
         </div>
     </div>

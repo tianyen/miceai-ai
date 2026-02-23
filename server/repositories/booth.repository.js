@@ -66,9 +66,13 @@ class BoothRepository extends BaseRepository {
     /**
      * 依攤位代碼查詢
      * @param {string} boothCode - 攤位代碼
+     * @param {number|null} projectId - 專案 ID（可選，建議提供）
      * @returns {Promise<Object|null>}
      */
-    async findByCode(boothCode) {
+    async findByCode(boothCode, projectId = null) {
+        if (projectId) {
+            return this.findOne({ booth_code: boothCode, project_id: projectId });
+        }
         return this.findOne({ booth_code: boothCode });
     }
 
@@ -76,12 +80,20 @@ class BoothRepository extends BaseRepository {
      * 檢查攤位代碼是否存在（排除指定 ID）
      * @param {string} boothCode - 攤位代碼
      * @param {number|null} excludeId - 排除的 ID
+     * @param {number|null} projectId - 專案 ID（可選，建議提供）
      * @returns {Promise<Object|null>}
      */
-    async findByCodeExcluding(boothCode, excludeId) {
-        const sql = `
-            SELECT id FROM booths WHERE booth_code = ? AND id != ?
-        `;
+    async findByCodeExcluding(boothCode, excludeId, projectId = null) {
+        if (projectId) {
+            const sql = `
+                SELECT id
+                FROM booths
+                WHERE booth_code = ? AND id != ? AND project_id = ?
+            `;
+            return this.rawGet(sql, [boothCode, excludeId, projectId]);
+        }
+
+        const sql = `SELECT id FROM booths WHERE booth_code = ? AND id != ?`;
         return this.rawGet(sql, [boothCode, excludeId]);
     }
 
