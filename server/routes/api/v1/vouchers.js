@@ -29,7 +29,9 @@ const { validateTraceId } = require('../../../utils/traceId');
  * /api/v1/vouchers/my:
  *   get:
  *     summary: 查詢用戶的兌換券
- *     description: 根據 trace_id 查詢用戶獲得的所有兌換券
+ *     description: |
+ *       根據 trace_id 查詢用戶獲得的所有兌換券（依獲得時間新到舊）。
+ *       當遊戲結束 API 返回「兌換券已經存在記錄」時，前端可用此 API 重新拉取既有券資料。
  *     tags: [Vouchers (兌換券)]
  *     parameters:
  *       - in: query
@@ -88,6 +90,7 @@ const { validateTraceId } = require('../../../utils/traceId');
  *                           used_at:
  *                             type: string
  *                             format: date-time
+ *                             nullable: true
  *                             description: 兌換商品時間
  *                             example: null
  *                           qr_code_base64:
@@ -96,6 +99,7 @@ const { validateTraceId } = require('../../../utils/traceId');
  *                             example: "data:image/png;base64,..."
  *                     summary:
  *                       type: object
+ *                       description: 兌換券統計摘要
  *                       properties:
  *                         total:
  *                           type: integer
@@ -110,6 +114,35 @@ const { validateTraceId } = require('../../../utils/traceId');
  *         description: 缺少 trace_id 或格式錯誤
  *       500:
  *         description: 伺服器錯誤
+ *     x-codeSamples:
+ *       - lang: JSON
+ *         label: 查詢結果範例
+ *         source: |
+ *           {
+ *             "success": true,
+ *             "message": "成功",
+ *             "data": {
+ *               "vouchers": [
+ *                 {
+ *                   "id": 12,
+ *                   "redemption_code": "GAME-2025-D8E9F1",
+ *                   "voucher_name": "星巴克咖啡券",
+ *                   "voucher_value": "中杯咖啡 1 杯",
+ *                   "vendor_name": "星巴克",
+ *                   "category": "餐飲",
+ *                   "is_used": false,
+ *                   "redeemed_at": "2026-02-24T10:30:00Z",
+ *                   "used_at": null,
+ *                   "qr_code_base64": "data:image/png;base64,..."
+ *                 }
+ *               ],
+ *               "summary": {
+ *                 "total": 1,
+ *                 "used": 0,
+ *                 "unused": 1
+ *               }
+ *             }
+ *           }
  */
 router.get('/my', async (req, res) => {
     try {

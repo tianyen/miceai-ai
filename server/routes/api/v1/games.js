@@ -321,9 +321,13 @@ router.post('/:gameId/logs', async (req, res) => {
  *       結束遊戲會話，檢查玩家是否符合兌換券條件，自動發放兌換券。
  *
  *       防作弊規則：
- *       - 同一 Email 在同一專案（project_id）若已成功兌換過（is_used=1），不再發放新兌換券
+ *       - 同一 Email 在同一專案（project_id）若已存在兌換紀錄（含未使用），不再發放新兌換券
  *       - `trace_id / user_id / project_id` 必須與報名來源一致
  *       - `project / booth / game` 必須為啟用狀態且綁定關係有效
+ *
+ *       回應行為：
+ *       - 首次符合條件時：`voucher_earned=true` 並返回 `voucher`
+ *       - 已有兌換紀錄時：`voucher_earned=false`，返回 `reason` 與 `existing_voucher`（含既有 QR Code）
  *     tags: [Games (遊戲室)]
  *     parameters:
  *       - in: path
@@ -376,7 +380,7 @@ router.post('/:gameId/logs', async (req, res) => {
  *                   example: true
  *                 message:
  *                   type: string
- *                   example: "會話已結束，恭喜獲得兌換券！"
+ *                   example: "遊戲結束"
  *                 data:
  *                   type: object
  *                   properties:
@@ -399,8 +403,48 @@ router.post('/:gameId/logs', async (req, res) => {
  *                       example: true
  *                     reason:
  *                       type: string
- *                       description: 當 voucher_earned 為 false 時，返回未發券原因（例如已成功兌換過）
- *                       example: "此 Email 已於本專案成功兌換過，無法重複領券"
+ *                       description: 當 voucher_earned 為 false 時，返回未發券原因（例如已存在兌換紀錄）
+ *                       example: "兌換券已經存在記錄"
+ *                     existing_voucher:
+ *                       type: object
+ *                       description: 當已有兌換紀錄時返回既有兌換券資訊（可直接沿用 QR Code）
+ *                       properties:
+ *                         redemption_id:
+ *                           type: integer
+ *                           example: 12
+ *                         voucher_id:
+ *                           type: integer
+ *                           example: 1
+ *                         voucher_name:
+ *                           type: string
+ *                           example: "星巴克咖啡券"
+ *                         voucher_value:
+ *                           type: string
+ *                           example: "中杯咖啡 1 杯"
+ *                         vendor_name:
+ *                           type: string
+ *                           example: "星巴克"
+ *                         category:
+ *                           type: string
+ *                           example: "餐飲"
+ *                         redemption_code:
+ *                           type: string
+ *                           example: "GAME-2025-D8E9F1"
+ *                         qr_code_base64:
+ *                           type: string
+ *                           example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+ *                         trace_id:
+ *                           type: string
+ *                           example: "MICE-05207cf7-199967c04"
+ *                         is_used:
+ *                           type: boolean
+ *                           example: false
+ *                         redeemed_at:
+ *                           type: string
+ *                           format: date-time
+ *                         used_at:
+ *                           type: string
+ *                           format: date-time
  *                     voucher:
  *                       type: object
  *                       properties:
@@ -440,6 +484,59 @@ router.post('/:gameId/logs', async (req, res) => {
  *         description: 找不到會話
  *       500:
  *         description: 伺服器錯誤
+ *     x-codeSamples:
+ *       - lang: JSON
+ *         label: 首次達標發券
+ *         source: |
+ *           {
+ *             "success": true,
+ *             "message": "遊戲結束",
+ *             "data": {
+ *               "session_id": 32,
+ *               "trace_id": "MICE-05207cf7-199967c04",
+ *               "final_score": 850,
+ *               "play_time": 45,
+ *               "voucher_earned": true,
+ *               "voucher": {
+ *                 "id": 1,
+ *                 "name": "星巴克咖啡券",
+ *                 "value": "中杯咖啡 1 杯",
+ *                 "vendor": "星巴克",
+ *                 "category": "餐飲",
+ *                 "redemption_code": "GAME-2025-D8E9F1",
+ *                 "qr_code_base64": "data:image/png;base64,..."
+ *               }
+ *             }
+ *           }
+ *       - lang: JSON
+ *         label: 已有兌換記錄
+ *         source: |
+ *           {
+ *             "success": true,
+ *             "message": "遊戲結束",
+ *             "data": {
+ *               "session_id": 45,
+ *               "trace_id": "MICE-05207cf7-199967c04",
+ *               "final_score": 910,
+ *               "play_time": 39,
+ *               "voucher_earned": false,
+ *               "reason": "兌換券已經存在記錄",
+ *               "existing_voucher": {
+ *                 "redemption_id": 12,
+ *                 "voucher_id": 1,
+ *                 "voucher_name": "星巴克咖啡券",
+ *                 "voucher_value": "中杯咖啡 1 杯",
+ *                 "vendor_name": "星巴克",
+ *                 "category": "餐飲",
+ *                 "redemption_code": "GAME-2025-D8E9F1",
+ *                 "qr_code_base64": "data:image/png;base64,...",
+ *                 "trace_id": "MICE-05207cf7-199967c04",
+ *                 "is_used": false,
+ *                 "redeemed_at": "2026-02-24T10:30:00Z",
+ *                 "used_at": null
+ *               }
+ *             }
+ *           }
  */
 router.post('/:gameId/sessions/end', async (req, res) => {
     try {
@@ -483,6 +580,9 @@ router.post('/:gameId/sessions/end', async (req, res) => {
             console.log(`🎁 兌換券已發放: ${result.voucher.redemption_code}, trace_id=${trace_id}`);
         } else if (result.reason) {
             responseData.reason = result.reason;
+        }
+        if (result.existingVoucher) {
+            responseData.existing_voucher = result.existingVoucher;
         }
 
         console.log(`✅ 遊戲會話已結束: session_id=${result.sessionId}, score=${final_score}, voucher=${result.voucherEarned}`);

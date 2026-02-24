@@ -735,7 +735,7 @@ class VoucherRepository extends BaseRepository {
     }
 
     /**
-     * 檢查同 Email 在同專案是否已有成功兌換紀錄（is_used = 1）
+     * 檢查同 Email 在同專案是否已有兌換紀錄（含未使用）
      * @param {string} traceId - 目前玩家 trace_id
      * @param {number} projectId - 專案 ID
      * @returns {Promise<Object>} 防作弊檢查結果
@@ -752,33 +752,40 @@ class VoucherRepository extends BaseRepository {
         if (!participant || !participant.submitter_email) {
             return {
                 user_email: null,
+                has_existing_redemption: false,
                 has_successful_redemption: false,
                 redemption: null
             };
         }
 
-        const successfulRedemption = await this.db.get(`
+        const existingRedemption = await this.db.get(`
             SELECT
                 vr.id,
                 vr.trace_id,
                 vr.redemption_code,
+                vr.redeemed_at,
+                vr.is_used,
                 vr.used_at,
                 vr.voucher_id,
-                v.voucher_name
+                vr.qr_code_base64,
+                v.voucher_name,
+                v.voucher_value,
+                v.vendor_name,
+                v.category
             FROM voucher_redemptions vr
             JOIN form_submissions fs ON vr.trace_id = fs.trace_id AND vr.project_id = fs.project_id
             LEFT JOIN vouchers v ON vr.voucher_id = v.id
             WHERE vr.project_id = ?
               AND LOWER(fs.submitter_email) = LOWER(?)
-              AND vr.is_used = 1
-            ORDER BY vr.used_at DESC, vr.id DESC
+            ORDER BY vr.redeemed_at DESC, vr.id DESC
             LIMIT 1
         `, [projectId, participant.submitter_email]);
 
         return {
             user_email: participant.submitter_email,
-            has_successful_redemption: !!successfulRedemption,
-            redemption: successfulRedemption || null
+            has_existing_redemption: !!existingRedemption,
+            has_successful_redemption: !!existingRedemption && existingRedemption.is_used === 1,
+            redemption: existingRedemption || null
         };
     }
 

@@ -344,6 +344,7 @@ class GameService extends BaseService {
         let voucherEarned = false;
         let voucherData = null;
         let reason = '';
+        let existingVoucher = null;
 
         // 如果有綁定兌換券，檢查條件
         if (binding && binding.voucher_id) {
@@ -360,6 +361,7 @@ class GameService extends BaseService {
             voucherEarned = voucherResult.earned;
             voucherData = voucherResult.voucher;
             reason = voucherResult.reason;
+            existingVoucher = voucherResult.existingVoucher || null;
         }
 
         this.log('endSession', {
@@ -382,6 +384,9 @@ class GameService extends BaseService {
         } else if (reason) {
             result.reason = reason;
         }
+        if (existingVoucher) {
+            result.existingVoucher = existingVoucher;
+        }
 
         return result;
     }
@@ -398,13 +403,30 @@ class GameService extends BaseService {
             return { earned: false, reason: '兌換券不存在或未啟用' };
         }
 
-        // 防作弊：同 Email 在同專案只允許成功兌換一次
+        // 防作弊：同 Email 在同專案只允許存在一筆兌換紀錄（已使用或未使用皆算）
         const redeemGuard = await this.voucherRepo.getRedeemGuardStatusByTraceIdAndProject(traceId, projectId);
         if (!redeemGuard.user_email) {
             return { earned: false, reason: '查無使用者 Email，無法完成兌換資格驗證' };
         }
-        if (redeemGuard.has_successful_redemption) {
-            return { earned: false, reason: '此 Email 已於本專案成功兌換過，無法重複領券' };
+        if (redeemGuard.has_existing_redemption) {
+            return {
+                earned: false,
+                reason: '兌換券已經存在記錄',
+                existingVoucher: redeemGuard.redemption ? {
+                    redemption_id: redeemGuard.redemption.id,
+                    voucher_id: redeemGuard.redemption.voucher_id,
+                    voucher_name: redeemGuard.redemption.voucher_name,
+                    voucher_value: redeemGuard.redemption.voucher_value,
+                    vendor_name: redeemGuard.redemption.vendor_name,
+                    category: redeemGuard.redemption.category,
+                    redemption_code: redeemGuard.redemption.redemption_code,
+                    qr_code_base64: redeemGuard.redemption.qr_code_base64,
+                    trace_id: redeemGuard.redemption.trace_id,
+                    is_used: redeemGuard.redemption.is_used === 1,
+                    redeemed_at: redeemGuard.redemption.redeemed_at,
+                    used_at: redeemGuard.redemption.used_at
+                } : null
+            };
         }
 
         // 查詢兌換條件

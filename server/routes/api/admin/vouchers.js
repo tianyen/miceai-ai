@@ -212,7 +212,9 @@ router.get('/redemptions', authenticateSession, async (req, res) => {
  *   post:
  *     tags: [Admin - Vouchers]
  *     summary: 標記兌換券為已使用
- *     description: 將兌換券標記為已使用狀態
+ *     description: |
+ *       將指定兌換記錄標記為已使用（現場工作人員核銷）。
+ *       用於人工處理或補登核銷流程。
  *     parameters:
  *       - in: path
  *         name: id
@@ -223,8 +225,24 @@ router.get('/redemptions', authenticateSession, async (req, res) => {
  *     responses:
  *       200:
  *         description: 成功標記為已使用
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "成功標記為已使用"
+ *                 data:
+ *                   nullable: true
+ *                   example: null
  *       404:
  *         description: 兌換記錄不存在
+ *       500:
+ *         description: 伺服器錯誤
  */
 router.post('/redemptions/:id/use', authenticateSession, async (req, res) => {
     try {
