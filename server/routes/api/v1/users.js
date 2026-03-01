@@ -7,7 +7,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { param, validationResult } = require('express-validator');
+const { param, query, validationResult } = require('express-validator');
 const responses = require('../../../utils/responses');
 const { validateTraceId } = require('../../../utils/traceId');
 const { userQueryService } = require('../../../services');
@@ -31,7 +31,9 @@ const { userQueryService } = require('../../../services');
  *   get:
  *     tags: [Users (用戶查詢)]
  *     summary: 透過 Email 查詢 trace_id
- *     description: 根據用戶 email 查詢其所有報名記錄的 trace_id
+ *     description: |
+ *       根據用戶 email 查詢其所有報名記錄的 trace_id。
+ *       可選擇額外帶入 `project_id` 或 `project_code`，僅查詢特定活動的報名記錄。
  *     parameters:
  *       - in: path
  *         name: email
@@ -41,6 +43,20 @@ const { userQueryService } = require('../../../services');
  *           format: email
  *         description: 用戶電子郵件
  *         example: "wang@example.com"
+ *       - in: query
+ *         name: project_id
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: 限定查詢特定專案 ID
+ *         example: 1
+ *       - in: query
+ *         name: project_code
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: 限定查詢特定專案代碼
+ *         example: "DEMO_2026_1"
  *     responses:
  *       200:
  *         description: 成功查詢
@@ -95,12 +111,14 @@ const { userQueryService } = require('../../../services');
  *                       type: integer
  *                       example: 2
  *       400:
- *         description: Email 格式錯誤
+ *         description: Email 或查詢參數格式錯誤
  *       404:
  *         description: 找不到該 Email 的報名記錄
  */
 router.get('/email/:email', [
-    param('email').isEmail().withMessage('Email 格式無效')
+    param('email').isEmail().withMessage('Email 格式無效'),
+    query('project_id').optional().isInt({ min: 1 }).withMessage('project_id 必須為正整數'),
+    query('project_code').optional().trim().isLength({ min: 1, max: 50 }).withMessage('project_code 格式無效')
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -109,7 +127,11 @@ router.get('/email/:email', [
         }
 
         const { email } = req.params;
-        const result = await userQueryService.findByEmail(email);
+        const { project_id: projectId, project_code: projectCode } = req.query;
+        const result = await userQueryService.findByEmail(email, {
+            projectId: projectId ? parseInt(projectId, 10) : null,
+            projectCode: projectCode ? projectCode.trim() : null
+        });
 
         if (!result.found) {
             return responses.notFound(res, '找不到該 Email 的報名記錄');

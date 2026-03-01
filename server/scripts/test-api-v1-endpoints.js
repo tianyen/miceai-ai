@@ -548,6 +548,78 @@ async function runTests() {
         }
     });
 
+    await testEndpoint('GET /api/v1/users/email/{email}?project_id={projectId} - 依專案 ID 篩選', async () => {
+        const submissions = await query(
+            `SELECT fs.id, fs.trace_id, fs.project_id, p.project_code
+             FROM form_submissions fs
+             LEFT JOIN event_projects p ON fs.project_id = p.id
+             WHERE LOWER(fs.submitter_email) = LOWER(?)
+             ORDER BY fs.created_at DESC`,
+            [testUserEmail]
+        );
+        if (submissions.length === 0) throw new Error('找不到 email 對應的報名記錄');
+
+        const targetProjectId = submissions[0].project_id;
+        const filtered = submissions.filter(s => s.project_id === targetProjectId);
+        if (filtered.length === 0) throw new Error('project_id 篩選樣本為空');
+
+        if (!apiAvailable) {
+            return;
+        }
+
+        const { status, body } = await requestApi(
+            'GET',
+            `/api/v1/users/email/${encodeURIComponent(testUserEmail)}?project_id=${targetProjectId}`
+        );
+        if (status !== 200 || body?.success !== true) {
+            throw new Error(`API 回應異常 (status=${status})`);
+        }
+
+        const registrations = body?.data?.registrations || [];
+        if (registrations.length !== filtered.length) {
+            throw new Error(`project_id 篩選數量不符，預期 ${filtered.length}，實際 ${registrations.length}`);
+        }
+        if (!registrations.every(item => item.project_id === targetProjectId)) {
+            throw new Error('project_id 篩選結果包含其他專案');
+        }
+    });
+
+    await testEndpoint('GET /api/v1/users/email/{email}?project_code={projectCode} - 依專案代碼篩選', async () => {
+        const submissions = await query(
+            `SELECT fs.id, fs.trace_id, fs.project_id, p.project_code
+             FROM form_submissions fs
+             LEFT JOIN event_projects p ON fs.project_id = p.id
+             WHERE LOWER(fs.submitter_email) = LOWER(?)
+             ORDER BY fs.created_at DESC`,
+            [testUserEmail]
+        );
+        if (submissions.length === 0) throw new Error('找不到 email 對應的報名記錄');
+
+        const targetProjectCode = submissions[0].project_code;
+        const filtered = submissions.filter(s => s.project_code === targetProjectCode);
+        if (filtered.length === 0) throw new Error('project_code 篩選樣本為空');
+
+        if (!apiAvailable) {
+            return;
+        }
+
+        const { status, body } = await requestApi(
+            'GET',
+            `/api/v1/users/email/${encodeURIComponent(testUserEmail)}?project_code=${encodeURIComponent(targetProjectCode)}`
+        );
+        if (status !== 200 || body?.success !== true) {
+            throw new Error(`API 回應異常 (status=${status})`);
+        }
+
+        const registrations = body?.data?.registrations || [];
+        if (registrations.length !== filtered.length) {
+            throw new Error(`project_code 篩選數量不符，預期 ${filtered.length}，實際 ${registrations.length}`);
+        }
+        if (!registrations.every(item => item.project_code === targetProjectCode)) {
+            throw new Error('project_code 篩選結果包含其他專案');
+        }
+    });
+
     // 18. GET /api/v1/users/{traceId}
     await testEndpoint('GET /api/v1/users/{traceId} - 透過 trace_id 查詢基本資料', async () => {
         const user = await get(

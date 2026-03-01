@@ -31,10 +31,13 @@ class SubmissionRepository extends BaseRepository {
     /**
      * 依 email 查詢用戶（V1 API 用）
      * @param {string} email - 電子郵件
+     * @param {Object} filters - 篩選條件
+     * @param {number|null} filters.projectId - 專案 ID
+     * @param {string|null} filters.projectCode - 專案代碼
      * @returns {Promise<Array>}
      */
-    async findByEmail(email) {
-        const sql = `
+    async findByEmail(email, { projectId = null, projectCode = null } = {}) {
+        let sql = `
             SELECT
                 fs.id,
                 fs.trace_id,
@@ -48,9 +51,22 @@ class SubmissionRepository extends BaseRepository {
             FROM form_submissions fs
             LEFT JOIN event_projects p ON fs.project_id = p.id
             WHERE LOWER(fs.submitter_email) = LOWER(?)
-            ORDER BY fs.created_at DESC
         `;
-        return this.rawAll(sql, [email]);
+        const params = [email];
+
+        if (projectId) {
+            sql += ` AND fs.project_id = ?`;
+            params.push(projectId);
+        }
+
+        if (projectCode) {
+            sql += ` AND p.project_code = ?`;
+            params.push(projectCode);
+        }
+
+        sql += ` ORDER BY fs.created_at DESC`;
+
+        return this.rawAll(sql, params);
     }
 
     /**

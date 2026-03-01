@@ -16,10 +16,11 @@ class UserQueryService extends BaseService {
     /**
      * 透過 Email 查詢報名記錄
      * @param {string} email - 用戶 email
+     * @param {Object} filters - 篩選條件
      * @returns {Promise<Object>}
      */
-    async findByEmail(email) {
-        const registrations = await submissionRepository.findByEmail(email);
+    async findByEmail(email, filters = {}) {
+        const registrations = await submissionRepository.findByEmail(email, filters);
 
         if (!registrations || registrations.length === 0) {
             return { found: false, data: null };
