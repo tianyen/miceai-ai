@@ -443,6 +443,7 @@ const options = {
   // P1-7: 新增後台管理 API 路由掃描
   apis: [
     './routes/api/v1/*.js',      // API v1 路由（前端串接使用）
+    './routes/api/admin.js',     // Admin API 主路由（含 projects registration-config 等）
     './routes/api/admin/*.js'    // Admin API 路由（後台管理 RESTful API）
   ]
 };
