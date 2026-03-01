@@ -8,6 +8,7 @@ const router = express.Router();
 const { authenticateSession } = require('../../middleware/auth');
 const responses = require('../../utils/responses');
 const trackingRepository = require('../../repositories/tracking.repository');
+const { gameFlowService } = require('../../services');
 
 // 獲取參與者追蹤記錄
 router.get('/participants', authenticateSession, async (req, res) => {
@@ -150,6 +151,28 @@ router.get('/stats', authenticateSession, async (req, res) => {
     } catch (error) {
         console.error('Get tracking stats error:', error);
         responses.error(res, '獲取統計資料失敗', 500);
+    }
+});
+
+// 獲取手機遊戲流程統計
+router.get('/game-flows/stats', authenticateSession, async (req, res) => {
+    try {
+        const result = await gameFlowService.getAnalyticsStats(req.query || {});
+        responses.success(res, result);
+    } catch (error) {
+        console.error('Get game flow stats error:', error);
+        responses.error(res, error.message || '獲取手機遊戲流程統計失敗', error.statusCode || 500, error.details || null, error.code || null);
+    }
+});
+
+// 獲取手機遊戲 stage funnel
+router.get('/game-flows/funnel', authenticateSession, async (req, res) => {
+    try {
+        const result = await gameFlowService.getStageFunnel(req.query || {});
+        responses.success(res, result);
+    } catch (error) {
+        console.error('Get game flow funnel error:', error);
+        responses.error(res, error.message || '獲取手機遊戲流程 funnel 失敗', error.statusCode || 500, error.details || null, error.code || null);
     }
 });
 

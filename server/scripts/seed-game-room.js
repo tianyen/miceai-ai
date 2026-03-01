@@ -293,18 +293,19 @@ async function seed() {
 
             // 生成 QR Code
             const qrData = {
-                type: 'game',
+                type: 'game_flow',
                 project_id: project.id,
                 project_code: project.project_code,
                 booth_id: booth1Id,
                 booth_code: 'BOOTH-A1',
                 game_id: game1Id,
+                game_code: 'lucky-dart-demo',
                 game_name: '幸運飛鏢',
                 binding_id: bindingId,
                 game_url: 'https://example.com/games/lucky-dart'
             };
 
-            const qrCodeUrl = `${config.app.baseUrl}/api/v1/game/start?data=${encodeURIComponent(JSON.stringify(qrData))}`;
+            const qrCodeUrl = `${config.app.baseUrl}/api/v1/game-flows/start?data=${encodeURIComponent(JSON.stringify(qrData))}`;
             const qrCodeBase64 = await QRCode.toDataURL(qrCodeUrl, {
                 width: 300,
                 margin: 2,

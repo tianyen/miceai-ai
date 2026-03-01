@@ -38,6 +38,7 @@ router.get('/', (req, res) => {
                 check_in: '/api/v1/check-in',
                 business_cards: '/api/v1/business-cards',
                 games: '/api/v1/games',
+                game_flows: '/api/v1/game-flows',
                 vouchers: '/api/v1/vouchers',
                 wish_tree: '/api/v1/wish-tree',
                 users: '/api/v1/users'
@@ -107,7 +108,8 @@ router.use('*', (req, res) => {
                 'POST /api/v1/games/:gameId/logs',
                 'POST /api/v1/games/:gameId/sessions/end',
                 'GET /api/v1/games/:gameId/info',
-                // Game Flows (1)
+                // Game Flows (2)
+                'GET /api/v1/game-flows/start',
                 'POST /api/v1/game-flows/track',
                 // Vouchers (1)
                 'GET /api/v1/vouchers/my',

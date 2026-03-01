@@ -18,7 +18,13 @@ const db = new Database(dbPath);
 
 const PROJECT = {
     code: 'PJ0131',
-    name: 'pj0131-嘉義夢燈區'
+    name: 'pj0131-嘉義夢燈區',
+    eventDate: '2026-03-01',
+    eventStartDate: '2026-03-01',
+    eventEndDate: '2026-03-31',
+    location: '嘉義夢燈區',
+    eventType: 'festival',
+    status: 'active'
 };
 
 const FEATURE_FLAGS = [
@@ -63,7 +69,43 @@ const GAMES = [
     }
 ];
 
-function getProjectOrThrow() {
+const ALLOWED_EVENT_TYPES = [
+    'page_view',
+    'session_start',
+    'session_end',
+    'stage_enter',
+    'stage_submit',
+    'select_case',
+    'pray_attempt',
+    'pray_result',
+    'reveal_start',
+    'camera_switch',
+    'template_browse',
+    'throw_start',
+    'throw_success',
+    'upload_attempt',
+    'upload_success',
+    'upload_fail',
+    'complete_view'
+];
+
+function getAdminUserIdOrThrow() {
+    const admin = db.prepare(`
+        SELECT id
+        FROM users
+        WHERE role = 'super_admin'
+        ORDER BY id ASC
+        LIMIT 1
+    `).get();
+
+    if (!admin) {
+        throw new Error('找不到 super_admin，無法初始化手機遊戲專案');
+    }
+
+    return admin.id;
+}
+
+function ensureProject(adminUserId) {
     const project = db.prepare(`
         SELECT id, project_name, project_code
         FROM event_projects
@@ -71,23 +113,72 @@ function getProjectOrThrow() {
         LIMIT 1
     `).get(PROJECT.code);
 
-    if (!project) {
-        throw new Error(`找不到專案 ${PROJECT.code}，請先執行 db-reset/db-seed`);
+    if (project) {
+        db.prepare(`
+            UPDATE event_projects
+            SET project_name = ?,
+                event_date = ?,
+                event_start_date = ?,
+                event_end_date = ?,
+                event_location = ?,
+                event_type = ?,
+                status = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `).run(
+            PROJECT.name,
+            PROJECT.eventDate,
+            PROJECT.eventStartDate,
+            PROJECT.eventEndDate,
+            PROJECT.location,
+            PROJECT.eventType,
+            PROJECT.status,
+            project.id
+        );
+
+        return db.prepare(`
+            SELECT id, project_name, project_code
+            FROM event_projects
+            WHERE id = ?
+            LIMIT 1
+        `).get(project.id);
     }
 
-    return project;
+    const result = db.prepare(`
+        INSERT INTO event_projects (
+            project_name, project_code, event_date, event_start_date, event_end_date,
+            event_location, event_type, status, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+        PROJECT.name,
+        PROJECT.code,
+        PROJECT.eventDate,
+        PROJECT.eventStartDate,
+        PROJECT.eventEndDate,
+        PROJECT.location,
+        PROJECT.eventType,
+        PROJECT.status,
+        adminUserId
+    );
+
+    return db.prepare(`
+        SELECT id, project_name, project_code
+        FROM event_projects
+        WHERE id = ?
+        LIMIT 1
+    `).get(result.lastInsertRowid);
 }
 
-function ensureFeatureFlag(projectId, feature) {
+function ensureFeatureFlag(projectId, feature, adminUserId) {
     db.prepare(`
         INSERT INTO project_feature_flags (
             project_id, feature_key, enabled, config_json, updated_by
-        ) VALUES (?, ?, ?, NULL, 1)
+        ) VALUES (?, ?, ?, NULL, ?)
         ON CONFLICT(project_id, feature_key) DO UPDATE SET
             enabled = excluded.enabled,
             updated_by = excluded.updated_by,
             updated_at = CURRENT_TIMESTAMP
-    `).run(projectId, feature.key, feature.enabled);
+    `).run(projectId, feature.key, feature.enabled, adminUserId);
 }
 
 function ensureBooth(projectId, booth) {
@@ -120,7 +211,7 @@ function ensureBooth(projectId, booth) {
     return result.lastInsertRowid;
 }
 
-function ensureGame(game) {
+function ensureGame(game, adminUserId) {
     const existing = db.prepare(`
         SELECT id
         FROM games
@@ -154,30 +245,34 @@ function ensureGame(game) {
         INSERT INTO games (
             game_name_zh, game_name_en, game_code, game_url,
             game_version, description, is_active, created_by
-        ) VALUES (?, ?, ?, ?, ?, ?, 1, 1)
+        ) VALUES (?, ?, ?, ?, ?, ?, 1, ?)
     `).run(
         game.nameZh,
         game.nameEn,
         game.code,
         game.url,
         game.version,
-        game.description
+        game.description,
+        adminUserId
     );
 
     return result.lastInsertRowid;
 }
 
-async function generateBindingQrCode(boothId, boothCode, gameId, gameName) {
+async function generateBindingQrCode(project, boothId, boothCode, gameId, gameCode, gameName) {
     const qrData = {
-        type: 'game',
+        type: 'game_flow',
+        project_id: project.id,
+        project_code: project.project_code,
         booth_id: boothId,
         game_id: gameId,
         booth_code: boothCode,
+        game_code: gameCode,
         game_name: gameName
     };
 
     const baseUrl = config.app?.baseUrl || 'http://localhost:3000';
-    const qrCodeUrl = `${baseUrl}/api/v1/game/start?data=${encodeURIComponent(JSON.stringify(qrData))}`;
+    const qrCodeUrl = `${baseUrl}/api/v1/game-flows/start?data=${encodeURIComponent(JSON.stringify(qrData))}`;
     return QRCode.toDataURL(qrCodeUrl, {
         width: 300,
         margin: 2,
@@ -191,6 +286,7 @@ function buildTigerFlowSchema() {
         session_start_stage: 'catch_money',
         completion_stage: 'sign_submit',
         timeout_minutes: 15,
+        allowed_event_types: ALLOWED_EVENT_TYPES,
         stages: [
             { id: 'tiger_intro', page: 'index.html', terminal: false },
             { id: 'catch_money', page: '0_getmoney.html', terminal: false },
@@ -214,6 +310,7 @@ function buildLanternFlowSchema() {
         session_start_stage: 'choose_lantern',
         completion_stage: 'throw_lantern',
         timeout_minutes: 15,
+        allowed_event_types: ALLOWED_EVENT_TYPES,
         stages: [
             { id: 'lantern_intro', page: 'index.html', terminal: false },
             { id: 'choose_lantern', page: '1_chose.html', terminal: false },
@@ -263,8 +360,8 @@ function ensureFlowSchema(projectId, gameId, schemaName, schemaJson) {
     return result.lastInsertRowid;
 }
 
-async function ensureBinding(boothId, boothCode, gameId, gameName) {
-    const qrCodeBase64 = await generateBindingQrCode(boothId, boothCode, gameId, gameName);
+async function ensureBinding(project, boothId, boothCode, gameId, gameCode, gameName) {
+    const qrCodeBase64 = await generateBindingQrCode(project, boothId, boothCode, gameId, gameCode, gameName);
     const existing = db.prepare(`
         SELECT id
         FROM booth_games
@@ -297,11 +394,12 @@ async function seedMobileGames() {
     try {
         console.log('📱 初始化嘉義夢燈區手機遊戲資料...');
 
-        const project = getProjectOrThrow();
+        const adminUserId = getAdminUserIdOrThrow();
+        const project = ensureProject(adminUserId);
         console.log(`   ✅ 專案: ${project.project_name} (${project.project_code})`);
 
         for (const feature of FEATURE_FLAGS) {
-            ensureFeatureFlag(project.id, feature);
+            ensureFeatureFlag(project.id, feature, adminUserId);
         }
         console.log(`   ✅ 專案功能開關: ${FEATURE_FLAGS.map((item) => item.key).join(', ')}`);
 
@@ -313,9 +411,9 @@ async function seedMobileGames() {
         }
 
         for (const game of GAMES) {
-            const gameId = ensureGame(game);
+            const gameId = ensureGame(game, adminUserId);
             const boothId = boothIds[game.boothCode];
-            await ensureBinding(boothId, game.boothCode, gameId, game.nameZh);
+            await ensureBinding(project, boothId, game.boothCode, gameId, game.code, game.nameZh);
 
             if (game.code === 'tiger-mobile') {
                 ensureFlowSchema(project.id, gameId, 'Tiger Mobile Flow', buildTigerFlowSchema());

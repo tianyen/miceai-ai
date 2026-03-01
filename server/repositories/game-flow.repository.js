@@ -60,8 +60,9 @@ class GameFlowRepository extends BaseRepository {
                 SELECT id, project_id, booth_name, booth_code, is_active
                 FROM booths
                 WHERE id = ?
+                  AND (? IS NULL OR project_id = ?)
                 LIMIT 1
-            `, [boothId]);
+            `, [boothId, projectId, projectId]);
         }
 
         if (projectId && boothCode) {
@@ -84,6 +85,42 @@ class GameFlowRepository extends BaseRepository {
             ORDER BY id DESC
             LIMIT 1
         `, [projectId, gameId]);
+    }
+
+    async findBindingsByProjectAndGame(projectId, gameId) {
+        return this.rawAll(`
+            SELECT
+                bg.id,
+                bg.booth_id,
+                bg.game_id,
+                bg.is_active,
+                b.project_id,
+                b.booth_name,
+                b.booth_code,
+                b.is_active AS booth_is_active
+            FROM booth_games bg
+            INNER JOIN booths b ON b.id = bg.booth_id
+            WHERE b.project_id = ? AND bg.game_id = ?
+            ORDER BY b.id ASC
+        `, [projectId, gameId]);
+    }
+
+    async findBindingContext({ projectId, boothId, gameId }) {
+        return this.rawGet(`
+            SELECT
+                bg.id,
+                bg.booth_id,
+                bg.game_id,
+                bg.is_active,
+                b.project_id,
+                b.booth_name,
+                b.booth_code,
+                b.is_active AS booth_is_active
+            FROM booth_games bg
+            INNER JOIN booths b ON b.id = bg.booth_id
+            WHERE b.project_id = ? AND b.id = ? AND bg.game_id = ?
+            LIMIT 1
+        `, [projectId, boothId, gameId]);
     }
 
     async findFlowSessionByFlowSessionId(flowSessionId) {
@@ -220,6 +257,167 @@ class GameFlowRepository extends BaseRepository {
             durationMs,
             payloadJson
         ]);
+    }
+
+    async getAnalyticsSummary({ projectId, gameId = null, boothId = null, startedAtFrom = null, startedAtTo = null }) {
+        const where = ['s.project_id = ?'];
+        const params = [projectId];
+
+        if (gameId) {
+            where.push('s.game_id = ?');
+            params.push(gameId);
+        }
+
+        if (boothId) {
+            where.push('s.booth_id = ?');
+            params.push(boothId);
+        }
+
+        if (startedAtFrom) {
+            where.push(`DATETIME(s.started_at, 'localtime') >= ?`);
+            params.push(startedAtFrom);
+        }
+
+        if (startedAtTo) {
+            where.push(`DATETIME(s.started_at, 'localtime') < ?`);
+            params.push(startedAtTo);
+        }
+
+        return this.rawGet(`
+            SELECT
+                COUNT(DISTINCT s.flow_session_id) AS started_sessions,
+                COUNT(DISTINCT s.trace_id) AS unique_players,
+                SUM(CASE WHEN s.status = 'completed' THEN 1 ELSE 0 END) AS completed_sessions,
+                SUM(CASE WHEN s.status = 'failed' THEN 1 ELSE 0 END) AS failed_sessions,
+                SUM(CASE WHEN s.status = 'abandoned' THEN 1 ELSE 0 END) AS abandoned_sessions,
+                SUM(CASE
+                    WHEN s.status = 'timeout'
+                        OR (
+                            s.status = 'active'
+                            AND DATETIME(
+                                s.last_event_at,
+                                'localtime',
+                                '+' || COALESCE(CAST(json_extract(gfs.schema_json, '$.timeout_minutes') AS INTEGER), 15) || ' minutes'
+                            ) < DATETIME('now', 'localtime')
+                        )
+                    THEN 1 ELSE 0
+                END) AS timeout_sessions,
+                SUM(CASE
+                    WHEN s.status = 'active'
+                        AND DATETIME(
+                            s.last_event_at,
+                            'localtime',
+                            '+' || COALESCE(CAST(json_extract(gfs.schema_json, '$.timeout_minutes') AS INTEGER), 15) || ' minutes'
+                        ) >= DATETIME('now', 'localtime')
+                    THEN 1 ELSE 0
+                END) AS active_sessions
+            FROM game_flow_sessions s
+            LEFT JOIN game_flow_schemas gfs
+                ON gfs.project_id = s.project_id
+               AND gfs.game_id = s.game_id
+               AND gfs.is_active = 1
+            WHERE ${where.join(' AND ')}
+        `, params);
+    }
+
+    async getAnalyticsBreakdown({ projectId, gameId = null, boothId = null, startedAtFrom = null, startedAtTo = null }) {
+        const where = ['s.project_id = ?'];
+        const params = [projectId];
+
+        if (gameId) {
+            where.push('s.game_id = ?');
+            params.push(gameId);
+        }
+
+        if (boothId) {
+            where.push('s.booth_id = ?');
+            params.push(boothId);
+        }
+
+        if (startedAtFrom) {
+            where.push(`DATETIME(s.started_at, 'localtime') >= ?`);
+            params.push(startedAtFrom);
+        }
+
+        if (startedAtTo) {
+            where.push(`DATETIME(s.started_at, 'localtime') < ?`);
+            params.push(startedAtTo);
+        }
+
+        return this.rawAll(`
+            SELECT
+                s.game_id,
+                g.game_code,
+                g.game_name_zh,
+                s.booth_id,
+                b.booth_code,
+                b.booth_name,
+                COUNT(DISTINCT s.flow_session_id) AS started_sessions,
+                COUNT(DISTINCT s.trace_id) AS unique_players,
+                SUM(CASE WHEN s.status = 'completed' THEN 1 ELSE 0 END) AS completed_sessions,
+                SUM(CASE WHEN s.status = 'failed' THEN 1 ELSE 0 END) AS failed_sessions,
+                SUM(CASE WHEN s.status = 'abandoned' THEN 1 ELSE 0 END) AS abandoned_sessions,
+                SUM(CASE
+                    WHEN s.status = 'timeout'
+                        OR (
+                            s.status = 'active'
+                            AND DATETIME(
+                                s.last_event_at,
+                                'localtime',
+                                '+' || COALESCE(CAST(json_extract(gfs.schema_json, '$.timeout_minutes') AS INTEGER), 15) || ' minutes'
+                            ) < DATETIME('now', 'localtime')
+                        )
+                    THEN 1 ELSE 0
+                END) AS timeout_sessions
+            FROM game_flow_sessions s
+            INNER JOIN games g ON g.id = s.game_id
+            LEFT JOIN booths b ON b.id = s.booth_id
+            LEFT JOIN game_flow_schemas gfs
+                ON gfs.project_id = s.project_id
+               AND gfs.game_id = s.game_id
+               AND gfs.is_active = 1
+            WHERE ${where.join(' AND ')}
+            GROUP BY s.game_id, g.game_code, g.game_name_zh, s.booth_id, b.booth_code, b.booth_name
+            ORDER BY g.game_name_zh ASC, b.booth_name ASC
+        `, params);
+    }
+
+    async getStageCounts({ projectId, gameId, boothId = null, startedAtFrom = null, startedAtTo = null }) {
+        const where = ['s.project_id = ?', 's.game_id = ?'];
+        const params = [projectId, gameId];
+
+        if (boothId) {
+            where.push('s.booth_id = ?');
+            params.push(boothId);
+        }
+
+        if (startedAtFrom) {
+            where.push(`DATETIME(s.started_at, 'localtime') >= ?`);
+            params.push(startedAtFrom);
+        }
+
+        if (startedAtTo) {
+            where.push(`DATETIME(s.started_at, 'localtime') < ?`);
+            params.push(startedAtTo);
+        }
+
+        return this.rawAll(`
+            SELECT
+                e.stage_id,
+                COUNT(DISTINCT e.flow_session_id) AS reached_sessions,
+                COUNT(DISTINCT CASE
+                    WHEN e.event_type IN ('stage_submit', 'session_end')
+                    THEN e.flow_session_id
+                END) AS submitted_sessions,
+                COUNT(*) AS event_count,
+                MIN(e.created_at) AS first_seen_at,
+                MAX(e.created_at) AS last_seen_at
+            FROM game_stage_events e
+            INNER JOIN game_flow_sessions s ON s.id = e.session_id
+            WHERE ${where.join(' AND ')}
+            GROUP BY e.stage_id
+            ORDER BY MIN(e.created_at) ASC, e.stage_id ASC
+        `, params);
     }
 }
 

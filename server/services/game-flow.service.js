@@ -6,6 +6,25 @@ const gameFlowRepository = require('../repositories/game-flow.repository');
 const { validateTraceId } = require('../utils/traceId');
 
 const SESSION_END_STATUSES = new Set(['completed', 'failed', 'timeout', 'abandoned']);
+const DEFAULT_ALLOWED_EVENT_TYPES = new Set([
+    'page_view',
+    'session_start',
+    'session_end',
+    'stage_enter',
+    'stage_submit',
+    'select_case',
+    'pray_attempt',
+    'pray_result',
+    'reveal_start',
+    'camera_switch',
+    'template_browse',
+    'throw_start',
+    'throw_success',
+    'upload_attempt',
+    'upload_success',
+    'upload_fail',
+    'complete_view'
+]);
 
 class GameFlowService extends BaseService {
     constructor() {
@@ -16,10 +35,11 @@ class GameFlowService extends BaseService {
     async trackEvent(eventData, clientContext = {}) {
         return this.withErrorHandling(async () => {
             const normalized = this._normalizeEvent(eventData);
-            const resolvedContext = await this._resolveContext(normalized);
             const existingSession = await this.gameFlowRepo.findFlowSessionByFlowSessionId(normalized.flowSessionId);
+            const resolvedContext = await this._resolveTrackContext(normalized, existingSession);
 
             this._assertExistingSessionContext(existingSession, resolvedContext, normalized);
+            this._validateSchemaPayload(resolvedContext.flowDefinition, normalized);
 
             const session = existingSession || await this._createImplicitSession(
                 resolvedContext,
@@ -33,7 +53,7 @@ class GameFlowService extends BaseService {
                     clientEventId: normalized.clientEventId,
                     sessionId: session.id,
                     projectId: resolvedContext.project.id,
-                    boothId: resolvedContext.booth?.id || session.booth_id || null,
+                    boothId: resolvedContext.booth.id,
                     gameId: resolvedContext.game.id,
                     traceId: normalized.traceId,
                     flowSessionId: normalized.flowSessionId,
@@ -44,13 +64,12 @@ class GameFlowService extends BaseService {
                 });
             }
 
-            const sessionPatch = this._buildSessionPatch(session, normalized, clientContext);
+            const sessionPatch = this._buildSessionPatch(session, normalized, clientContext, resolvedContext);
             if (Object.keys(sessionPatch).length > 0) {
                 await this.gameFlowRepo.updateFlowSession(session.id, sessionPatch);
             }
 
             const updatedSession = await this.gameFlowRepo.findFlowSessionByFlowSessionId(normalized.flowSessionId);
-            const schema = await this.gameFlowRepo.findFlowSchema(updatedSession.project_id, updatedSession.game_id);
 
             this.log('trackEvent', {
                 flow_session_id: normalized.flowSessionId,
@@ -70,23 +89,164 @@ class GameFlowService extends BaseService {
                     booth_id: updatedSession.booth_id,
                     game_id: updatedSession.game_id
                 },
-                schema: schema
-                    ? {
-                        id: schema.id,
-                        name: schema.schema_name,
-                        version: schema.schema_version
-                    }
-                    : null,
+                schema: this._buildSchemaResponse(resolvedContext.schema),
                 duplicate_event: !!duplicateEvent
             };
         }, 'trackEvent');
+    }
+
+    async getStartContext(queryData = {}) {
+        return this.withErrorHandling(async () => {
+            const normalized = this._normalizeStartPayload(queryData);
+            const resolvedContext = await this._resolveStartContext(normalized);
+
+            return {
+                project: {
+                    id: resolvedContext.project.id,
+                    code: resolvedContext.project.project_code,
+                    name: resolvedContext.project.project_name
+                },
+                booth: {
+                    id: resolvedContext.booth.id,
+                    code: resolvedContext.booth.booth_code,
+                    name: resolvedContext.booth.booth_name
+                },
+                game: {
+                    id: resolvedContext.game.id,
+                    code: resolvedContext.game.game_code,
+                    name_zh: resolvedContext.game.game_name_zh,
+                    name_en: resolvedContext.game.game_name_en,
+                    url: resolvedContext.game.game_url
+                },
+                binding: {
+                    id: resolvedContext.binding.id,
+                    is_active: !!resolvedContext.binding.is_active
+                },
+                schema: resolvedContext.flowDefinition,
+                telemetry: {
+                    track_endpoint: '/api/v1/game-flows/track',
+                    timeout_minutes: resolvedContext.flowDefinition.timeout_minutes || 15
+                }
+            };
+        }, 'getStartContext');
+    }
+
+    async getAnalyticsStats(filterData = {}) {
+        return this.withErrorHandling(async () => {
+            const normalized = this._normalizeAnalyticsFilters(filterData);
+            const resolvedContext = await this._resolveAnalyticsContext(normalized);
+            const [summary, breakdown] = await Promise.all([
+                this.gameFlowRepo.getAnalyticsSummary({
+                    projectId: resolvedContext.project.id,
+                    gameId: resolvedContext.game?.id || null,
+                    boothId: resolvedContext.booth?.id || null,
+                    startedAtFrom: normalized.startedAtFrom,
+                    startedAtTo: normalized.startedAtTo
+                }),
+                this.gameFlowRepo.getAnalyticsBreakdown({
+                    projectId: resolvedContext.project.id,
+                    gameId: resolvedContext.game?.id || null,
+                    boothId: resolvedContext.booth?.id || null,
+                    startedAtFrom: normalized.startedAtFrom,
+                    startedAtTo: normalized.startedAtTo
+                })
+            ]);
+
+            return {
+                window: normalized.window,
+                date_range: {
+                    from: normalized.dateFrom,
+                    to: normalized.dateTo
+                },
+                filters: {
+                    project_id: resolvedContext.project.id,
+                    project_code: resolvedContext.project.project_code,
+                    game_id: resolvedContext.game?.id || null,
+                    game_code: resolvedContext.game?.game_code || null,
+                    booth_id: resolvedContext.booth?.id || null,
+                    booth_code: resolvedContext.booth?.booth_code || null
+                },
+                summary: {
+                    unique_players: summary?.unique_players || 0,
+                    started_sessions: summary?.started_sessions || 0,
+                    active_sessions: summary?.active_sessions || 0,
+                    completed_sessions: summary?.completed_sessions || 0,
+                    failed_sessions: summary?.failed_sessions || 0,
+                    timeout_sessions: summary?.timeout_sessions || 0,
+                    abandoned_sessions: summary?.abandoned_sessions || 0
+                },
+                breakdown: breakdown.map((item) => ({
+                    game_id: item.game_id,
+                    game_code: item.game_code,
+                    game_name_zh: item.game_name_zh,
+                    booth_id: item.booth_id,
+                    booth_code: item.booth_code,
+                    booth_name: item.booth_name,
+                    unique_players: item.unique_players || 0,
+                    started_sessions: item.started_sessions || 0,
+                    completed_sessions: item.completed_sessions || 0,
+                    failed_sessions: item.failed_sessions || 0,
+                    timeout_sessions: item.timeout_sessions || 0,
+                    abandoned_sessions: item.abandoned_sessions || 0
+                }))
+            };
+        }, 'getAnalyticsStats');
+    }
+
+    async getStageFunnel(filterData = {}) {
+        return this.withErrorHandling(async () => {
+            const normalized = this._normalizeAnalyticsFilters(filterData, { requireGame: true });
+            const resolvedContext = await this._resolveAnalyticsContext(normalized, { requireSchema: true });
+            const stageCounts = await this.gameFlowRepo.getStageCounts({
+                projectId: resolvedContext.project.id,
+                gameId: resolvedContext.game.id,
+                boothId: resolvedContext.booth?.id || null,
+                startedAtFrom: normalized.startedAtFrom,
+                startedAtTo: normalized.startedAtTo
+            });
+
+            const countMap = new Map(stageCounts.map((item) => [item.stage_id, item]));
+            const stages = (resolvedContext.flowDefinition.stages || []).map((stage, index) => {
+                const counts = countMap.get(stage.id);
+                return {
+                    order: index + 1,
+                    stage_id: stage.id,
+                    page: stage.page || null,
+                    terminal: !!stage.terminal,
+                    reached_sessions: counts?.reached_sessions || 0,
+                    submitted_sessions: counts?.submitted_sessions || 0,
+                    event_count: counts?.event_count || 0
+                };
+            });
+
+            return {
+                window: normalized.window,
+                date_range: {
+                    from: normalized.dateFrom,
+                    to: normalized.dateTo
+                },
+                filters: {
+                    project_id: resolvedContext.project.id,
+                    project_code: resolvedContext.project.project_code,
+                    game_id: resolvedContext.game.id,
+                    game_code: resolvedContext.game.game_code,
+                    booth_id: resolvedContext.booth?.id || null,
+                    booth_code: resolvedContext.booth?.booth_code || null
+                },
+                schema: {
+                    name: resolvedContext.schema.schema_name,
+                    version: resolvedContext.schema.schema_version
+                },
+                stages
+            };
+        }, 'getStageFunnel');
     }
 
     _normalizeEvent(eventData = {}) {
         const traceId = typeof eventData.trace_id === 'string' ? eventData.trace_id.trim() : '';
         const flowSessionId = typeof eventData.flow_session_id === 'string' ? eventData.flow_session_id.trim() : '';
         const stageId = typeof eventData.stage_id === 'string' ? eventData.stage_id.trim() : '';
-        const eventType = typeof eventData.event_type === 'string' ? eventData.event_type.trim() : '';
+        const eventType = typeof eventData.event_type === 'string' ? eventData.event_type.trim().toLowerCase() : '';
 
         if (!traceId || !validateTraceId(traceId)) {
             this.throwError(this.ErrorCodes.VALIDATION_ERROR, { message: '缺少或無效的 trace_id' });
@@ -147,39 +307,213 @@ class GameFlowService extends BaseService {
         };
     }
 
-    async _resolveContext(normalized) {
-        const project = await this.gameFlowRepo.findProjectContext({
-            projectId: normalized.projectId,
-            projectCode: normalized.projectCode
+    _normalizeStartPayload(queryData = {}) {
+        let parsed = queryData?.data ?? queryData;
+
+        if (typeof parsed === 'string') {
+            try {
+                parsed = JSON.parse(parsed);
+            } catch (error) {
+                this.throwError(this.ErrorCodes.VALIDATION_ERROR, { message: 'QR start data 格式無效' });
+            }
+        }
+
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, { message: '缺少有效的 QR start data' });
+        }
+
+        return {
+            projectId: this._toPositiveInt(parsed.project_id),
+            projectCode: typeof parsed.project_code === 'string' ? parsed.project_code.trim() : null,
+            gameId: this._toPositiveInt(parsed.game_id),
+            gameCode: typeof parsed.game_code === 'string' ? parsed.game_code.trim() : null,
+            boothId: this._toPositiveInt(parsed.booth_id),
+            boothCode: typeof parsed.booth_code === 'string' ? parsed.booth_code.trim() : null
+        };
+    }
+
+    _normalizeAnalyticsFilters(filterData = {}, options = {}) {
+        const { requireGame = false } = options;
+        const window = typeof filterData.window === 'string'
+            ? filterData.window.trim().toLowerCase()
+            : 'today';
+
+        const dateRange = this._resolveDateRange({
+            window,
+            dateFrom: typeof filterData.date_from === 'string' ? filterData.date_from.trim() : null,
+            dateTo: typeof filterData.date_to === 'string' ? filterData.date_to.trim() : null
         });
 
-        const game = await this.gameFlowRepo.findGameContext({
-            gameId: normalized.gameId,
-            gameCode: normalized.gameCode
+        const normalized = {
+            window: dateRange.window,
+            dateFrom: dateRange.dateFrom,
+            dateTo: dateRange.dateTo,
+            startedAtFrom: dateRange.startedAtFrom,
+            startedAtTo: dateRange.startedAtTo,
+            projectId: this._toPositiveInt(filterData.project_id),
+            gameId: this._toPositiveInt(filterData.game_id),
+            boothId: this._toPositiveInt(filterData.booth_id),
+            projectCode: typeof filterData.project_code === 'string' ? filterData.project_code.trim() : null,
+            gameCode: typeof filterData.game_code === 'string' ? filterData.game_code.trim() : null,
+            boothCode: typeof filterData.booth_code === 'string' ? filterData.booth_code.trim() : null
+        };
+
+        if (!normalized.projectId && !normalized.projectCode) {
+            this.throwError(this.ErrorCodes.MISSING_REQUIRED_FIELD, { message: '缺少 project_id 或 project_code' });
+        }
+
+        if (requireGame && !normalized.gameId && !normalized.gameCode) {
+            this.throwError(this.ErrorCodes.MISSING_REQUIRED_FIELD, { message: '缺少 game_id 或 game_code' });
+        }
+
+        return normalized;
+    }
+
+    async _resolveTrackContext(normalized, existingSession = null) {
+        const context = await this._resolveContext(normalized, {
+            existingSession,
+            requireActiveProject: true,
+            requireActiveGame: true,
+            requireSchema: true,
+            inferBooth: true
+        });
+
+        if (!context.booth || !context.booth.is_active) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, { message: '攤位不存在或未啟用' });
+        }
+
+        if (!context.binding || !context.binding.is_active) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, { message: 'project / booth / game 綁定不存在或未啟用' });
+        }
+
+        return context;
+    }
+
+    async _resolveStartContext(normalized) {
+        return this._resolveContext(normalized, {
+            requireActiveProject: true,
+            requireActiveGame: true,
+            requireSchema: true,
+            inferBooth: true
+        });
+    }
+
+    async _resolveAnalyticsContext(normalized, options = {}) {
+        return this._resolveContext(normalized, {
+            requireGame: !!options.requireSchema,
+            requireActiveProject: false,
+            requireActiveGame: false,
+            requireSchema: !!options.requireSchema,
+            inferBooth: !!normalized.gameId || !!normalized.gameCode
+        });
+    }
+
+    async _resolveContext(normalized, options = {}) {
+        const {
+            existingSession = null,
+            requireGame = true,
+            requireActiveProject = true,
+            requireActiveGame = true,
+            requireSchema = false,
+            inferBooth = false
+        } = options;
+
+        const project = await this.gameFlowRepo.findProjectContext({
+            projectId: normalized.projectId || existingSession?.project_id || null,
+            projectCode: normalized.projectCode || null
         });
 
         if (!project) {
             this.throwError(this.ErrorCodes.PROJECT_NOT_FOUND);
         }
 
-        if (!game) {
-            this.throwError(this.ErrorCodes.GAME_NOT_FOUND);
+        if (requireActiveProject && project.status !== 'active') {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, { message: '專案不存在或未啟用' });
         }
 
+        const resolvedGameId = normalized.gameId || existingSession?.game_id || null;
+        const resolvedGameCode = normalized.gameCode || null;
+        let game = null;
+
+        if (requireGame || resolvedGameId || resolvedGameCode) {
+            game = await this.gameFlowRepo.findGameContext({
+                gameId: resolvedGameId,
+                gameCode: resolvedGameCode
+            });
+
+            if (!game) {
+                this.throwError(this.ErrorCodes.GAME_NOT_FOUND);
+            }
+
+            if (requireActiveGame && !game.is_active) {
+                this.throwError(this.ErrorCodes.VALIDATION_ERROR, { message: '遊戲不存在或未啟用' });
+            }
+        }
+
+        const requestedBoothId = normalized.boothId || existingSession?.booth_id || null;
+        const requestedBoothCode = normalized.boothCode || null;
+
         let booth = null;
-        if (normalized.boothId || normalized.boothCode) {
+        if (requestedBoothId || requestedBoothCode) {
             booth = await this.gameFlowRepo.findBoothContext({
                 projectId: project.id,
-                boothId: normalized.boothId,
-                boothCode: normalized.boothCode
+                boothId: requestedBoothId,
+                boothCode: requestedBoothCode
             });
 
             if (!booth) {
                 this.throwError(this.ErrorCodes.BOOTH_NOT_FOUND);
             }
+        } else if (inferBooth && game) {
+            const bindings = await this.gameFlowRepo.findBindingsByProjectAndGame(project.id, game.id);
+            const activeBindings = bindings.filter((item) => item.is_active && item.booth_is_active);
+
+            if (activeBindings.length === 0) {
+                this.throwError(this.ErrorCodes.VALIDATION_ERROR, { message: '找不到有效的 project / booth / game 綁定' });
+            }
+
+            if (activeBindings.length > 1) {
+                this.throwError(this.ErrorCodes.VALIDATION_ERROR, { message: '同一 project/game 對應多個攤位，請明確提供 booth_id 或 booth_code' });
+            }
+
+            booth = {
+                id: activeBindings[0].booth_id,
+                project_id: activeBindings[0].project_id,
+                booth_name: activeBindings[0].booth_name,
+                booth_code: activeBindings[0].booth_code,
+                is_active: activeBindings[0].booth_is_active
+            };
         }
 
-        return { project, game, booth };
+        let binding = null;
+        if (booth) {
+            binding = await this.gameFlowRepo.findBindingContext({
+                projectId: project.id,
+                boothId: booth.id,
+                gameId: game.id
+            });
+        }
+
+        if (booth && game && (!binding || !binding.is_active || !booth.is_active)) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, { message: 'project / booth / game 綁定不存在或未啟用' });
+        }
+
+        let schema = null;
+        let flowDefinition = null;
+
+        if (requireSchema) {
+            if (!game) {
+                this.throwError(this.ErrorCodes.MISSING_REQUIRED_FIELD, { message: '需要 game_id 或 game_code 才能解析 flow schema' });
+            }
+            schema = await this.gameFlowRepo.findFlowSchema(project.id, game.id);
+            if (!schema) {
+                this.throwError(this.ErrorCodes.VALIDATION_ERROR, { message: '找不到啟用中的 game flow schema' });
+            }
+
+            flowDefinition = this._parseFlowSchema(schema.schema_json);
+        }
+
+        return { project, game, booth, binding, schema, flowDefinition };
     }
 
     _assertExistingSessionContext(existingSession, resolvedContext, normalized) {
@@ -217,17 +551,17 @@ class GameFlowService extends BaseService {
             completionStageId: this._isTerminalStatus(normalized.sessionStatus) ? normalized.stageId : null,
             ipAddress: clientContext.ipAddress || null,
             userAgent: clientContext.userAgent || null,
-            metadataJson: this._buildSessionMetadataJson(normalized, clientContext)
+            metadataJson: this._buildSessionMetadataJson(normalized, clientContext, resolvedContext)
         });
 
         return this.gameFlowRepo.findById(createResult.lastID);
     }
 
-    _buildSessionPatch(session, normalized, clientContext) {
+    _buildSessionPatch(session, normalized, clientContext, resolvedContext) {
         const patch = {};
 
-        if (!session.booth_id && normalized.boothId) {
-            patch.boothId = normalized.boothId;
+        if (!session.booth_id && resolvedContext.booth?.id) {
+            patch.boothId = resolvedContext.booth.id;
         }
 
         if (!session.entry_stage_id) {
@@ -258,6 +592,26 @@ class GameFlowService extends BaseService {
         }
 
         return patch;
+    }
+
+    _validateSchemaPayload(flowDefinition, normalized) {
+        const stages = Array.isArray(flowDefinition?.stages) ? flowDefinition.stages : [];
+        const stageIds = new Set(stages.map((stage) => stage.id));
+        if (!stageIds.has(normalized.stageId)) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                message: `stage_id 不存在於啟用中的 flow schema: ${normalized.stageId}`
+            });
+        }
+
+        const allowedEventTypes = Array.isArray(flowDefinition?.allowed_event_types)
+            ? new Set(flowDefinition.allowed_event_types)
+            : DEFAULT_ALLOWED_EVENT_TYPES;
+
+        if (!allowedEventTypes.has(normalized.eventType)) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                message: `event_type 不存在於允許清單: ${normalized.eventType}`
+            });
+        }
     }
 
     _inferInitialStatus(normalized) {
@@ -296,16 +650,107 @@ class GameFlowService extends BaseService {
         return SESSION_END_STATUSES.has(status);
     }
 
-    _buildSessionMetadataJson(normalized, clientContext) {
+    _buildSessionMetadataJson(normalized, clientContext, resolvedContext) {
         return JSON.stringify({
             source: 'game-flow-track',
             first_event_type: normalized.eventType,
             first_stage_id: normalized.stageId,
-            project_code: normalized.projectCode || null,
-            game_code: normalized.gameCode || null,
-            booth_code: normalized.boothCode || null,
+            project_code: resolvedContext.project.project_code,
+            game_code: resolvedContext.game.game_code || normalized.gameCode || null,
+            booth_code: resolvedContext.booth?.booth_code || normalized.boothCode || null,
             ip_address: clientContext.ipAddress || null
         });
+    }
+
+    _buildSchemaResponse(schema) {
+        if (!schema) return null;
+
+        return {
+            id: schema.id,
+            name: schema.schema_name,
+            version: schema.schema_version
+        };
+    }
+
+    _parseFlowSchema(rawSchemaJson) {
+        try {
+            const parsed = JSON.parse(rawSchemaJson);
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                throw new Error('schema root must be object');
+            }
+            return parsed;
+        } catch (error) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                message: 'game flow schema JSON 無效'
+            });
+        }
+    }
+
+    _resolveDateRange({ window, dateFrom = null, dateTo = null }) {
+        if (dateFrom || dateTo) {
+            const from = dateFrom || dateTo;
+            const to = dateTo || dateFrom;
+            const startedAtFrom = `${from} 00:00:00`;
+            const startedAtTo = this._formatDateTimeBoundary(this._addDays(to, 1));
+            return {
+                window: 'custom',
+                dateFrom: from,
+                dateTo: to,
+                startedAtFrom,
+                startedAtTo
+            };
+        }
+
+        const today = this._formatDateOnly(new Date());
+
+        if (window === 'yesterday') {
+            const yesterday = this._addDays(today, -1);
+            return {
+                window,
+                dateFrom: yesterday,
+                dateTo: yesterday,
+                startedAtFrom: `${yesterday} 00:00:00`,
+                startedAtTo: `${today} 00:00:00`
+            };
+        }
+
+        if (window === 'week') {
+            const weekStart = this._addDays(today, -6);
+            return {
+                window,
+                dateFrom: weekStart,
+                dateTo: today,
+                startedAtFrom: `${weekStart} 00:00:00`,
+                startedAtTo: this._formatDateTimeBoundary(this._addDays(today, 1))
+            };
+        }
+
+        return {
+            window: 'today',
+            dateFrom: today,
+            dateTo: today,
+            startedAtFrom: `${today} 00:00:00`,
+            startedAtTo: this._formatDateTimeBoundary(this._addDays(today, 1))
+        };
+    }
+
+    _formatDateOnly(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    _formatDateTimeBoundary(dateString) {
+        return `${dateString} 00:00:00`;
+    }
+
+    _addDays(dateInput, amount) {
+        const date = typeof dateInput === 'string'
+            ? new Date(`${dateInput}T00:00:00`)
+            : new Date(dateInput);
+        date.setDate(date.getDate() + amount);
+        return this._formatDateOnly(date);
     }
 
     _toPositiveInt(value) {
