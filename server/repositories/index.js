@@ -23,6 +23,7 @@ const logRepository = require('./log.repository');
 const questionnaireRepository = require('./questionnaire.repository');
 const boothRepository = require('./booth.repository');
 const gameRepository = require('./game.repository');
+const gameFlowRepository = require('./game-flow.repository');
 const voucherRepository = require('./voucher.repository');
 const businessCardRepository = require('./business-card.repository');
 const wishTreeRepository = require('./wish-tree.repository');
@@ -41,6 +42,7 @@ module.exports = {
     questionnaireRepository,
     boothRepository,
     gameRepository,
+    gameFlowRepository,
     voucherRepository,
     businessCardRepository,
     wishTreeRepository,

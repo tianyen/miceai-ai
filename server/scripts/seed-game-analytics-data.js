@@ -57,13 +57,64 @@ const idGen = new DeterministicIdGenerator();
 const db = new Database(dbPath);
 console.log('✅ 資料庫連接成功');
 
+function getRequiredProjectId(projectCode) {
+    const project = db.prepare(`
+        SELECT id
+        FROM event_projects
+        WHERE project_code = ?
+        LIMIT 1
+    `).get(projectCode);
+
+    if (!project) {
+        throw new Error(`找不到專案 ${projectCode}`);
+    }
+
+    return project.id;
+}
+
+function getRequiredGameId(gameNameZh) {
+    const game = db.prepare(`
+        SELECT id
+        FROM games
+        WHERE game_name_zh = ?
+        LIMIT 1
+    `).get(gameNameZh);
+
+    if (!game) {
+        throw new Error(`找不到遊戲 ${gameNameZh}`);
+    }
+
+    return game.id;
+}
+
+function getVoucherIdByName(voucherName) {
+    const voucher = db.prepare(`
+        SELECT id
+        FROM vouchers
+        WHERE voucher_name = ?
+        LIMIT 1
+    `).get(voucherName);
+
+    if (!voucher) {
+        throw new Error(`找不到兌換券 ${voucherName}`);
+    }
+
+    return voucher.id;
+}
+
+const TECH2024_PROJECT_ID = getRequiredProjectId('TECH2024');
+const LUCKY_DART_GAME_ID = getRequiredGameId('幸運飛鏢');
+const STARBUCKS_VOUCHER_ID = getVoucherIdByName('星巴克咖啡券');
+const ESLITE_VOUCHER_ID = getVoucherIdByName('誠品書店禮券');
+const MOVIE_VOUCHER_ID = getVoucherIdByName('電影票券');
+
 // 遊戲會話假資料（使用今天的日期）
 // 只為王大明 (registration_id=1) 添加遊戲記錄
 const gameSessions = [
     // 王大明 - 4 次遊戲
     {
-        project_id: 1,
-        game_id: 1,
+        project_id: TECH2024_PROJECT_ID,
+        game_id: LUCKY_DART_GAME_ID,
         trace_id: idGen.generateTraceId(1),
         user_id: '1',  // registration_id = 1 (王大明)
         session_start: idGen.generateTimestamp(0, 10, 0),
@@ -71,11 +122,11 @@ const gameSessions = [
         total_play_time: 300,
         final_score: 85,
         voucher_earned: 1,
-        voucher_id: 1
+        voucher_id: STARBUCKS_VOUCHER_ID
     },
     {
-        project_id: 1,
-        game_id: 1,
+        project_id: TECH2024_PROJECT_ID,
+        game_id: LUCKY_DART_GAME_ID,
         trace_id: idGen.generateTraceId(1),
         user_id: '1',
         session_start: idGen.generateTimestamp(0, 14, 0),
@@ -83,11 +134,11 @@ const gameSessions = [
         total_play_time: 240,
         final_score: 110,
         voucher_earned: 1,
-        voucher_id: 2
+        voucher_id: ESLITE_VOUCHER_ID
     },
     {
-        project_id: 1,
-        game_id: 1,
+        project_id: TECH2024_PROJECT_ID,
+        game_id: LUCKY_DART_GAME_ID,
         trace_id: idGen.generateTraceId(1),
         user_id: '1',
         session_start: idGen.generateTimestamp(0, 16, 30),
@@ -95,11 +146,11 @@ const gameSessions = [
         total_play_time: 300,
         final_score: 98,
         voucher_earned: 1,
-        voucher_id: 3
+        voucher_id: MOVIE_VOUCHER_ID
     },
     {
-        project_id: 1,
-        game_id: 1,
+        project_id: TECH2024_PROJECT_ID,
+        game_id: LUCKY_DART_GAME_ID,
         trace_id: idGen.generateTraceId(1),
         user_id: '1',
         session_start: idGen.generateTimestamp(0, 17, 0),
@@ -141,8 +192,8 @@ function seed() {
         console.log('1️⃣ 清除現有遊戲數據...');
         // 暫時禁用外鍵約束
         db.pragma('foreign_keys = OFF');
-        db.prepare('DELETE FROM game_logs WHERE game_id = 1').run();
-        db.prepare('DELETE FROM game_sessions WHERE game_id = 1').run();
+        db.prepare('DELETE FROM game_logs WHERE game_id = ?').run(LUCKY_DART_GAME_ID);
+        db.prepare('DELETE FROM game_sessions WHERE game_id = ?').run(LUCKY_DART_GAME_ID);
         db.pragma('foreign_keys = ON');
         console.log('   ✅ 清除完成');
 
@@ -218,5 +269,4 @@ function seed() {
 
 // 執行
 seed();
-
 

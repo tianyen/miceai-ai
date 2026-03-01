@@ -19,6 +19,7 @@ const submissionService = require('./submission.service');
 const questionnaireService = require('./questionnaire.service');
 const boothService = require('./booth.service');
 const gameService = require('./game.service');
+const gameFlowService = require('./game-flow.service');
 const voucherService = require('./voucher.service');
 const registrationService = require('./registration.service');
 const eventService = require('./event.service');
@@ -42,6 +43,7 @@ module.exports = {
     questionnaireService,
     boothService,
     gameService,
+    gameFlowService,
     voucherService,
     registrationService,
     eventService,

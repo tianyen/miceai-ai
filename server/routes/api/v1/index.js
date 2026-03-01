@@ -15,6 +15,7 @@ const registrationsRouter = require('./registrations');
 const checkinRouter = require('./checkin');
 const businessCardsRouter = require('./business-cards');
 const gamesRouter = require('./games');
+const gameFlowsRouter = require('./game-flows');
 const vouchersRouter = require('./vouchers');
 const wishTreeRouter = require('./wish-tree');
 const usersRouter = require('./users');
@@ -67,6 +68,7 @@ router.use('/', registrationsRouter);
 router.use('/check-in', checkinRouter);
 router.use('/business-cards', businessCardsRouter);
 router.use('/games', gamesRouter);
+router.use('/game-flows', gameFlowsRouter);
 router.use('/vouchers', vouchersRouter);
 router.use('/wish-tree', wishTreeRouter);
 router.use('/users', usersRouter);
@@ -105,6 +107,8 @@ router.use('*', (req, res) => {
                 'POST /api/v1/games/:gameId/logs',
                 'POST /api/v1/games/:gameId/sessions/end',
                 'GET /api/v1/games/:gameId/info',
+                // Game Flows (1)
+                'POST /api/v1/game-flows/track',
                 // Vouchers (1)
                 'GET /api/v1/vouchers/my',
                 // Wish Tree (4)

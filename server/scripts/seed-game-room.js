@@ -38,6 +38,10 @@ function getSQL(sql, params = []) {
     return db.prepare(sql).get(...params);
 }
 
+function allSQL(sql, params = []) {
+    return db.prepare(sql).all(...params);
+}
+
 // 執行種子資料（同步版本）
 async function seed() {
     try {
@@ -52,14 +56,49 @@ async function seed() {
 
         // 0. 清除舊的遊戲室資料（保持資料一致性）
         console.log('🗑️  清除舊的遊戲室資料...');
-        runSQL('DELETE FROM voucher_redemptions');
-        runSQL('DELETE FROM game_logs');
-        runSQL('DELETE FROM game_sessions');
-        // P1-2: project_games 已改為 booth_games
-        runSQL('DELETE FROM booth_games');
-        runSQL('DELETE FROM voucher_conditions');
-        runSQL('DELETE FROM vouchers');
-        runSQL('DELETE FROM games');
+
+        const existingGame = getSQL(`
+            SELECT id
+            FROM games
+            WHERE game_name_zh = ?
+            LIMIT 1
+        `, ['幸運飛鏢']);
+
+        const gameRoomVoucherIds = allSQL(`
+            SELECT id
+            FROM vouchers
+            WHERE voucher_name IN (?, ?, ?, ?)
+        `, ['星巴克咖啡券', '誠品書店禮券', '電影票券', '便利商店禮券']).map((row) => row.id);
+
+        const gameRoomBoothIds = allSQL(`
+            SELECT id
+            FROM booths
+            WHERE booth_code IN (?, ?, ?, ?)
+        `, ['BOOTH-A1', 'BOOTH-B1', 'BOOTH-C1', 'MOON-B1']).map((row) => row.id);
+
+        if (existingGame) {
+            runSQL('DELETE FROM voucher_redemptions WHERE session_id IN (SELECT id FROM game_sessions WHERE game_id = ?)', [existingGame.id]);
+            runSQL('DELETE FROM game_logs WHERE game_id = ?', [existingGame.id]);
+            runSQL('DELETE FROM game_sessions WHERE game_id = ?', [existingGame.id]);
+            runSQL('DELETE FROM booth_games WHERE game_id = ?', [existingGame.id]);
+        }
+
+        if (gameRoomVoucherIds.length > 0) {
+            for (const voucherId of gameRoomVoucherIds) {
+                runSQL('DELETE FROM voucher_redemptions WHERE voucher_id = ?', [voucherId]);
+                runSQL('DELETE FROM voucher_conditions WHERE voucher_id = ?', [voucherId]);
+            }
+            runSQL(`DELETE FROM vouchers WHERE id IN (${gameRoomVoucherIds.map(() => '?').join(', ')})`, gameRoomVoucherIds);
+        }
+
+        if (gameRoomBoothIds.length > 0) {
+            runSQL(`DELETE FROM booth_games WHERE booth_id IN (${gameRoomBoothIds.map(() => '?').join(', ')})`, gameRoomBoothIds);
+            runSQL(`DELETE FROM booths WHERE id IN (${gameRoomBoothIds.map(() => '?').join(', ')})`, gameRoomBoothIds);
+        }
+
+        if (existingGame) {
+            runSQL('DELETE FROM games WHERE id = ?', [existingGame.id]);
+        }
 
         // 檢查 booths 表是否存在
         const boothsTableCheck = getSQL(`
@@ -68,8 +107,7 @@ async function seed() {
         `);
         const boothsTableExists = !!boothsTableCheck;
         if (boothsTableExists) {
-            runSQL('DELETE FROM booths');
-            console.log('✅ 清除完成（包含攤位資料）\n');
+            console.log('✅ 清除完成（僅遊戲室資料）\n');
         } else {
             console.log('✅ 清除完成（booths 表尚未建立，跳過）\n');
         }
