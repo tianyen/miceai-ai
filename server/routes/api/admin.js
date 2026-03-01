@@ -365,10 +365,8 @@ router.delete('/projects/:id', authenticateSession, projectController.deleteProj
  * /api/admin/projects/{projectId}/registration-config:
  *   get:
  *     summary: 取得專案報名動態欄位設定
- *     description: 取得指定專案的報名欄位設定（必填、選填、feature toggles、第二頁特效）
+ *     description: 取得指定專案的報名欄位設定（必填、選填、feature toggles、第二頁特效），此端點可匿名讀取，供前端表單渲染使用
  *     tags: [Projects]
- *     security:
- *       - sessionAuth: []
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -504,18 +502,14 @@ router.delete('/projects/:id', authenticateSession, projectController.deleteProj
  *                             items:
  *                               type: string
  *                             example: ["男", "女", "其他"]
- *       403:
- *         description: 權限不足
  *       404:
  *         description: 專案不存在
  */
 router.get(
     '/projects/:projectId/registration-config',
-    authenticateSession,
-    requireProjectPermission('admin'),
     async (req, res) => {
         try {
-            const result = await projectService.getFormConfig(req.params.projectId, req.user);
+            const result = await projectService.getFormConfig(req.params.projectId, req.user || null);
             if (!result) {
                 return responses.error(
                     res,
@@ -544,10 +538,8 @@ router.get(
  * /api/admin/projects/{projectId}/registration-config:
  *   put:
  *     summary: 更新專案報名動態欄位設定
- *     description: 更新指定專案的報名欄位設定（必填、選填、feature toggles、第二頁特效）
+ *     description: 更新指定專案的報名欄位設定（必填、選填、feature toggles、第二頁特效），目前不需登入即可呼叫
  *     tags: [Projects]
- *     security:
- *       - sessionAuth: []
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -590,15 +582,11 @@ router.get(
  *         description: 成功
  *       400:
  *         description: 參數錯誤
- *       403:
- *         description: 權限不足
  *       404:
  *         description: 專案不存在
  */
 router.put(
     '/projects/:projectId/registration-config',
-    authenticateSession,
-    requireProjectPermission('admin'),
     async (req, res) => {
         try {
             const { form_config } = req.body || {};
@@ -612,7 +600,7 @@ router.put(
                 );
             }
 
-            const ok = await projectService.updateFormConfig(req.params.projectId, form_config, req.user);
+            const ok = await projectService.updateFormConfig(req.params.projectId, form_config, req.user || null);
             if (!ok) {
                 return responses.error(
                     res,
