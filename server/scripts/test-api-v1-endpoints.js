@@ -523,6 +523,29 @@ async function runTests() {
         if (submissions[0].trace_id !== TEST_TRACE_IDS.user1) {
             throw new Error(`trace_id 不符，預期 ${TEST_TRACE_IDS.user1}，實際 ${submissions[0].trace_id}`);
         }
+
+        if (!apiAvailable) {
+            return;
+        }
+
+        const { status, body } = await requestApi(
+            'GET',
+            `/api/v1/users/email/${encodeURIComponent(testUserEmail)}`
+        );
+        if (status !== 200 || body?.success !== true) {
+            throw new Error(`API 回應異常 (status=${status})`);
+        }
+
+        const firstRegistration = body?.data?.registrations?.[0];
+        if (!firstRegistration) {
+            throw new Error('API 缺少 registrations[0]');
+        }
+        if (firstRegistration.project_id !== submissions[0].project_id) {
+            throw new Error(`project_id 不符，預期 ${submissions[0].project_id}，實際 ${firstRegistration.project_id}`);
+        }
+        if (firstRegistration.user_id !== submissions[0].id) {
+            throw new Error(`user_id 不符，預期 ${submissions[0].id}，實際 ${firstRegistration.user_id}`);
+        }
     });
 
     // 18. GET /api/v1/users/{traceId}

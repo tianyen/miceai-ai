@@ -69,6 +69,13 @@ const { userQueryService } = require('../../../services');
  *                           trace_id:
  *                             type: string
  *                             example: "MICE-d074dd3e-e3e27b6b0"
+ *                           project_id:
+ *                             type: integer
+ *                             example: 1
+ *                           user_id:
+ *                             type: integer
+ *                             description: 報名記錄 ID，等同於該專案流程使用的 user_id
+ *                             example: 123
  *                           name:
  *                             type: string
  *                             example: "王小明"

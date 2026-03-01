@@ -27,6 +27,8 @@ class UserQueryService extends BaseService {
 
         const formattedRegistrations = registrations.map(r => ({
             trace_id: r.trace_id,
+            project_id: r.project_id,
+            user_id: r.id,
             name: r.submitter_name,
             project_name: r.project_name,
             project_code: r.project_code,
