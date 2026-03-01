@@ -474,6 +474,7 @@ CREATE TABLE IF NOT EXISTS games (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     game_name_zh VARCHAR(100) NOT NULL,
     game_name_en VARCHAR(100) NOT NULL,
+    game_code VARCHAR(100) UNIQUE,
     game_url VARCHAR(500) NOT NULL,
     game_version VARCHAR(20) DEFAULT '1.0.0',
     description TEXT,
@@ -525,6 +526,7 @@ CREATE INDEX IF NOT EXISTS idx_game_sessions_trace_id ON game_sessions(trace_id)
 CREATE INDEX IF NOT EXISTS idx_game_sessions_project_id ON game_sessions(project_id);
 CREATE INDEX IF NOT EXISTS idx_game_sessions_game_id ON game_sessions(game_id);
 CREATE INDEX IF NOT EXISTS idx_game_sessions_booth_id ON game_sessions(booth_id);
+CREATE INDEX IF NOT EXISTS idx_games_game_code ON games(game_code);
 
 -- 兌換券兌換記錄表
 CREATE TABLE IF NOT EXISTS voucher_redemptions (
@@ -573,6 +575,89 @@ CREATE INDEX IF NOT EXISTS idx_game_logs_trace_id ON game_logs(trace_id);
 CREATE INDEX IF NOT EXISTS idx_game_logs_game_id ON game_logs(game_id);
 CREATE INDEX IF NOT EXISTS idx_game_logs_created_at ON game_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_game_logs_booth_id ON game_logs(booth_id);
+
+-- 手機遊戲流程會話表
+CREATE TABLE IF NOT EXISTS game_flow_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    booth_id INTEGER,
+    game_id INTEGER NOT NULL,
+    trace_id VARCHAR(50) NOT NULL,
+    flow_session_id VARCHAR(100) NOT NULL UNIQUE,
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'completed', 'failed', 'timeout', 'abandoned')),
+    entry_stage_id VARCHAR(100),
+    exit_stage_id VARCHAR(100),
+    completion_stage_id VARCHAR(100),
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ended_at TIMESTAMP,
+    last_event_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    metadata_json TEXT,
+    FOREIGN KEY (project_id) REFERENCES event_projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (booth_id) REFERENCES booths(id) ON DELETE SET NULL,
+    FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_flow_sessions_project_id ON game_flow_sessions(project_id);
+CREATE INDEX IF NOT EXISTS idx_game_flow_sessions_booth_id ON game_flow_sessions(booth_id);
+CREATE INDEX IF NOT EXISTS idx_game_flow_sessions_game_id ON game_flow_sessions(game_id);
+CREATE INDEX IF NOT EXISTS idx_game_flow_sessions_trace_id ON game_flow_sessions(trace_id);
+CREATE INDEX IF NOT EXISTS idx_game_flow_sessions_started_at ON game_flow_sessions(started_at);
+CREATE INDEX IF NOT EXISTS idx_game_flow_sessions_status ON game_flow_sessions(status);
+
+-- 手機遊戲流程事件表
+CREATE TABLE IF NOT EXISTS game_stage_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_event_id VARCHAR(100) UNIQUE,
+    session_id INTEGER,
+    project_id INTEGER NOT NULL,
+    booth_id INTEGER,
+    game_id INTEGER NOT NULL,
+    trace_id VARCHAR(50) NOT NULL,
+    flow_session_id VARCHAR(100) NOT NULL,
+    stage_id VARCHAR(100) NOT NULL,
+    event_type VARCHAR(100) NOT NULL,
+    duration_ms INTEGER,
+    payload_json TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES game_flow_sessions(id) ON DELETE SET NULL,
+    FOREIGN KEY (project_id) REFERENCES event_projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (booth_id) REFERENCES booths(id) ON DELETE SET NULL,
+    FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_stage_events_session_id ON game_stage_events(session_id);
+CREATE INDEX IF NOT EXISTS idx_game_stage_events_project_id ON game_stage_events(project_id);
+CREATE INDEX IF NOT EXISTS idx_game_stage_events_booth_id ON game_stage_events(booth_id);
+CREATE INDEX IF NOT EXISTS idx_game_stage_events_game_id ON game_stage_events(game_id);
+CREATE INDEX IF NOT EXISTS idx_game_stage_events_trace_id ON game_stage_events(trace_id);
+CREATE INDEX IF NOT EXISTS idx_game_stage_events_flow_session_id ON game_stage_events(flow_session_id);
+CREATE INDEX IF NOT EXISTS idx_game_stage_events_stage_id ON game_stage_events(stage_id);
+CREATE INDEX IF NOT EXISTS idx_game_stage_events_event_type ON game_stage_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_game_stage_events_created_at ON game_stage_events(created_at);
+
+-- 手機遊戲流程 Schema 表
+CREATE TABLE IF NOT EXISTS game_flow_schemas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    game_id INTEGER NOT NULL,
+    schema_name VARCHAR(100) NOT NULL,
+    schema_version VARCHAR(20) DEFAULT '1.0.0',
+    schema_json TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT 1,
+    created_by INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES event_projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id),
+    UNIQUE (project_id, game_id, schema_version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_flow_schemas_project_id ON game_flow_schemas(project_id);
+CREATE INDEX IF NOT EXISTS idx_game_flow_schemas_game_id ON game_flow_schemas(game_id);
+CREATE INDEX IF NOT EXISTS idx_game_flow_schemas_is_active ON game_flow_schemas(is_active);
 
 -- 許願樹互動表
 CREATE TABLE IF NOT EXISTS wish_tree_interactions (

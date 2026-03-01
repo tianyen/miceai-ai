@@ -111,6 +111,18 @@ const initialProjects = [
         event_type: 'exhibition',
         status: 'active',
         max_participants: 91
+    },
+    {
+        project_name: 'pj0131-嘉義夢燈區',
+        project_code: 'PJ0131',
+        description: '嘉義夢燈區互動專案，包含虎爺錢母與天燈手機端遊戲流程。',
+        event_date: '2026-03-01',
+        event_start_date: '2026-03-01',
+        event_end_date: '2026-03-31',
+        event_location: '嘉義',
+        event_type: 'festival',
+        status: 'active',
+        max_participants: 0
     }
 ];
 

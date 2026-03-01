@@ -488,7 +488,10 @@ async function addSeedData() {
             { key: 'show_voucher_info', enabled: 0 },
             { key: 'show_vendor_info', enabled: 0 },
             { key: 'show_inventory_info', enabled: 0 },
-            { key: 'interstitial_effect', enabled: 0 }
+            { key: 'interstitial_effect', enabled: 0 },
+            { key: 'game_stage_tracking', enabled: 0 },
+            { key: 'game_image_upload', enabled: 0 },
+            { key: 'game_legacy_dual_write', enabled: 0 }
         ];
         const featureStmt = db.prepare(`
             INSERT OR IGNORE INTO project_feature_flags (
