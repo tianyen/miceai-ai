@@ -378,6 +378,132 @@ router.delete('/projects/:id', authenticateSession, projectController.deleteProj
  *     responses:
  *       200:
  *         description: 成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "取得報名欄位設定成功"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     project_id:
+ *                       type: integer
+ *                       example: 1
+ *                     project_name:
+ *                       type: string
+ *                       example: "Demo 2026"
+ *                     form_config:
+ *                       type: object
+ *                       properties:
+ *                         required_fields:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                           example: ["name", "email", "phone", "data_consent"]
+ *                         optional_fields:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                           example: ["company", "position", "gender", "title"]
+ *                         field_labels:
+ *                           type: object
+ *                           additionalProperties:
+ *                             type: string
+ *                         gender_options:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                           example: ["男", "女", "其他"]
+ *                         title_options:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                           example: ["先生", "女士", "博士", "教授"]
+ *                         feature_toggles:
+ *                           type: object
+ *                           additionalProperties:
+ *                             type: boolean
+ *                         interstitial_effect:
+ *                           type: object
+ *                           properties:
+ *                             enabled:
+ *                               type: boolean
+ *                             asset:
+ *                               type: object
+ *                               nullable: true
+ *                     summary:
+ *                       type: object
+ *                       properties:
+ *                         total_fields:
+ *                           type: integer
+ *                           example: 13
+ *                         enabled_fields:
+ *                           type: integer
+ *                           example: 9
+ *                         required_fields_count:
+ *                           type: integer
+ *                           example: 4
+ *                         optional_fields_count:
+ *                           type: integer
+ *                           example: 5
+ *                     required_fields:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["name", "email", "phone", "data_consent"]
+ *                     optional_fields:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["company", "position", "gender", "title"]
+ *                     option_lists:
+ *                       type: object
+ *                       properties:
+ *                         gender:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                           example: ["男", "女", "其他"]
+ *                         title:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                           example: ["先生", "女士", "博士", "教授"]
+ *                     fields:
+ *                       type: array
+ *                       description: 完整欄位清單，包含停用欄位、型別、必填與 options
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           key:
+ *                             type: string
+ *                             example: "name"
+ *                           label:
+ *                             type: string
+ *                             example: "姓名"
+ *                           type:
+ *                             type: string
+ *                             example: "string"
+ *                           enabled:
+ *                             type: boolean
+ *                             example: true
+ *                           required:
+ *                             type: boolean
+ *                             example: true
+ *                           submit:
+ *                             type: boolean
+ *                             example: true
+ *                           options:
+ *                             type: array
+ *                             items:
+ *                               type: string
+ *                             example: ["男", "女", "其他"]
  *       403:
  *         description: 權限不足
  *       404:

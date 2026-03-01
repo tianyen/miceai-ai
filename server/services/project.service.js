@@ -20,7 +20,9 @@ const QRCode = require('qrcode');
 const {
     DEFAULT_FORM_CONFIG,
     normalizeFormConfig,
-    normalizeInterstitialEffect
+    normalizeInterstitialEffect,
+    buildFrontendFields,
+    buildFieldSummary
 } = require('../utils/registration-config');
 
 class ProjectService extends BaseService {
@@ -771,11 +773,21 @@ class ProjectService extends BaseService {
 
         // 合併已儲存配置與預設值
         const formConfig = normalizeFormConfig(project.form_config || DEFAULT_FORM_CONFIG);
+        const fields = buildFrontendFields(formConfig);
+        const summary = buildFieldSummary(formConfig);
 
         return {
             project_id: project.id,
             project_name: project.project_name,
-            form_config: formConfig
+            form_config: formConfig,
+            summary,
+            required_fields: formConfig.required_fields,
+            optional_fields: formConfig.optional_fields,
+            option_lists: {
+                gender: formConfig.gender_options,
+                title: formConfig.title_options
+            },
+            fields
         };
     }
 

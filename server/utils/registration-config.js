@@ -237,6 +237,17 @@ function buildFrontendFields(formConfig) {
     });
 }
 
+function buildFieldSummary(formConfig) {
+    const fields = buildFrontendFields(formConfig);
+
+    return {
+        total_fields: fields.length,
+        enabled_fields: fields.filter(field => field.enabled).length,
+        required_fields_count: fields.filter(field => field.required).length,
+        optional_fields_count: fields.filter(field => field.enabled && !field.required).length
+    };
+}
+
 function buildPayloadExample(formConfig) {
     const fields = buildFrontendFields(formConfig);
     const payload = {};
@@ -258,5 +269,6 @@ module.exports = {
     normalizeInterstitialEffect,
     normalizeInterstitialAsset,
     buildFrontendFields,
+    buildFieldSummary,
     buildPayloadExample
 };
