@@ -139,6 +139,43 @@ trap stop_server_if_needed EXIT
 # 配置測試環境（修改 .env PORT）
 configure_env_for_test
 
+resolve_active_checkin_event_id() {
+    node -e "
+        const Database = require('better-sqlite3');
+        const db = new Database('data/mice_ai.db');
+        const row = db.prepare(\`
+            SELECT id
+            FROM event_projects
+            WHERE status = 'active'
+              AND (
+                (event_date IS NOT NULL AND event_date != '' AND date(substr(event_date, 1, 10)) >= date('now'))
+                OR (event_date IS NULL AND event_start_date IS NOT NULL AND event_end_date IS NOT NULL AND date('now') BETWEEN date(event_start_date) AND date(event_end_date))
+              )
+            ORDER BY
+              CASE
+                WHEN event_date IS NOT NULL AND date(substr(event_date, 1, 10)) = date('now') THEN 0
+                WHEN event_date IS NULL THEN 1
+                ELSE 2
+              END,
+              date(COALESCE(substr(event_date, 1, 10), event_start_date)) ASC,
+              id ASC
+            LIMIT 1
+        \`).get();
+        console.log(row?.id || '');
+        db.close();
+    "
+}
+
+ACTIVE_CHECKIN_EVENT_ID="${ACTIVE_CHECKIN_EVENT_ID:-$(resolve_active_checkin_event_id)}"
+
+if [ -z "$ACTIVE_CHECKIN_EVENT_ID" ]; then
+    echo -e "${RED}❌ 找不到可用的 active event 供報到 / 團報驗證${NC}"
+    exit 1
+fi
+
+echo "🎯 團報 / 小孩統計驗證使用 EVENT_ID=${ACTIVE_CHECKIN_EVENT_ID}"
+echo ""
+
 # 測試函數
 run_test() {
     local test_name=$1
@@ -184,11 +221,11 @@ run_test "完整業務流程測試" "node scripts/test-full-workflow.js"
 # 4. 後台資料顯示檢查
 run_test "後台資料顯示檢查" "node scripts/check-admin-data.js"
 
-# 5. 團體報名流程測試 (使用 EVENT_ID=3: 資訊月互動許願樹 2026-01-08 ~ 2026-01-11)
-run_test "團體報名流程測試" "EVENT_ID=3 node scripts/verify-batch-registration.js"
+# 5. 團體報名流程測試
+run_test "團體報名流程測試" "EVENT_ID=${ACTIVE_CHECKIN_EVENT_ID} node scripts/verify-batch-registration.js"
 
 # 6. 小孩統計功能測試
-run_test "小孩統計功能測試" "EVENT_ID=3 node scripts/verify-children-stats.js"
+run_test "小孩統計功能測試" "EVENT_ID=${ACTIVE_CHECKIN_EVENT_ID} node scripts/verify-children-stats.js"
 
 # 顯示總結
 echo "================================"

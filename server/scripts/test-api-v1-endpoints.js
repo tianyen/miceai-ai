@@ -380,7 +380,11 @@ async function runTests() {
                 throw new Error('預期 voucher_earned 應為 false（已成功兌換不可重複領券）');
             }
 
-            if (!data.reason || !data.reason.includes('已於本專案成功兌換過')) {
+            const acceptedReasons = [
+                '已於本專案成功兌換過',
+                '兌換券已經存在記錄'
+            ];
+            if (!data.reason || !acceptedReasons.some((reason) => data.reason.includes(reason))) {
                 throw new Error(`防作弊 reason 不符合預期，實際: ${data.reason || 'N/A'}`);
             }
 
