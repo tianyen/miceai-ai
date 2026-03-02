@@ -25,6 +25,37 @@ const DEFAULT_ALLOWED_EVENT_TYPES = new Set([
     'upload_fail',
     'complete_view'
 ]);
+const FRONTEND_EVENT_TYPE_ALIASES = Object.freeze({
+    stage_view: { eventType: 'stage_enter' },
+    intro_open: { eventType: 'page_view' },
+    flow_start: { eventType: 'session_start' },
+    money_ready: { eventType: 'page_view' },
+    money_continue: { eventType: 'stage_submit' },
+    case_select: { eventType: 'select_case' },
+    pray_success_continue: { eventType: 'stage_submit' },
+    flow_retry: { eventType: 'session_end', sessionStatus: 'failed' },
+    lucky_start: { eventType: 'reveal_start' },
+    lucky_next: { eventType: 'stage_submit' },
+    color_select: { eventType: 'stage_submit' },
+    submit: { eventType: 'stage_submit' },
+    complete_restart: { eventType: 'complete_view' },
+    template_select: { eventType: 'stage_submit' },
+    capture_confirm: { eventType: 'stage_submit' },
+    capture_back: { eventType: 'page_view' },
+    preview_next: { eventType: 'stage_submit' },
+    throw_back: { eventType: 'page_view' },
+    preview_restart: { eventType: 'session_end', sessionStatus: 'abandoned' }
+});
+const STAGE_ALIASES_BY_GAME = Object.freeze({
+    'tiger-mobile': Object.freeze({
+        intro: 'tiger_intro',
+        complete: 'tiger_complete'
+    }),
+    'lantern-mobile': Object.freeze({
+        intro: 'lantern_intro',
+        complete: 'lantern_complete'
+    })
+});
 
 class GameFlowService extends BaseService {
     constructor() {
@@ -37,45 +68,48 @@ class GameFlowService extends BaseService {
             const normalized = this._normalizeEvent(eventData);
             const existingSession = await this.gameFlowRepo.findFlowSessionByFlowSessionId(normalized.flowSessionId);
             const resolvedContext = await this._resolveTrackContext(normalized, existingSession);
+            const compatibleEvent = this._applyFrontendCompatibility(normalized, resolvedContext);
 
-            this._assertExistingSessionContext(existingSession, resolvedContext, normalized);
-            this._validateSchemaPayload(resolvedContext.flowDefinition, normalized);
+            this._assertExistingSessionContext(existingSession, resolvedContext, compatibleEvent);
+            this._validateSchemaPayload(resolvedContext.flowDefinition, compatibleEvent);
 
             const session = existingSession || await this._createImplicitSession(
                 resolvedContext,
-                normalized,
+                compatibleEvent,
                 clientContext
             );
 
-            const duplicateEvent = await this.gameFlowRepo.findStageEventByClientEventId(normalized.clientEventId);
+            const duplicateEvent = await this.gameFlowRepo.findStageEventByClientEventId(compatibleEvent.clientEventId);
             if (!duplicateEvent) {
                 await this.gameFlowRepo.createStageEvent({
-                    clientEventId: normalized.clientEventId,
+                    clientEventId: compatibleEvent.clientEventId,
                     sessionId: session.id,
                     projectId: resolvedContext.project.id,
                     boothId: resolvedContext.booth.id,
                     gameId: resolvedContext.game.id,
-                    traceId: normalized.traceId,
-                    flowSessionId: normalized.flowSessionId,
-                    stageId: normalized.stageId,
-                    eventType: normalized.eventType,
-                    durationMs: normalized.durationMs,
-                    payloadJson: normalized.payloadJson
+                    traceId: compatibleEvent.traceId,
+                    flowSessionId: compatibleEvent.flowSessionId,
+                    stageId: compatibleEvent.stageId,
+                    eventType: compatibleEvent.eventType,
+                    durationMs: compatibleEvent.durationMs,
+                    payloadJson: compatibleEvent.payloadJson
                 });
             }
 
-            const sessionPatch = this._buildSessionPatch(session, normalized, clientContext, resolvedContext);
+            const sessionPatch = this._buildSessionPatch(session, compatibleEvent, clientContext, resolvedContext);
             if (Object.keys(sessionPatch).length > 0) {
                 await this.gameFlowRepo.updateFlowSession(session.id, sessionPatch);
             }
 
-            const updatedSession = await this.gameFlowRepo.findFlowSessionByFlowSessionId(normalized.flowSessionId);
+            const updatedSession = await this.gameFlowRepo.findFlowSessionByFlowSessionId(compatibleEvent.flowSessionId);
 
             this.log('trackEvent', {
-                flow_session_id: normalized.flowSessionId,
-                trace_id: normalized.traceId,
-                event_type: normalized.eventType,
-                stage_id: normalized.stageId,
+                flow_session_id: compatibleEvent.flowSessionId,
+                trace_id: compatibleEvent.traceId,
+                event_type: compatibleEvent.eventType,
+                stage_id: compatibleEvent.stageId,
+                original_event_type: compatibleEvent.originalEventType || null,
+                original_stage_id: compatibleEvent.originalStageId || null,
                 duplicate: !!duplicateEvent
             });
 
@@ -125,7 +159,9 @@ class GameFlowService extends BaseService {
                 schema: resolvedContext.flowDefinition,
                 telemetry: {
                     track_endpoint: '/api/v1/game-flows/track',
-                    timeout_minutes: resolvedContext.flowDefinition.timeout_minutes || 15
+                    timeout_minutes: resolvedContext.flowDefinition.timeout_minutes || 15,
+                    accepted_stage_aliases: this._getAcceptedStageAliases(resolvedContext.game.game_code),
+                    accepted_event_aliases: this._getAcceptedEventAliases()
                 }
             };
         }, 'getStartContext');
@@ -539,16 +575,17 @@ class GameFlowService extends BaseService {
     }
 
     async _createImplicitSession(resolvedContext, normalized, clientContext) {
+        const initialStatus = this._inferInitialStatus(normalized, resolvedContext.flowDefinition);
         const createResult = await this.gameFlowRepo.createFlowSession({
             projectId: resolvedContext.project.id,
             boothId: resolvedContext.booth?.id || null,
             gameId: resolvedContext.game.id,
             traceId: normalized.traceId,
             flowSessionId: normalized.flowSessionId,
-            status: this._inferInitialStatus(normalized),
+            status: initialStatus,
             entryStageId: normalized.stageId,
             exitStageId: normalized.stageId,
-            completionStageId: this._isTerminalStatus(normalized.sessionStatus) ? normalized.stageId : null,
+            completionStageId: initialStatus === 'completed' ? normalized.stageId : null,
             ipAddress: clientContext.ipAddress || null,
             userAgent: clientContext.userAgent || null,
             metadataJson: this._buildSessionMetadataJson(normalized, clientContext, resolvedContext)
@@ -578,7 +615,7 @@ class GameFlowService extends BaseService {
             patch.userAgent = clientContext.userAgent;
         }
 
-        const nextStatus = this._inferStatus(normalized, session.status);
+        const nextStatus = this._inferStatus(normalized, session.status, resolvedContext.flowDefinition);
         if (nextStatus && nextStatus !== session.status) {
             patch.status = nextStatus;
         }
@@ -614,7 +651,47 @@ class GameFlowService extends BaseService {
         }
     }
 
-    _inferInitialStatus(normalized) {
+    _applyFrontendCompatibility(normalized, resolvedContext) {
+        const normalizedStageId = this._normalizeStageAlias(resolvedContext.game?.game_code, normalized.stageId);
+        const eventCompatibility = this._normalizeEventAlias(normalized.eventType);
+        const payload = { ...(normalized.payload || {}) };
+        const stageChanged = normalizedStageId !== normalized.stageId;
+        const eventChanged = eventCompatibility.eventType !== normalized.eventType;
+
+        if (stageChanged) {
+            payload.original_stage_id = normalized.stageId;
+        }
+
+        if (eventChanged) {
+            payload.original_event_type = normalized.eventType;
+        }
+
+        return {
+            ...normalized,
+            stageId: normalizedStageId,
+            eventType: eventCompatibility.eventType,
+            sessionStatus: normalized.sessionStatus || eventCompatibility.sessionStatus || null,
+            payload,
+            payloadJson: JSON.stringify(payload),
+            originalStageId: stageChanged ? normalized.stageId : null,
+            originalEventType: eventChanged ? normalized.eventType : null
+        };
+    }
+
+    _normalizeEventAlias(eventType) {
+        return FRONTEND_EVENT_TYPE_ALIASES[eventType] || { eventType };
+    }
+
+    _normalizeStageAlias(gameCode, stageId) {
+        const aliasMap = STAGE_ALIASES_BY_GAME[gameCode] || null;
+        if (!aliasMap) {
+            return stageId;
+        }
+
+        return aliasMap[stageId] || stageId;
+    }
+
+    _inferInitialStatus(normalized, flowDefinition = null) {
         if (this._isTerminalStatus(normalized.sessionStatus)) {
             return normalized.sessionStatus;
         }
@@ -623,10 +700,14 @@ class GameFlowService extends BaseService {
             return normalized.sessionStatus || 'completed';
         }
 
+        if (this._shouldMarkCompleted(normalized, flowDefinition)) {
+            return 'completed';
+        }
+
         return 'active';
     }
 
-    _inferStatus(normalized, currentStatus) {
+    _inferStatus(normalized, currentStatus, flowDefinition = null) {
         if (this._isTerminalStatus(currentStatus)) {
             return currentStatus;
         }
@@ -637,6 +718,10 @@ class GameFlowService extends BaseService {
 
         if (normalized.eventType === 'session_end') {
             return normalized.sessionStatus || 'completed';
+        }
+
+        if (this._shouldMarkCompleted(normalized, flowDefinition)) {
+            return 'completed';
         }
 
         if (normalized.eventType === 'session_start') {
@@ -660,6 +745,42 @@ class GameFlowService extends BaseService {
             booth_code: resolvedContext.booth?.booth_code || normalized.boothCode || null,
             ip_address: clientContext.ipAddress || null
         });
+    }
+
+    _shouldMarkCompleted(normalized, flowDefinition = null) {
+        const completionStage = flowDefinition?.completion_stage || null;
+
+        if (normalized.sessionStatus === 'completed') {
+            return true;
+        }
+
+        if (!completionStage || normalized.stageId !== completionStage) {
+            return false;
+        }
+
+        if (normalized.eventType === 'throw_success') {
+            return true;
+        }
+
+        if (normalized.eventType === 'stage_submit') {
+            return true;
+        }
+
+        return false;
+    }
+
+    _getAcceptedStageAliases(gameCode) {
+        return STAGE_ALIASES_BY_GAME[gameCode] || {};
+    }
+
+    _getAcceptedEventAliases() {
+        return Object.entries(FRONTEND_EVENT_TYPE_ALIASES).reduce((result, [alias, config]) => {
+            result[alias] = {
+                event_type: config.eventType,
+                session_status: config.sessionStatus || null
+            };
+            return result;
+        }, {});
     }
 
     _buildSchemaResponse(schema) {
