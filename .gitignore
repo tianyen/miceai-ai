@@ -3,6 +3,7 @@ refactor/
 .DS_Store
 *.md
 !README.md
+!server/testcase/*.md
 docs/
 # Project specific
 .env
