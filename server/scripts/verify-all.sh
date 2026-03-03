@@ -63,7 +63,11 @@ configure_env_for_test() {
     if grep -q "^PORT=" .env; then
         CURRENT_PORT=$(grep "^PORT=" .env | cut -d= -f2)
         if [ "$CURRENT_PORT" != "$TEST_PORT" ]; then
-            sed -i '' "s/^PORT=.*/PORT=$TEST_PORT/" .env
+            if sed --version >/dev/null 2>&1; then
+                sed -i "s/^PORT=.*/PORT=$TEST_PORT/" .env
+            else
+                sed -i '' "s/^PORT=.*/PORT=$TEST_PORT/" .env
+            fi
             echo "   ✅ PORT: $CURRENT_PORT → $TEST_PORT"
         else
             echo "   ✅ PORT 已正確 ($TEST_PORT)"
