@@ -96,19 +96,39 @@ npm run verify:pj0132:regression:alias
 - JSON response `success`
 - CORS header `Access-Control-Allow-Origin`
 - 虎爺 / 天燈對外 event ingestion
+- admin session login
+- admin stats / funnel response shape 與 booth / stage presence
 
 指令：
 
 ```bash
 cd server
 npm run verify:pj0132:public
+npm run verify:pj0132:admin
+npm run verify:pj0132:all
+npm run verify:pj0132:all:remote
+npm run verify:pj0132:all:vps-local
 ```
+
+admin 黑箱腳本：
+
+- Script: `server/scripts/verify-pj0132-admin-analytics.js`
+- login: `POST /admin/login` with seeded admin `admin / Admin1qa`
+- verify endpoints:
+  - `/api/admin/tracking/game-flows/stats?project_code=PJ0131&window=today`
+  - `/api/admin/tracking/game-flows/funnel?project_code=PJ0131&game_code=tiger-mobile&booth_code=TIGER&window=today`
+  - `/api/admin/tracking/game-flows/funnel?project_code=PJ0131&game_code=lantern-mobile&booth_code=LANTERN&window=today`
+- remote VPS 補充：
+  - 若 `backend-pj0132.miceai.ai` 在 VPS 上呈現 self-signed chain，使用 `npm run verify:pj0132:all:remote`
+  - 這只對驗證腳本關閉 Node TLS 檢查，預設 `verify:pj0132:*` 仍維持嚴格憑證驗證
+  - 若 VPS 自己打公開域名仍拿到非 app 標準回應，改用 `npm run verify:pj0132:all:vps-local`
+  - `vps-local` 直打 `http://127.0.0.1:9994`，用來驗證 pm2 / app / DB / admin analytics 鏈路
 
 建議補充：
 
 - 用實際手機或模擬器跑 `moneycontroller` / `openingpic`
 - 驗證瀏覽器端 network request 與 response shape
-- 驗證 admin stats / funnel 會反映新增 session
+- 驗證 admin 畫面中的數字與 API 回傳一致
 
 ## System Integration
 
@@ -137,9 +157,11 @@ npm run verify:pj0132:public
    - `/api/admin/tracking/game-flows/funnel?project_code=PJ0131&game_code=tiger-mobile&booth_code=TIGER&window=today`
    - `/api/admin/tracking/game-flows/funnel?project_code=PJ0131&game_code=lantern-mobile&booth_code=LANTERN&window=today`
 8. 確認 stats / funnel 有對應 booth、session status、completion stage
+9. 若從 VPS 自己打 `https://backend-pj0132.miceai.ai` 出現 `{}` 或 `501`，記錄為 proxy / DNS self-call 問題，改用 `verify:pj0132:all:vps-local` 驗證 app 本體
 
 ## Notes
 
 - `smoke test` 已升級成可重跑的 regression / public black-box 腳本
 - backend repo 是多專案共用，`pj0132` 的 domain 對齊以部署 `.env` 與這組 testcase 為準
 - 若未來要補 Playwright，建議放在獨立 e2e 套件，不直接混入目前 script-based test 架構
+- 2026-03-03 實測：外部機器跑 `verify:pj0132:public` / `verify:pj0132:admin` 可通；VPS 自己打 `backend-pj0132.miceai.ai` 看到 `{}` / `501`，因此補了 `verify:pj0132:all:vps-local`

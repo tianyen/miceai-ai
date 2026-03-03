@@ -24,6 +24,7 @@ const API_URL = process.env.API_URL
     : DEFAULT_PUBLIC_API_URL;
 const ORIGIN = process.env.PJ0132_ORIGIN || 'https://tianyen-service.com:4049';
 const FLOW_MODE = (process.env.PJ0132_FLOW_MODE || 'all').trim().toLowerCase();
+const INSECURE_TLS = /^(1|true|yes)$/i.test(String(process.env.PJ0132_INSECURE_TLS || '').trim());
 
 const colors = {
     reset: '\x1b[0m',
@@ -51,6 +52,13 @@ function buildApiUrl(pathname) {
     return new URL(pathname.replace(/^\//, ''), `${baseUrl.replace(/\/+$/, '')}/`);
 }
 
+function resolveHttpsAgent(protocol) {
+    if (protocol === 'https:' && INSECURE_TLS) {
+        return new https.Agent({ rejectUnauthorized: false });
+    }
+    return undefined;
+}
+
 function requestJson(method, pathname, body = null, extraHeaders = {}) {
     return new Promise((resolve, reject) => {
         const url = buildApiUrl(pathname);
@@ -66,6 +74,7 @@ function requestJson(method, pathname, body = null, extraHeaders = {}) {
                 'Origin': ORIGIN,
                 ...extraHeaders
             },
+            agent: resolveHttpsAgent(url.protocol),
             timeout: 8000
         };
 
@@ -823,6 +832,9 @@ async function main() {
     console.log(`${colors.dim}API_URL: ${API_URL}${colors.reset}`);
     console.log(`${colors.dim}Origin: ${ORIGIN}${colors.reset}`);
     console.log(`${colors.dim}Mode: ${FLOW_MODE}${colors.reset}`);
+    if (INSECURE_TLS) {
+        console.log(`${colors.yellow}TLS verify: disabled via PJ0132_INSECURE_TLS${colors.reset}`);
+    }
     console.log('');
 
     const modes = resolveModeRunners();
