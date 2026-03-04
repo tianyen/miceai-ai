@@ -11,6 +11,54 @@
 
 const BaseRepository = require('./base.repository');
 
+function buildUnifiedBoothSessionsCTE() {
+    return `
+        WITH unified_sessions AS (
+            SELECT
+                'legacy:' || gs.id AS session_key,
+                gs.booth_id,
+                gs.trace_id,
+                gs.session_start,
+                gs.session_end,
+                gs.total_play_time,
+                gs.final_score,
+                gs.voucher_earned
+            FROM game_sessions gs
+
+            UNION ALL
+
+            SELECT
+                'flow:' || gfs.id AS session_key,
+                gfs.booth_id,
+                gfs.trace_id,
+                gfs.started_at AS session_start,
+                gfs.ended_at AS session_end,
+                CASE
+                    WHEN gfs.ended_at IS NOT NULL THEN
+                        CASE
+                            WHEN CAST((julianday(gfs.ended_at) - julianday(gfs.started_at)) * 86400 AS INTEGER) > 0
+                                THEN CAST((julianday(gfs.ended_at) - julianday(gfs.started_at)) * 86400 AS INTEGER)
+                            ELSE 0
+                        END
+                    WHEN gfs.last_event_at IS NOT NULL THEN
+                        CASE
+                            WHEN CAST((julianday(gfs.last_event_at) - julianday(gfs.started_at)) * 86400 AS INTEGER) > 0
+                                THEN CAST((julianday(gfs.last_event_at) - julianday(gfs.started_at)) * 86400 AS INTEGER)
+                            ELSE 0
+                        END
+                    ELSE 0
+                END AS total_play_time,
+                0 AS final_score,
+                0 AS voucher_earned
+            FROM game_flow_sessions gfs
+        )
+    `;
+}
+
+function buildGMT8DateFilter(columnName) {
+    return `DATE(datetime(${columnName}, '+8 hours')) = ?`;
+}
+
 class BoothRepository extends BaseRepository {
     constructor() {
         super('booths', 'id');
@@ -42,14 +90,15 @@ class BoothRepository extends BaseRepository {
      */
     async findAllWithStats(projectId = null) {
         let sql = `
+            ${buildUnifiedBoothSessionsCTE()}
             SELECT
                 b.*,
                 p.project_name,
-                COUNT(DISTINCT gs.id) as session_count,
-                COUNT(DISTINCT gs.trace_id) as player_count
+                COUNT(DISTINCT us.session_key) as session_count,
+                COUNT(DISTINCT us.trace_id) as player_count
             FROM booths b
             LEFT JOIN event_projects p ON b.project_id = p.id
-            LEFT JOIN game_sessions gs ON b.id = gs.booth_id
+            LEFT JOIN unified_sessions us ON b.id = us.booth_id
         `;
 
         const params = [];
@@ -109,20 +158,21 @@ class BoothRepository extends BaseRepository {
      */
     async getStatsSummary(boothId, date = null) {
         let sql = `
+            ${buildUnifiedBoothSessionsCTE()}
             SELECT
-                COUNT(DISTINCT gs.trace_id) as total_players,
-                COUNT(gs.id) as total_sessions,
-                AVG(gs.final_score) as avg_score,
-                MAX(gs.final_score) as max_score,
-                AVG(gs.total_play_time) as avg_play_time,
-                SUM(gs.voucher_earned) as vouchers_earned
-            FROM game_sessions gs
-            WHERE gs.booth_id = ?
+                COUNT(DISTINCT us.trace_id) as total_players,
+                COUNT(us.session_key) as total_sessions,
+                AVG(us.final_score) as avg_score,
+                MAX(us.final_score) as max_score,
+                AVG(us.total_play_time) as avg_play_time,
+                SUM(us.voucher_earned) as vouchers_earned
+            FROM unified_sessions us
+            WHERE us.booth_id = ?
         `;
         const params = [boothId];
 
         if (date) {
-            sql += ' AND DATE(gs.session_start) = ?';
+            sql += ' AND DATE(datetime(us.session_start, \'+8 hours\')) = ?';
             params.push(date);
         }
 
@@ -145,18 +195,19 @@ class BoothRepository extends BaseRepository {
      */
     async getHourlyStats(boothId, date = null) {
         let sql = `
+            ${buildUnifiedBoothSessionsCTE()}
             SELECT
-                strftime('%Y-%m-%d %H:00', gs.session_start) as hour,
-                COUNT(DISTINCT gs.trace_id) as player_count,
-                COUNT(gs.id) as session_count,
-                AVG(gs.final_score) as avg_score
-            FROM game_sessions gs
-            WHERE gs.booth_id = ?
+                strftime('%Y-%m-%d %H:00', datetime(us.session_start, '+8 hours')) as hour,
+                COUNT(DISTINCT us.trace_id) as player_count,
+                COUNT(us.session_key) as session_count,
+                AVG(us.final_score) as avg_score
+            FROM unified_sessions us
+            WHERE us.booth_id = ?
         `;
         const params = [boothId];
 
         if (date) {
-            sql += ' AND DATE(gs.session_start) = ?';
+            sql += ' AND DATE(datetime(us.session_start, \'+8 hours\')) = ?';
             params.push(date);
         }
 
@@ -166,6 +217,91 @@ class BoothRepository extends BaseRepository {
             LIMIT 24
         `;
 
+        return this.rawAll(sql, params);
+    }
+
+    async findFlowGamesByBooth(boothId) {
+        return this.rawAll(`
+            SELECT DISTINCT
+                g.id AS game_id,
+                g.game_code,
+                g.game_name_zh,
+                gfs.schema_name,
+                gfs.schema_version,
+                gfs.schema_json
+            FROM booth_games bg
+            INNER JOIN booths b ON b.id = bg.booth_id
+            INNER JOIN games g ON g.id = bg.game_id
+            LEFT JOIN game_flow_schemas gfs
+                ON gfs.project_id = b.project_id
+               AND gfs.game_id = g.id
+               AND gfs.is_active = 1
+            WHERE bg.booth_id = ?
+              AND bg.is_active = 1
+            ORDER BY g.id ASC
+        `, [boothId]);
+    }
+
+    async getFlowSessions(boothId, date = null) {
+        let sql = `
+            SELECT
+                gfs.id,
+                gfs.flow_session_id,
+                gfs.project_id,
+                gfs.booth_id,
+                gfs.game_id,
+                g.game_code,
+                g.game_name_zh,
+                gfs.trace_id,
+                gfs.status,
+                gfs.started_at,
+                gfs.ended_at,
+                gfs.last_event_at,
+                gfs.completion_stage_id
+            FROM game_flow_sessions gfs
+            INNER JOIN games g ON g.id = gfs.game_id
+            WHERE gfs.booth_id = ?
+        `;
+        const params = [boothId];
+
+        if (date) {
+            sql += ` AND ${buildGMT8DateFilter('gfs.started_at')}`;
+            params.push(date);
+        }
+
+        sql += ' ORDER BY gfs.started_at ASC, gfs.id ASC';
+        return this.rawAll(sql, params);
+    }
+
+    async getFlowEvents(boothId, date = null) {
+        let sql = `
+            SELECT
+                e.id,
+                e.session_id,
+                e.flow_session_id,
+                e.project_id,
+                e.booth_id,
+                e.game_id,
+                g.game_code,
+                e.trace_id,
+                e.stage_id,
+                e.event_type,
+                e.duration_ms,
+                e.payload_json,
+                e.created_at
+            FROM game_stage_events e
+            INNER JOIN game_flow_sessions gfs ON gfs.id = e.session_id
+            INNER JOIN games g ON g.id = e.game_id
+            WHERE gfs.booth_id = ?
+        `;
+        const params = [boothId];
+
+        if (date) {
+            sql += ` AND ${buildGMT8DateFilter('gfs.started_at')}`;
+            params.push(date);
+        }
+
+        sql += ' ORDER BY e.flow_session_id ASC, e.created_at ASC, e.id ASC';
         return this.rawAll(sql, params);
     }
 

@@ -37,11 +37,22 @@ router.get('/', (req, res) => {
 // 獲取當天用戶列表（API）
 router.get('/api/daily-users', async (req, res) => {
     try {
-        const { date, project_id } = req.query;
-        const result = await gameService.getDailyUsers({ date, project_id });
+        const { date, project_id, page, limit, start_at, end_at } = req.query;
+        const result = await gameService.getDailyUsers({ date, project_id, page, limit, start_at, end_at });
         return responses.success(res, result, '獲取用戶列表成功');
     } catch (error) {
         return handleServiceError(res, error, '獲取用戶列表失敗');
+    }
+});
+
+// 獲取玩家行為分析（API）
+router.get('/api/engagement', async (req, res) => {
+    try {
+        const { date, project_id } = req.query;
+        const result = await gameService.getEngagementAnalytics({ date, project_id });
+        return responses.success(res, result, '獲取玩家行為分析成功');
+    } catch (error) {
+        return handleServiceError(res, error, '獲取玩家行為分析失敗');
     }
 });
 

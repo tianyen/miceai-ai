@@ -82,13 +82,62 @@
     </div>
 </div>
 
-<!-- 每小時玩家數圖表 -->
+<!-- 每小時互動品質圖表 -->
 <div class="data-table-container">
     <div class="table-header">
-        <h3>📊 每小時玩家數統計</h3>
+        <h3>📊 每小時互動品質</h3>
     </div>
     <div class="table-content">
         <canvas id="hourly-chart" style="max-height: 300px;"></canvas>
+    </div>
+</div>
+
+<div class="analytics-grid">
+    <div class="data-table-container">
+        <div class="table-header">
+            <h3>🔁 重玩 / 重試觀察</h3>
+        </div>
+        <div class="table-content">
+            <div id="replay-summary-cards" class="mini-stats-grid"></div>
+            <canvas id="replay-chart" style="max-height: 300px;"></canvas>
+        </div>
+    </div>
+
+    <div class="data-table-container">
+        <div class="table-header">
+            <h3>📈 留存觀察</h3>
+        </div>
+        <div class="table-content">
+            <div id="retention-cohort" class="muted-caption"></div>
+            <canvas id="retention-chart" style="max-height: 300px;"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="data-table-container">
+    <div class="table-header">
+        <h3>🎯 完成率 Funnel</h3>
+    </div>
+    <div class="table-content">
+        <div id="funnel-sections"></div>
+    </div>
+</div>
+
+<div class="data-table-container">
+    <div class="table-header">
+        <h3>⏱️ 階段停留時間</h3>
+    </div>
+    <div class="table-content">
+        <div id="dwell-sections"></div>
+    </div>
+</div>
+
+<div class="data-table-container">
+    <div class="table-header">
+        <h3>💼 完成後轉換</h3>
+    </div>
+    <div class="table-content">
+        <div id="conversion-sections"></div>
     </div>
 </div>
 
@@ -158,12 +207,126 @@
     margin: 0;
     font-weight: 500;
 }
+
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.mini-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.mini-stat-card {
+    background: #f7f9fb;
+    border: 1px solid #e5ebf1;
+    border-radius: 8px;
+    padding: 14px 16px;
+}
+
+.mini-stat-label {
+    color: #6b7280;
+    font-size: 12px;
+    margin-bottom: 6px;
+}
+
+.mini-stat-value {
+    color: #111827;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.section-stack {
+    display: grid;
+    gap: 20px;
+}
+
+.game-analytics-card {
+    border: 1px solid #e5ebf1;
+    border-radius: 12px;
+    padding: 18px;
+    background: #fcfdff;
+}
+
+.game-analytics-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.game-analytics-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.game-analytics-subtitle {
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.muted-caption {
+    color: #6b7280;
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+.game-metrics-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.analytics-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+}
+
+.analytics-table th,
+.analytics-table td {
+    border-bottom: 1px solid #e5ebf1;
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 13px;
+}
+
+.analytics-table th {
+    background: #f7f9fb;
+    color: #374151;
+}
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 const boothId = {{booth.id}};
 let hourlyChart = null;
+let replayChart = null;
+let retentionChart = null;
+let dynamicCharts = [];
+
+function destroyDynamicCharts() {
+    dynamicCharts.forEach((chart) => chart.destroy());
+    dynamicCharts = [];
+}
+
+function destroyChartInstance(chartInstance) {
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+}
+
+function formatRate(value) {
+    return `${Number(value || 0).toFixed(1)}%`;
+}
 
 // 載入統計資料
 async function loadStats(date = null) {
@@ -177,7 +340,12 @@ async function loadStats(date = null) {
         
         if (data.success) {
             updateSummary(data.data.summary);
-            updateHourlyChart(data.data.hourly_stats);
+            updateHourlyChart(data.data.analytics?.hourly_quality || []);
+            updateReplayRetry(data.data.analytics?.replay_retry || null);
+            updateRetention(data.data.analytics?.retention || null);
+            renderFunnels(data.data.analytics?.funnels || []);
+            renderStageDwell(data.data.analytics?.stage_dwell || []);
+            renderConversions(data.data.analytics?.conversions || []);
         } else {
             showNotification(data.message || '載入統計資料失敗', 'error');
         }
@@ -200,56 +368,362 @@ function updateSummary(summary) {
 // 更新每小時圖表
 function updateHourlyChart(hourlyStats) {
     const labels = hourlyStats.map(stat => stat.hour);
-    const playerCounts = hourlyStats.map(stat => stat.player_count);
-    const sessionCounts = hourlyStats.map(stat => stat.session_count);
+    const playerCounts = hourlyStats.map(stat => stat.unique_players || 0);
+    const sessionCounts = hourlyStats.map(stat => stat.total_sessions || 0);
+    const avgPlayTimes = hourlyStats.map(stat => stat.avg_play_time || 0);
+    const completionRates = hourlyStats.map(stat => stat.completion_rate || 0);
 
-    if (hourlyChart) {
-        hourlyChart.destroy();
-    }
+    destroyChartInstance(hourlyChart);
 
     const ctx = document.getElementById('hourly-chart').getContext('2d');
     hourlyChart = new Chart(ctx, {
-        type: 'line',
+        type: 'bar',
         data: {
-            labels: labels,
+            labels,
             datasets: [
                 {
-                    label: '玩家數',
+                    label: '唯一玩家數',
                     data: playerCounts,
+                    backgroundColor: 'rgba(76, 175, 80, 0.55)',
                     borderColor: '#4CAF50',
-                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                    tension: 0.4
+                    borderWidth: 1,
+                    yAxisID: 'y'
                 },
                 {
-                    label: '遊戲場次',
+                    label: '總場次',
                     data: sessionCounts,
+                    type: 'line',
                     borderColor: '#2196F3',
-                    backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                    tension: 0.4
+                    backgroundColor: 'rgba(33, 150, 243, 0.12)',
+                    tension: 0.25,
+                    yAxisID: 'y'
+                },
+                {
+                    label: '平均時長（秒）',
+                    data: avgPlayTimes,
+                    type: 'line',
+                    borderColor: '#9C27B0',
+                    backgroundColor: 'rgba(156, 39, 176, 0.1)',
+                    tension: 0.25,
+                    yAxisID: 'y1'
+                },
+                {
+                    label: '完成率（%）',
+                    data: completionRates,
+                    type: 'line',
+                    borderColor: '#FF9800',
+                    backgroundColor: 'rgba(255, 152, 0, 0.12)',
+                    tension: 0.25,
+                    yAxisID: 'y2'
                 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
             plugins: {
                 legend: {
                     position: 'top',
-                },
-                title: {
-                    display: false
                 }
             },
             scales: {
                 y: {
                     beginAtZero: true,
+                    position: 'left',
                     ticks: {
                         stepSize: 1
+                    }
+                },
+                y1: {
+                    beginAtZero: true,
+                    position: 'right',
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                },
+                y2: {
+                    beginAtZero: true,
+                    position: 'right',
+                    min: 0,
+                    max: 100,
+                    grid: {
+                        drawOnChartArea: false
+                    },
+                    ticks: {
+                        callback: (value) => `${value}%`
                     }
                 }
             }
         }
     });
+}
+
+function updateReplayRetry(replayRetry) {
+    const container = document.getElementById('replay-summary-cards');
+    container.innerHTML = '';
+
+    const cards = [
+        ['唯一玩家', replayRetry?.unique_players || 0],
+        ['重玩率', formatRate(replayRetry?.replay_rate || 0)],
+        ['重試率', formatRate(replayRetry?.retry_after_drop_rate || 0)],
+        ['平均每人場次', Number(replayRetry?.average_sessions_per_player || 0).toFixed(2)]
+    ];
+
+    cards.forEach(([label, value]) => {
+        const card = document.createElement('div');
+        card.className = 'mini-stat-card';
+        card.innerHTML = `
+            <div class="mini-stat-label">${label}</div>
+            <div class="mini-stat-value">${value}</div>
+        `;
+        container.appendChild(card);
+    });
+
+    destroyChartInstance(replayChart);
+    const ctx = document.getElementById('replay-chart').getContext('2d');
+    replayChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['重玩玩家', '重試玩家', '額外場次'],
+            datasets: [{
+                label: '數量',
+                data: [
+                    replayRetry?.replay_players || 0,
+                    replayRetry?.retry_after_drop_players || 0,
+                    replayRetry?.repeat_sessions || 0
+                ],
+                backgroundColor: ['#42A5F5', '#EF5350', '#26A69A']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+}
+
+function updateRetention(retention) {
+    document.getElementById('retention-cohort').textContent = `觀察 cohort：${retention?.cohort_size || 0} 位玩家`;
+    destroyChartInstance(retentionChart);
+    const ctx = document.getElementById('retention-chart').getContext('2d');
+    const buckets = retention?.buckets || [];
+    retentionChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: buckets.map(item => item.label),
+            datasets: [{
+                label: '留存率',
+                data: buckets.map(item => item.retention_rate || 0),
+                backgroundColor: 'rgba(156, 39, 176, 0.65)',
+                borderColor: '#9C27B0',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: (value) => `${value}%`
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderFunnels(funnels) {
+    destroyDynamicCharts();
+    const container = document.getElementById('funnel-sections');
+    if (!funnels.length) {
+        container.innerHTML = '<div class="muted-caption">目前沒有可分析的流程 funnel 資料。</div>';
+        return;
+    }
+
+    container.innerHTML = funnels.map((funnel, index) => `
+        <div class="game-analytics-card">
+            <div class="game-analytics-header">
+                <div>
+                    <div class="game-analytics-title">${funnel.game_name_zh || funnel.game_code}</div>
+                    <div class="game-analytics-subtitle">
+                        最大流失關卡：${funnel.largest_drop_stage?.stage_id || '無'}，流失 ${funnel.largest_drop_stage?.drop_off_count || 0} 場
+                    </div>
+                </div>
+                <div class="mini-stat-card">
+                    <div class="mini-stat-label">完成率</div>
+                    <div class="mini-stat-value">${formatRate(funnel.total_sessions ? (funnel.completed_sessions / funnel.total_sessions) * 100 : 0)}</div>
+                </div>
+            </div>
+            <canvas id="funnel-chart-${index}" style="max-height: 260px;"></canvas>
+            <table class="analytics-table">
+                <thead>
+                    <tr>
+                        <th>階段</th>
+                        <th>到達場次</th>
+                        <th>到達率</th>
+                        <th>相對前一關流失</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${funnel.stages.map(stage => `
+                        <tr>
+                            <td>${stage.stage_id}</td>
+                            <td>${stage.reached_sessions}</td>
+                            <td>${formatRate(stage.reach_rate)}</td>
+                            <td>${stage.order === 1 ? '-' : `${stage.drop_off_count} (${formatRate(stage.drop_off_rate_from_previous)})`}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `).join('');
+
+    funnels.forEach((funnel, index) => {
+        const ctx = document.getElementById(`funnel-chart-${index}`).getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: funnel.stages.map(stage => stage.stage_id),
+                datasets: [{
+                    label: '到達場次',
+                    data: funnel.stages.map(stage => stage.reached_sessions),
+                    backgroundColor: 'rgba(33, 150, 243, 0.62)',
+                    borderColor: '#2196F3',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+        dynamicCharts.push(chart);
+    });
+}
+
+function renderStageDwell(dwellGroups) {
+    const container = document.getElementById('dwell-sections');
+    if (!dwellGroups.length) {
+        container.innerHTML = '<div class="muted-caption">目前沒有階段停留時間資料。</div>';
+        return;
+    }
+
+    container.innerHTML = dwellGroups.map((group, index) => `
+        <div class="game-analytics-card">
+            <div class="game-analytics-header">
+                <div>
+                    <div class="game-analytics-title">${group.game_name_zh || group.game_code}</div>
+                    <div class="game-analytics-subtitle">平均 / 中位數 / P95 停留秒數</div>
+                </div>
+            </div>
+            <canvas id="dwell-chart-${index}" style="max-height: 260px;"></canvas>
+            <table class="analytics-table">
+                <thead>
+                    <tr>
+                        <th>階段</th>
+                        <th>樣本數</th>
+                        <th>平均</th>
+                        <th>中位數</th>
+                        <th>P95</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${group.stages.map(stage => `
+                        <tr>
+                            <td>${stage.stage_id}</td>
+                            <td>${stage.sample_count}</td>
+                            <td>${stage.avg_seconds}</td>
+                            <td>${stage.median_seconds}</td>
+                            <td>${stage.p95_seconds}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `).join('');
+
+    dwellGroups.forEach((group, index) => {
+        const ctx = document.getElementById(`dwell-chart-${index}`).getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: group.stages.map(stage => stage.stage_id),
+                datasets: [
+                    {
+                        label: '平均秒數',
+                        data: group.stages.map(stage => stage.avg_seconds),
+                        backgroundColor: 'rgba(255, 152, 0, 0.62)'
+                    },
+                    {
+                        label: 'P95 秒數',
+                        data: group.stages.map(stage => stage.p95_seconds),
+                        backgroundColor: 'rgba(156, 39, 176, 0.55)'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+        dynamicCharts.push(chart);
+    });
+}
+
+function renderConversions(conversions) {
+    const container = document.getElementById('conversion-sections');
+    if (!conversions.length) {
+        container.innerHTML = '<div class="muted-caption">目前沒有完成後轉換資料。</div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="section-stack">
+            ${conversions.map((conversion) => `
+                <div class="game-analytics-card">
+                    <div class="game-analytics-header">
+                        <div>
+                            <div class="game-analytics-title">${conversion.game_name_zh || conversion.game_code}</div>
+                            <div class="game-analytics-subtitle">完成、上傳成功與 thank-you reach 作為商業轉換 proxy</div>
+                        </div>
+                    </div>
+                    <div class="game-metrics-row">
+                        <div class="mini-stat-card">
+                            <div class="mini-stat-label">完成率</div>
+                            <div class="mini-stat-value">${formatRate(conversion.completion_rate)}</div>
+                        </div>
+                        <div class="mini-stat-card">
+                            <div class="mini-stat-label">Upload Success 率</div>
+                            <div class="mini-stat-value">${formatRate(conversion.upload_success_rate)}</div>
+                        </div>
+                        <div class="mini-stat-card">
+                            <div class="mini-stat-label">Thank You Reach 率</div>
+                            <div class="mini-stat-value">${formatRate(conversion.thank_you_rate)}</div>
+                        </div>
+                        <div class="mini-stat-card">
+                            <div class="mini-stat-label">總場次</div>
+                            <div class="mini-stat-value">${conversion.total_sessions}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
 }
 
 // 套用日期篩選
@@ -289,4 +763,3 @@ function showNotification(message, type = 'info') {
     }
 }
 </script>
-

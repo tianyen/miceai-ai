@@ -816,7 +816,12 @@ class GameRepository extends BaseRepository {
      * @param {number|null} projectId - 專案 ID
      * @returns {Promise<Object>}
      */
-    async getDailyUsers(targetDate, projectId = null) {
+    async getDailyUsers(targetDate, projectId = null, options = {}) {
+        const page = Math.max(parseInt(options.page, 10) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(options.limit, 10) || 50, 1), 200);
+        const offset = (page - 1) * limit;
+        const startAt = options.start_at ? String(options.start_at).replace('T', ' ') : null;
+        const endAt = options.end_at ? String(options.end_at).replace('T', ' ') : null;
         const registrationProjectFilter = projectId ? ' AND fs.project_id = ?' : '';
         const sessionProjectFilter = projectId ? ' AND us.project_id = ?' : '';
 
@@ -833,7 +838,7 @@ class GameRepository extends BaseRepository {
             params.push(projectId);
         }
 
-        const users = await this.db.query(`
+        const baseQuery = `
             ${buildUnifiedSessionsCTE()}
             ,
             registration_traces AS (
@@ -843,8 +848,8 @@ class GameRepository extends BaseRepository {
                 FROM form_submissions fs
                 LEFT JOIN checkin_records cr ON fs.trace_id = cr.trace_id
                 WHERE (
-                    DATE(fs.created_at) = ? OR
-                    DATE(cr.checkin_time) = ?
+                    DATE(datetime(fs.created_at, '+8 hours')) = ? OR
+                    DATE(datetime(cr.checkin_time, '+8 hours')) = ?
                 )
                 ${registrationProjectFilter}
             ),
@@ -854,7 +859,7 @@ class GameRepository extends BaseRepository {
                     MIN(us.project_id) AS project_id,
                     MIN(us.session_start) AS first_session_start
                 FROM unified_sessions us
-                WHERE DATE(us.session_start) = ?
+                WHERE DATE(datetime(us.session_start, '+8 hours')) = ?
                 ${sessionProjectFilter}
                 GROUP BY us.trace_id
             ),
@@ -862,46 +867,264 @@ class GameRepository extends BaseRepository {
                 SELECT trace_id, project_id FROM registration_traces
                 UNION
                 SELECT trace_id, project_id FROM session_traces
+            ),
+            user_rows AS (
+                SELECT
+                    ct.trace_id,
+                    fs.user_id,
+                    COALESCE(fs.submitter_name, '匿名玩家') AS submitter_name,
+                    fs.submitter_email,
+                    fs.company_name AS submitter_company,
+                    fs.submitter_phone,
+                    COALESCE(fs.project_id, st.project_id, ct.project_id) AS project_id,
+                    p.project_name,
+                    COALESCE(fs.created_at, st.first_session_start) AS registration_time,
+                    datetime(COALESCE(fs.created_at, st.first_session_start), '+8 hours') AS activity_time_local,
+                    cr.checkin_time AS checked_in_at,
+                    COUNT(DISTINCT us.session_key) AS game_sessions,
+                    MAX(us.final_score) AS highest_score,
+                    COUNT(DISTINCT vr.id) AS vouchers_redeemed
+                FROM candidate_traces ct
+                LEFT JOIN form_submissions fs ON ct.trace_id = fs.trace_id
+                LEFT JOIN session_traces st ON ct.trace_id = st.trace_id
+                LEFT JOIN event_projects p ON p.id = COALESCE(fs.project_id, st.project_id, ct.project_id)
+                LEFT JOIN checkin_records cr ON ct.trace_id = cr.trace_id
+                LEFT JOIN unified_sessions us
+                    ON ct.trace_id = us.trace_id
+                   AND DATE(datetime(us.session_start, '+8 hours')) = ?
+                   ${sessionProjectFilter}
+                LEFT JOIN voucher_redemptions vr ON ct.trace_id = vr.trace_id
+                GROUP BY
+                    ct.trace_id,
+                    fs.user_id,
+                    fs.submitter_name,
+                    fs.submitter_email,
+                    fs.company_name,
+                    fs.submitter_phone,
+                    COALESCE(fs.project_id, st.project_id, ct.project_id),
+                    p.project_name,
+                    COALESCE(fs.created_at, st.first_session_start),
+                    cr.checkin_time
+            )
+        `;
+
+        const timeFilter = [];
+        const timeParams = [];
+        if (startAt) {
+            timeFilter.push('activity_time_local >= datetime(?)');
+            timeParams.push(startAt);
+        }
+        if (endAt) {
+            timeFilter.push('activity_time_local <= datetime(?)');
+            timeParams.push(endAt);
+        }
+        const timeClause = timeFilter.length ? `WHERE ${timeFilter.join(' AND ')}` : '';
+
+        const summary = await this.db.get(`
+            ${baseQuery}
+            SELECT
+                COUNT(*) AS total_users,
+                COALESCE(SUM(game_sessions), 0) AS total_sessions,
+                COALESCE(SUM(vouchers_redeemed), 0) AS total_vouchers,
+                COALESCE(MAX(highest_score), 0) AS highest_score
+            FROM user_rows
+            ${timeClause}
+        `, [...params, ...timeParams]);
+
+        const users = await this.db.query(`
+            ${baseQuery}
+            SELECT *
+            FROM user_rows
+            ${timeClause}
+            ORDER BY registration_time DESC
+            LIMIT ? OFFSET ?
+        `, [...params, ...timeParams, limit, offset]);
+
+        const totalUsers = Number(summary?.total_users || 0);
+
+        return {
+            users,
+            date: targetDate,
+            filters: {
+                project_id: projectId || null,
+                start_at: startAt || null,
+                end_at: endAt || null
+            },
+            summary: {
+                total_users: totalUsers,
+                total_sessions: Number(summary?.total_sessions || 0),
+                total_vouchers: Number(summary?.total_vouchers || 0),
+                highest_score: Number(summary?.highest_score || 0)
+            },
+            pagination: {
+                page,
+                limit,
+                total_items: totalUsers,
+                total_pages: totalUsers > 0 ? Math.ceil(totalUsers / limit) : 1
+            }
+        };
+    }
+
+    async getEngagementAnalytics(targetDate, projectId = null) {
+        const projectClause = projectId ? ' AND us.project_id = ?' : '';
+        const baseParams = [targetDate];
+        if (projectId) {
+            baseParams.push(projectId);
+        }
+
+        const hourlyStats = await this.db.query(`
+            ${buildUnifiedSessionsCTE()}
+            ,
+            filtered_sessions AS (
+                SELECT *
+                FROM unified_sessions us
+                WHERE DATE(datetime(us.session_start, '+8 hours')) = ?
+                ${projectClause}
             )
             SELECT
-                ct.trace_id,
-                fs.user_id,
-                COALESCE(fs.submitter_name, '匿名玩家') AS submitter_name,
-                fs.submitter_email,
-                fs.company_name AS submitter_company,
-                fs.submitter_phone,
-                COALESCE(fs.project_id, st.project_id, ct.project_id) AS project_id,
-                p.project_name,
-                COALESCE(fs.created_at, st.first_session_start) AS registration_time,
-                cr.checkin_time AS checked_in_at,
-                COUNT(DISTINCT us.session_key) AS game_sessions,
-                MAX(us.final_score) AS highest_score,
-                COUNT(DISTINCT vr.id) AS vouchers_redeemed
-            FROM candidate_traces ct
-            LEFT JOIN form_submissions fs ON ct.trace_id = fs.trace_id
-            LEFT JOIN session_traces st ON ct.trace_id = st.trace_id
-            LEFT JOIN event_projects p ON p.id = COALESCE(fs.project_id, st.project_id, ct.project_id)
-            LEFT JOIN checkin_records cr ON ct.trace_id = cr.trace_id
-            LEFT JOIN unified_sessions us
-                ON ct.trace_id = us.trace_id
-               AND DATE(us.session_start) = ?
-               ${sessionProjectFilter}
-            LEFT JOIN voucher_redemptions vr ON ct.trace_id = vr.trace_id
-            GROUP BY
-                ct.trace_id,
-                fs.user_id,
-                fs.submitter_name,
-                fs.submitter_email,
-                fs.company_name,
-                fs.submitter_phone,
-                COALESCE(fs.project_id, st.project_id, ct.project_id),
-                p.project_name,
-                COALESCE(fs.created_at, st.first_session_start),
-                cr.checkin_time
-            ORDER BY COALESCE(fs.created_at, st.first_session_start) DESC
-        `, params);
+                strftime('%H:00', datetime(session_start, '+8 hours')) AS hour,
+                COUNT(DISTINCT trace_id) AS unique_players,
+                COUNT(session_key) AS total_sessions,
+                AVG(total_play_time) AS avg_play_time
+            FROM filtered_sessions
+            GROUP BY hour
+            ORDER BY hour ASC
+        `, baseParams);
 
-        return { users, date: targetDate };
+        const sessionDepthRows = await this.db.query(`
+            ${buildUnifiedSessionsCTE()}
+            ,
+            filtered_sessions AS (
+                SELECT *
+                FROM unified_sessions us
+                WHERE DATE(datetime(us.session_start, '+8 hours')) = ?
+                ${projectClause}
+            ),
+            per_user AS (
+                SELECT
+                    trace_id,
+                    COUNT(session_key) AS session_count
+                FROM filtered_sessions
+                GROUP BY trace_id
+            )
+            SELECT
+                CASE
+                    WHEN session_count >= 5 THEN '5+ 次'
+                    ELSE CAST(session_count AS TEXT) || ' 次'
+                END AS bucket,
+                CASE
+                    WHEN session_count >= 5 THEN 5
+                    ELSE session_count
+                END AS sort_order,
+                COUNT(*) AS user_count
+            FROM per_user
+            GROUP BY bucket, sort_order
+            ORDER BY sort_order ASC
+        `, baseParams);
+
+        const durationRows = await this.db.query(`
+            ${buildUnifiedSessionsCTE()}
+            ,
+            filtered_sessions AS (
+                SELECT *
+                FROM unified_sessions us
+                WHERE DATE(datetime(us.session_start, '+8 hours')) = ?
+                ${projectClause}
+            ),
+            per_user AS (
+                SELECT
+                    trace_id,
+                    SUM(total_play_time) AS total_play_time
+                FROM filtered_sessions
+                GROUP BY trace_id
+            )
+            SELECT
+                CASE
+                    WHEN total_play_time < 30 THEN '0-30 秒'
+                    WHEN total_play_time < 60 THEN '30-60 秒'
+                    WHEN total_play_time < 180 THEN '1-3 分鐘'
+                    WHEN total_play_time < 600 THEN '3-10 分鐘'
+                    ELSE '10 分鐘以上'
+                END AS bucket,
+                CASE
+                    WHEN total_play_time < 30 THEN 1
+                    WHEN total_play_time < 60 THEN 2
+                    WHEN total_play_time < 180 THEN 3
+                    WHEN total_play_time < 600 THEN 4
+                    ELSE 5
+                END AS sort_order,
+                COUNT(*) AS user_count
+            FROM per_user
+            GROUP BY bucket, sort_order
+            ORDER BY sort_order ASC
+        `, baseParams);
+
+        const retentionRows = await this.db.query(`
+            ${buildUnifiedSessionsCTE()}
+            ,
+            cohort_traces AS (
+                SELECT DISTINCT
+                    us.trace_id
+                FROM unified_sessions us
+                WHERE DATE(datetime(us.session_start, '+8 hours')) = ?
+                ${projectClause}
+            ),
+            cohort_activity AS (
+                SELECT
+                    us.trace_id,
+                    MIN(us.session_start) AS first_seen_at,
+                    MAX(COALESCE(us.session_end, us.session_start)) AS last_seen_at
+                FROM unified_sessions us
+                JOIN cohort_traces ct ON ct.trace_id = us.trace_id
+                ${projectId ? 'WHERE us.project_id = ?' : ''}
+                GROUP BY us.trace_id
+            )
+            SELECT
+                trace_id,
+                CAST((julianday(last_seen_at) - julianday(first_seen_at)) * 86400 AS INTEGER) AS retention_span_seconds
+            FROM cohort_activity
+        `, projectId ? [targetDate, projectId, projectId] : [targetDate]);
+
+        const totalCohortUsers = retentionRows.length;
+        const retentionThresholds = [
+            { label: '5 分鐘', seconds: 5 * 60 },
+            { label: '15 分鐘', seconds: 15 * 60 },
+            { label: '30 分鐘', seconds: 30 * 60 },
+            { label: '1 天', seconds: 24 * 60 * 60 },
+            { label: '1 星期', seconds: 7 * 24 * 60 * 60 }
+        ];
+
+        return {
+            date: targetDate,
+            filters: {
+                project_id: projectId || null
+            },
+            session_depth: sessionDepthRows.map((row) => ({
+                label: row.bucket,
+                user_count: row.user_count
+            })),
+            duration_distribution: durationRows.map((row) => ({
+                label: row.bucket,
+                user_count: row.user_count
+            })),
+            hourly_activity: hourlyStats.map((row) => ({
+                hour: row.hour,
+                unique_players: row.unique_players,
+                total_sessions: row.total_sessions,
+                avg_play_time: Math.round((row.avg_play_time || 0) * 10) / 10
+            })),
+            retention: retentionThresholds.map((threshold) => {
+                const retainedUsers = retentionRows.filter((row) => Number(row.retention_span_seconds || 0) >= threshold.seconds).length;
+                return {
+                    label: threshold.label,
+                    retained_users: retainedUsers,
+                    retention_rate: totalCohortUsers > 0
+                        ? Math.round((retainedUsers / totalCohortUsers) * 1000) / 10
+                        : 0
+                };
+            }),
+            cohort_size: totalCohortUsers
+        };
     }
 
     /**
@@ -1034,8 +1257,7 @@ class GameRepository extends BaseRepository {
             LEFT JOIN games g ON ul.game_id = g.id
             LEFT JOIN booths b ON ul.booth_id = b.id
             WHERE ul.trace_id = ?
-            ORDER BY ul.created_at DESC
-            LIMIT 20
+            ORDER BY ul.created_at ASC, ul.id ASC
         `, [traceId]);
     }
 
@@ -1072,7 +1294,7 @@ class GameRepository extends BaseRepository {
             LEFT JOIN form_submissions fs ON us.trace_id = fs.trace_id
             LEFT JOIN games g ON us.game_id = g.id
             LEFT JOIN booths b ON us.booth_id = b.id
-            WHERE DATE(us.session_start) = ?
+            WHERE DATE(datetime(us.session_start, '+8 hours')) = ?
         `;
 
         const params = [targetDate];

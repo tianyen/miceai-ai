@@ -366,7 +366,7 @@ async function fetchGames(cookie) {
 async function verifyLegacyDailyUsers(cookie, projectId) {
     const response = await requestJson(
         'GET',
-        `/admin/game-analytics/api/daily-users?date=${encodeURIComponent(TARGET_DATE)}&project_id=${projectId}`,
+        `/admin/game-analytics/api/daily-users?date=${encodeURIComponent(TARGET_DATE)}&project_id=${projectId}&page=1&limit=50`,
         null,
         { cookie }
     );
@@ -379,6 +379,25 @@ async function verifyLegacyDailyUsers(cookie, projectId) {
     assert(users.some((user) => Number(user.game_sessions || 0) > 0), 'legacy daily-users 應有至少 1 位使用者具備 game_sessions');
 
     return users;
+}
+
+async function verifyLegacyDailyUsersPagination(cookie, projectId) {
+    const response = await requestJson(
+        'GET',
+        `/admin/game-analytics/api/daily-users?date=${encodeURIComponent(TARGET_DATE)}&project_id=${projectId}&page=1&limit=50&start_at=${encodeURIComponent(`${TARGET_DATE}T00:00`)}&end_at=${encodeURIComponent(`${TARGET_DATE}T23:59`)}`,
+        null,
+        { cookie }
+    );
+
+    assert(response.status === 200, `legacy daily-users pagination 預期 HTTP 200，實際 ${response.status}`);
+    assert(response.body?.success === true, 'legacy daily-users pagination 回應 success !== true');
+
+    const data = response.body?.data || {};
+    assert(Number(data?.pagination?.page || 0) === 1, 'legacy daily-users pagination page 應為 1');
+    assert(Number(data?.pagination?.limit || 0) === 50, 'legacy daily-users pagination limit 應為 50');
+    assert(Number(data?.pagination?.total_items || 0) >= (data?.users || []).length, 'legacy daily-users total_items 應大於等於 users.length');
+    assert(data?.filters?.start_at, 'legacy daily-users pagination 應回傳 start_at filter');
+    assert(data?.filters?.end_at, 'legacy daily-users pagination 應回傳 end_at filter');
 }
 
 async function verifyLegacyLeaderboard(cookie, projectId) {
@@ -429,6 +448,27 @@ async function verifyLegacyGameStats(cookie, gameId, projectId, expectedGameName
     const summary = response.body?.data || {};
     assert(Number(summary.total_sessions || 0) > 0, `legacy game stats(${expectedGameName}) total_sessions 應大於 0`);
     assert(Number(summary.total_players || 0) > 0, `legacy game stats(${expectedGameName}) total_players 應大於 0`);
+}
+
+async function verifyBoothStats(cookie, boothId, expectedBoothName) {
+    const response = await requestJson(
+        'GET',
+        `/admin/booths/api/${boothId}/stats?date=${encodeURIComponent(TARGET_DATE)}`,
+        null,
+        { cookie }
+    );
+
+    assert(response.status === 200, `booth stats(${expectedBoothName}) 預期 HTTP 200，實際 ${response.status}`);
+    assert(response.body?.success === true, `booth stats(${expectedBoothName}) 回應 success !== true`);
+
+    const data = response.body?.data || {};
+    assert(Number(data?.summary?.total_sessions || 0) > 0, `booth stats(${expectedBoothName}) total_sessions 應大於 0`);
+    assert(Array.isArray(data?.analytics?.hourly_quality), `booth stats(${expectedBoothName}) 缺少 hourly_quality`);
+    assert(Array.isArray(data?.analytics?.funnels) && data.analytics.funnels.length > 0, `booth stats(${expectedBoothName}) 缺少 funnels`);
+    assert(Array.isArray(data?.analytics?.stage_dwell) && data.analytics.stage_dwell.length > 0, `booth stats(${expectedBoothName}) 缺少 stage_dwell`);
+    assert(data?.analytics?.replay_retry, `booth stats(${expectedBoothName}) 缺少 replay_retry`);
+    assert(Array.isArray(data?.analytics?.retention?.buckets), `booth stats(${expectedBoothName}) 缺少 retention buckets`);
+    assert(Array.isArray(data?.analytics?.conversions) && data.analytics.conversions.length > 0, `booth stats(${expectedBoothName}) 缺少 conversions`);
 }
 
 async function main() {
@@ -488,6 +528,10 @@ async function main() {
         assert(traceId, 'legacy daily-users 未找到可用 trace_id');
     });
 
+    await runStep('legacy game analytics daily-users supports pagination and datetime range filters', async () => {
+        await verifyLegacyDailyUsersPagination(cookie, projectId);
+    });
+
     await runStep('legacy game analytics leaderboard includes tiger and lantern mobile games', async () => {
         await verifyLegacyLeaderboard(cookie, projectId);
     });
@@ -502,6 +546,14 @@ async function main() {
 
     await runStep('legacy game stats summary returns lantern mobile data', async () => {
         await verifyLegacyGameStats(cookie, lanternGameId, projectId, 'lantern-mobile');
+    });
+
+    await runStep('booth stats returns tiger booth engagement analytics', async () => {
+        await verifyBoothStats(cookie, 1, '虎爺');
+    });
+
+    await runStep('booth stats returns lantern booth engagement analytics', async () => {
+        await verifyBoothStats(cookie, 2, '天燈');
     });
 
     console.log('');

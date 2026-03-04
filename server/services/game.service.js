@@ -832,12 +832,33 @@ class GameService extends BaseService {
      * @param {Object} options - 查詢選項
      * @returns {Promise<Object>}
      */
-    async getDailyUsers({ date, project_id } = {}) {
+    async getDailyUsers({ date, project_id, page, limit, start_at, end_at } = {}) {
         const targetDate = date || new Date().toISOString().split('T')[0];
 
-        const result = await this.gameRepo.getDailyUsers(targetDate, project_id);
+        const result = await this.gameRepo.getDailyUsers(targetDate, project_id, {
+            page,
+            limit,
+            start_at,
+            end_at
+        });
 
-        this.log('getDailyUsers', { date: targetDate, project_id, count: result.users.length });
+        this.log('getDailyUsers', {
+            date: targetDate,
+            project_id,
+            page: result.pagination?.page || 1,
+            limit: result.pagination?.limit || 50,
+            count: result.users.length
+        });
+
+        return result;
+    }
+
+    async getEngagementAnalytics({ date, project_id } = {}) {
+        const targetDate = date || new Date().toISOString().split('T')[0];
+
+        const result = await this.gameRepo.getEngagementAnalytics(targetDate, project_id);
+
+        this.log('getEngagementAnalytics', { date: targetDate, project_id, cohort_size: result.cohort_size });
 
         return result;
     }
