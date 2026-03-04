@@ -4,6 +4,7 @@
  * @description 處理 games, game_sessions, game_logs 相關資料庫操作
  */
 const BaseRepository = require('./base.repository');
+const { getGMT8DateRange, toDbUtcTimestamp } = require('../utils/timezone');
 
 function buildUnifiedSessionsCTE() {
     return `
@@ -817,23 +818,27 @@ class GameRepository extends BaseRepository {
      * @returns {Promise<Object>}
      */
     async getDailyUsers(targetDate, projectId = null, options = {}) {
+        const dayRange = getGMT8DateRange(targetDate);
         const page = Math.max(parseInt(options.page, 10) || 1, 1);
         const limit = Math.min(Math.max(parseInt(options.limit, 10) || 50, 1), 200);
         const offset = (page - 1) * limit;
-        const startAt = options.start_at ? String(options.start_at).replace('T', ' ') : null;
-        const endAt = options.end_at ? String(options.end_at).replace('T', ' ') : null;
+        const startAtUtc = options.start_at ? toDbUtcTimestamp(options.start_at) : null;
+        const endAtUtc = options.end_at ? toDbUtcTimestamp(options.end_at) : null;
         const registrationProjectFilter = projectId ? ' AND fs.project_id = ?' : '';
         const sessionProjectFilter = projectId ? ' AND us.project_id = ?' : '';
 
-        const params = [targetDate, targetDate];
+        const params = [
+            dayRange.startUtc, dayRange.endUtc,
+            dayRange.startUtc, dayRange.endUtc
+        ];
         if (projectId) {
             params.push(projectId);
         }
-        params.push(targetDate);
+        params.push(dayRange.startUtc, dayRange.endUtc);
         if (projectId) {
             params.push(projectId);
         }
-        params.push(targetDate);
+        params.push(dayRange.startUtc, dayRange.endUtc);
         if (projectId) {
             params.push(projectId);
         }
@@ -848,8 +853,8 @@ class GameRepository extends BaseRepository {
                 FROM form_submissions fs
                 LEFT JOIN checkin_records cr ON fs.trace_id = cr.trace_id
                 WHERE (
-                    DATE(datetime(fs.created_at, '+8 hours')) = ? OR
-                    DATE(datetime(cr.checkin_time, '+8 hours')) = ?
+                    (fs.created_at >= ? AND fs.created_at < ?) OR
+                    (cr.checkin_time >= ? AND cr.checkin_time < ?)
                 )
                 ${registrationProjectFilter}
             ),
@@ -859,7 +864,7 @@ class GameRepository extends BaseRepository {
                     MIN(us.project_id) AS project_id,
                     MIN(us.session_start) AS first_session_start
                 FROM unified_sessions us
-                WHERE DATE(datetime(us.session_start, '+8 hours')) = ?
+                WHERE us.session_start >= ? AND us.session_start < ?
                 ${sessionProjectFilter}
                 GROUP BY us.trace_id
             ),
@@ -879,7 +884,7 @@ class GameRepository extends BaseRepository {
                     COALESCE(fs.project_id, st.project_id, ct.project_id) AS project_id,
                     p.project_name,
                     COALESCE(fs.created_at, st.first_session_start) AS registration_time,
-                    datetime(COALESCE(fs.created_at, st.first_session_start), '+8 hours') AS activity_time_local,
+                    COALESCE(fs.created_at, st.first_session_start) AS activity_time_utc,
                     cr.checkin_time AS checked_in_at,
                     COUNT(DISTINCT us.session_key) AS game_sessions,
                     MAX(us.final_score) AS highest_score,
@@ -891,7 +896,7 @@ class GameRepository extends BaseRepository {
                 LEFT JOIN checkin_records cr ON ct.trace_id = cr.trace_id
                 LEFT JOIN unified_sessions us
                     ON ct.trace_id = us.trace_id
-                   AND DATE(datetime(us.session_start, '+8 hours')) = ?
+                   AND us.session_start >= ? AND us.session_start < ?
                    ${sessionProjectFilter}
                 LEFT JOIN voucher_redemptions vr ON ct.trace_id = vr.trace_id
                 GROUP BY
@@ -910,13 +915,13 @@ class GameRepository extends BaseRepository {
 
         const timeFilter = [];
         const timeParams = [];
-        if (startAt) {
-            timeFilter.push('activity_time_local >= datetime(?)');
-            timeParams.push(startAt);
+        if (startAtUtc) {
+            timeFilter.push('activity_time_utc >= ?');
+            timeParams.push(startAtUtc);
         }
-        if (endAt) {
-            timeFilter.push('activity_time_local <= datetime(?)');
-            timeParams.push(endAt);
+        if (endAtUtc) {
+            timeFilter.push('activity_time_utc <= ?');
+            timeParams.push(endAtUtc);
         }
         const timeClause = timeFilter.length ? `WHERE ${timeFilter.join(' AND ')}` : '';
 
@@ -947,8 +952,8 @@ class GameRepository extends BaseRepository {
             date: targetDate,
             filters: {
                 project_id: projectId || null,
-                start_at: startAt || null,
-                end_at: endAt || null
+                start_at: options.start_at || null,
+                end_at: options.end_at || null
             },
             summary: {
                 total_users: totalUsers,
@@ -966,8 +971,9 @@ class GameRepository extends BaseRepository {
     }
 
     async getEngagementAnalytics(targetDate, projectId = null) {
+        const dayRange = getGMT8DateRange(targetDate);
         const projectClause = projectId ? ' AND us.project_id = ?' : '';
-        const baseParams = [targetDate];
+        const baseParams = [dayRange.startUtc, dayRange.endUtc];
         if (projectId) {
             baseParams.push(projectId);
         }
@@ -978,7 +984,7 @@ class GameRepository extends BaseRepository {
             filtered_sessions AS (
                 SELECT *
                 FROM unified_sessions us
-                WHERE DATE(datetime(us.session_start, '+8 hours')) = ?
+                WHERE us.session_start >= ? AND us.session_start < ?
                 ${projectClause}
             )
             SELECT
@@ -997,7 +1003,7 @@ class GameRepository extends BaseRepository {
             filtered_sessions AS (
                 SELECT *
                 FROM unified_sessions us
-                WHERE DATE(datetime(us.session_start, '+8 hours')) = ?
+                WHERE us.session_start >= ? AND us.session_start < ?
                 ${projectClause}
             ),
             per_user AS (
@@ -1028,7 +1034,7 @@ class GameRepository extends BaseRepository {
             filtered_sessions AS (
                 SELECT *
                 FROM unified_sessions us
-                WHERE DATE(datetime(us.session_start, '+8 hours')) = ?
+                WHERE us.session_start >= ? AND us.session_start < ?
                 ${projectClause}
             ),
             per_user AS (
@@ -1066,7 +1072,7 @@ class GameRepository extends BaseRepository {
                 SELECT DISTINCT
                     us.trace_id
                 FROM unified_sessions us
-                WHERE DATE(datetime(us.session_start, '+8 hours')) = ?
+                WHERE us.session_start >= ? AND us.session_start < ?
                 ${projectClause}
             ),
             cohort_activity AS (
@@ -1083,7 +1089,7 @@ class GameRepository extends BaseRepository {
                 trace_id,
                 CAST((julianday(last_seen_at) - julianday(first_seen_at)) * 86400 AS INTEGER) AS retention_span_seconds
             FROM cohort_activity
-        `, projectId ? [targetDate, projectId, projectId] : [targetDate]);
+        `, projectId ? [dayRange.startUtc, dayRange.endUtc, projectId, projectId] : [dayRange.startUtc, dayRange.endUtc]);
 
         const totalCohortUsers = retentionRows.length;
         const retentionThresholds = [
@@ -1274,6 +1280,7 @@ class GameRepository extends BaseRepository {
      * @returns {Promise<Object>}
      */
     async getLeaderboard(targetDate, projectId = null, gameId = null, limit = 10) {
+        const dayRange = getGMT8DateRange(targetDate);
         let query = `
             ${buildUnifiedSessionsCTE()}
             SELECT
@@ -1294,10 +1301,10 @@ class GameRepository extends BaseRepository {
             LEFT JOIN form_submissions fs ON us.trace_id = fs.trace_id
             LEFT JOIN games g ON us.game_id = g.id
             LEFT JOIN booths b ON us.booth_id = b.id
-            WHERE DATE(datetime(us.session_start, '+8 hours')) = ?
+            WHERE us.session_start >= ? AND us.session_start < ?
         `;
 
-        const params = [targetDate];
+        const params = [dayRange.startUtc, dayRange.endUtc];
 
         if (projectId) {
             query += ' AND us.project_id = ?';

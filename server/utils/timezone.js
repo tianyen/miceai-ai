@@ -8,6 +8,19 @@
  */
 
 const TAIPEI_TIMEZONE = 'Asia/Taipei';
+const GMT8_OFFSET = '+08:00';
+
+function pad(value) {
+    return String(value).padStart(2, '0');
+}
+
+function formatDbUtcDate(date) {
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+        return null;
+    }
+
+    return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+}
 
 /**
  * 解析資料庫時間字串為 Date 物件
@@ -36,6 +49,74 @@ function parseDbDate(date) {
 
     const d = new Date(dateStr);
     return isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * 解析前端/本地的 GMT+8 日期時間輸入
+ * - 支援 YYYY-MM-DD
+ * - 支援 YYYY-MM-DDTHH:mm
+ * - 支援 YYYY-MM-DD HH:mm:ss
+ * 若未帶時區，視為 GMT+8
+ * @param {string|Date} value
+ * @returns {Date|null}
+ */
+function parseGMT8Input(value) {
+    if (!value) return null;
+    if (value instanceof Date) {
+        return isNaN(value.getTime()) ? null : value;
+    }
+
+    let input = String(value).trim();
+    if (!input) return null;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
+        input = `${input}T00:00:00${GMT8_OFFSET}`;
+    } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(input)) {
+        input = `${input}:00${GMT8_OFFSET}`;
+    } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(input)) {
+        input = `${input.replace(' ', 'T')}:00${GMT8_OFFSET}`;
+    } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(input)) {
+        input = `${input.replace(' ', 'T')}${GMT8_OFFSET}`;
+    } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(input)) {
+        input = `${input}${GMT8_OFFSET}`;
+    }
+
+    const parsed = new Date(input);
+    return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
+ * 將 GMT+8 輸入轉成資料庫可比較的 UTC timestamp
+ * @param {string|Date} value
+ * @returns {string|null}
+ */
+function toDbUtcTimestamp(value) {
+    const date = parseGMT8Input(value);
+    return formatDbUtcDate(date);
+}
+
+/**
+ * 取得指定 GMT+8 日期對應的 UTC 區間（[start, end)）
+ * @param {string} dateString - YYYY-MM-DD
+ * @returns {{startUtc: string|null, endUtc: string|null}}
+ */
+function getGMT8DateRange(dateString) {
+    if (!dateString) {
+        return { startUtc: null, endUtc: null };
+    }
+
+    const start = parseGMT8Input(dateString);
+    if (!start) {
+        return { startUtc: null, endUtc: null };
+    }
+
+    const end = new Date(start.getTime());
+    end.setUTCDate(end.getUTCDate() + 1);
+
+    return {
+        startUtc: formatDbUtcDate(start),
+        endUtc: formatDbUtcDate(end)
+    };
 }
 
 /**
@@ -152,10 +233,14 @@ function getGMT8Offset() {
 
 module.exports = {
     TAIPEI_TIMEZONE,
+    GMT8_OFFSET,
     parseDbDate,
+    parseGMT8Input,
     getGMT8Timestamp,
     getGMT8Date,
     toGMT8Timestamp,
+    toDbUtcTimestamp,
+    getGMT8DateRange,
     formatGMT8Time,
     logTimestamp,
     getGMT8Offset

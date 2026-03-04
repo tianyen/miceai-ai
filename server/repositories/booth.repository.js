@@ -10,6 +10,7 @@
  */
 
 const BaseRepository = require('./base.repository');
+const { getGMT8DateRange } = require('../utils/timezone');
 
 function buildUnifiedBoothSessionsCTE() {
     return `
@@ -53,10 +54,6 @@ function buildUnifiedBoothSessionsCTE() {
             FROM game_flow_sessions gfs
         )
     `;
-}
-
-function buildGMT8DateFilter(columnName) {
-    return `DATE(datetime(${columnName}, '+8 hours')) = ?`;
 }
 
 class BoothRepository extends BaseRepository {
@@ -157,6 +154,7 @@ class BoothRepository extends BaseRepository {
      * @returns {Promise<Object>}
      */
     async getStatsSummary(boothId, date = null) {
+        const dateRange = date ? getGMT8DateRange(date) : { startUtc: null, endUtc: null };
         let sql = `
             ${buildUnifiedBoothSessionsCTE()}
             SELECT
@@ -171,9 +169,9 @@ class BoothRepository extends BaseRepository {
         `;
         const params = [boothId];
 
-        if (date) {
-            sql += ' AND DATE(datetime(us.session_start, \'+8 hours\')) = ?';
-            params.push(date);
+        if (dateRange.startUtc && dateRange.endUtc) {
+            sql += ' AND us.session_start >= ? AND us.session_start < ?';
+            params.push(dateRange.startUtc, dateRange.endUtc);
         }
 
         const result = await this.rawGet(sql, params);
@@ -194,6 +192,7 @@ class BoothRepository extends BaseRepository {
      * @returns {Promise<Array>}
      */
     async getHourlyStats(boothId, date = null) {
+        const dateRange = date ? getGMT8DateRange(date) : { startUtc: null, endUtc: null };
         let sql = `
             ${buildUnifiedBoothSessionsCTE()}
             SELECT
@@ -206,9 +205,9 @@ class BoothRepository extends BaseRepository {
         `;
         const params = [boothId];
 
-        if (date) {
-            sql += ' AND DATE(datetime(us.session_start, \'+8 hours\')) = ?';
-            params.push(date);
+        if (dateRange.startUtc && dateRange.endUtc) {
+            sql += ' AND us.session_start >= ? AND us.session_start < ?';
+            params.push(dateRange.startUtc, dateRange.endUtc);
         }
 
         sql += `
@@ -243,6 +242,7 @@ class BoothRepository extends BaseRepository {
     }
 
     async getFlowSessions(boothId, date = null) {
+        const dateRange = date ? getGMT8DateRange(date) : { startUtc: null, endUtc: null };
         let sql = `
             SELECT
                 gfs.id,
@@ -264,9 +264,9 @@ class BoothRepository extends BaseRepository {
         `;
         const params = [boothId];
 
-        if (date) {
-            sql += ` AND ${buildGMT8DateFilter('gfs.started_at')}`;
-            params.push(date);
+        if (dateRange.startUtc && dateRange.endUtc) {
+            sql += ' AND gfs.started_at >= ? AND gfs.started_at < ?';
+            params.push(dateRange.startUtc, dateRange.endUtc);
         }
 
         sql += ' ORDER BY gfs.started_at ASC, gfs.id ASC';
@@ -274,6 +274,7 @@ class BoothRepository extends BaseRepository {
     }
 
     async getFlowEvents(boothId, date = null) {
+        const dateRange = date ? getGMT8DateRange(date) : { startUtc: null, endUtc: null };
         let sql = `
             SELECT
                 e.id,
@@ -296,9 +297,9 @@ class BoothRepository extends BaseRepository {
         `;
         const params = [boothId];
 
-        if (date) {
-            sql += ` AND ${buildGMT8DateFilter('gfs.started_at')}`;
-            params.push(date);
+        if (dateRange.startUtc && dateRange.endUtc) {
+            sql += ' AND gfs.started_at >= ? AND gfs.started_at < ?';
+            params.push(dateRange.startUtc, dateRange.endUtc);
         }
 
         sql += ' ORDER BY e.flow_session_id ASC, e.created_at ASC, e.id ASC';
