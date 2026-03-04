@@ -755,11 +755,11 @@ class GameService extends BaseService {
         }
 
         // 基礎查詢條件
-        let whereClause = 'WHERE gs.game_id = ? AND gs.project_id = ?';
+        let whereClause = 'WHERE us.game_id = ? AND us.project_id = ?';
         let params = [gameId, project_id];
 
         if (date) {
-            whereClause += ' AND DATE(gs.session_start) = ?';
+            whereClause += ' AND DATE(us.session_start) = ?';
             params.push(date);
         }
 
@@ -849,22 +849,25 @@ class GameService extends BaseService {
      */
     async getUserJourney(traceId) {
         // 並行查詢用戶資訊和遊戲會話
-        const [userInfo, gameSessions, redemptions, interactions, gameLogs] = await Promise.all([
+        const [userInfo, fallbackUserInfo, gameSessions, redemptions, interactions, gameLogs] = await Promise.all([
             this.gameRepo.findUserInfoByTraceId(traceId),
+            this.gameRepo.findFlowUserInfoByTraceId(traceId),
             this.gameRepo.findUserGameSessions(traceId),
             this.voucherRepo.findRedemptions({ traceId }),
             this.gameRepo.findUserInteractions(traceId),
             this.gameRepo.findUserGameLogs(traceId)
         ]);
 
-        if (!userInfo) {
+        const resolvedUserInfo = userInfo || fallbackUserInfo;
+
+        if (!resolvedUserInfo) {
             this.throwError(this.ErrorCodes.NOT_FOUND, { message: '找不到用戶資料' });
         }
 
         this.log('getUserJourney', { traceId, sessions: gameSessions.length });
 
         return {
-            user_info: userInfo,
+            user_info: resolvedUserInfo,
             game_sessions: gameSessions,
             redemptions: redemptions,
             interactions: interactions,

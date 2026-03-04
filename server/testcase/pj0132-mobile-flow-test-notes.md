@@ -118,11 +118,22 @@ admin 黑箱腳本：
   - `/api/admin/tracking/game-flows/stats?project_code=PJ0131&window=today`
   - `/api/admin/tracking/game-flows/funnel?project_code=PJ0131&game_code=tiger-mobile&booth_code=TIGER&window=today`
   - `/api/admin/tracking/game-flows/funnel?project_code=PJ0131&game_code=lantern-mobile&booth_code=LANTERN&window=today`
+  - `/admin/game-analytics/api/daily-users?date=YYYY-MM-DD&project_id=<PJ0131_ID>`
+  - `/admin/game-analytics/api/leaderboard?date=YYYY-MM-DD&project_id=<PJ0131_ID>`
+  - `/admin/game-analytics/api/user-journey/:traceId`
+  - `/api/admin/games/:gameId/stats?project_id=<PJ0131_ID>&type=summary&date=YYYY-MM-DD`
 - remote VPS 補充：
   - 若 `backend-pj0132.miceai.ai` 在 VPS 上呈現 self-signed chain，使用 `npm run verify:pj0132:all:remote`
   - 這只對驗證腳本關閉 Node TLS 檢查，預設 `verify:pj0132:*` 仍維持嚴格憑證驗證
   - 若 VPS 自己打公開域名仍拿到非 app 標準回應，改用 `npm run verify:pj0132:all:vps-local`
   - `vps-local` 直打 `http://127.0.0.1:9994`，用來驗證 pm2 / app / DB / admin analytics 鏈路
+
+Legacy admin compatibility 重點：
+
+- 舊 admin gameplay 頁面仍以 `game_sessions` / `game_logs` 為模型，但 PJ0132 mobile flow 只寫 `game_flow_sessions` / `game_stage_events`
+- 相容層需把兩套資料源合併成 unified session / log source，避免 PJ0132 在舊頁面看起來是空的
+- `daily-users` 不能只從 `form_submissions` 出發，因為 PJ0132 手機玩家 trace 可能沒有報名資料
+- `user-journey` 對純 flow trace 要能回匿名玩家資料，而不是直接 404
 
 建議補充：
 

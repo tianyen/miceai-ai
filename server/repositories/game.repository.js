@@ -5,6 +5,118 @@
  */
 const BaseRepository = require('./base.repository');
 
+function buildUnifiedSessionsCTE() {
+    return `
+        WITH unified_sessions AS (
+            SELECT
+                gs.id,
+                'legacy:' || gs.id AS session_key,
+                'legacy' AS source_type,
+                gs.project_id,
+                gs.game_id,
+                gs.booth_id,
+                gs.trace_id,
+                gs.user_id,
+                gs.session_start,
+                gs.session_end,
+                gs.total_play_time,
+                gs.final_score,
+                gs.voucher_earned,
+                gs.voucher_id,
+                NULL AS flow_session_id,
+                CASE WHEN gs.session_end IS NULL THEN 'active' ELSE 'completed' END AS status,
+                NULL AS entry_stage_id,
+                NULL AS exit_stage_id,
+                NULL AS completion_stage_id
+            FROM game_sessions gs
+
+            UNION ALL
+
+            SELECT
+                gfs.id,
+                'flow:' || gfs.id AS session_key,
+                'flow' AS source_type,
+                gfs.project_id,
+                gfs.game_id,
+                gfs.booth_id,
+                gfs.trace_id,
+                NULL AS user_id,
+                gfs.started_at AS session_start,
+                gfs.ended_at AS session_end,
+                CASE
+                    WHEN gfs.ended_at IS NOT NULL THEN
+                        CASE
+                            WHEN CAST((julianday(gfs.ended_at) - julianday(gfs.started_at)) * 86400 AS INTEGER) > 0
+                                THEN CAST((julianday(gfs.ended_at) - julianday(gfs.started_at)) * 86400 AS INTEGER)
+                            ELSE 0
+                        END
+                    WHEN gfs.last_event_at IS NOT NULL THEN
+                        CASE
+                            WHEN CAST((julianday(gfs.last_event_at) - julianday(gfs.started_at)) * 86400 AS INTEGER) > 0
+                                THEN CAST((julianday(gfs.last_event_at) - julianday(gfs.started_at)) * 86400 AS INTEGER)
+                            ELSE 0
+                        END
+                    ELSE 0
+                END AS total_play_time,
+                0 AS final_score,
+                0 AS voucher_earned,
+                NULL AS voucher_id,
+                gfs.flow_session_id,
+                gfs.status,
+                gfs.entry_stage_id,
+                gfs.exit_stage_id,
+                gfs.completion_stage_id
+            FROM game_flow_sessions gfs
+        )
+    `;
+}
+
+function buildUnifiedLogsCTE() {
+    return `
+        WITH unified_logs AS (
+            SELECT
+                gl.id,
+                'legacy:' || gl.id AS log_key,
+                'legacy' AS source_type,
+                gl.game_id,
+                gl.booth_id,
+                gl.trace_id,
+                gl.log_level,
+                gl.message,
+                gl.user_action,
+                gl.score,
+                gl.play_time,
+                gl.created_at
+            FROM game_logs gl
+
+            UNION ALL
+
+            SELECT
+                gse.id,
+                'flow:' || gse.id AS log_key,
+                'flow' AS source_type,
+                gse.game_id,
+                gse.booth_id,
+                gse.trace_id,
+                CASE
+                    WHEN gse.event_type IN ('session_end', 'stage_submit', 'throw_success', 'upload_success') THEN 'success'
+                    WHEN gse.event_type IN ('session_fail', 'flow_retry', 'preview_restart', 'upload_fail') THEN 'warning'
+                    ELSE 'info'
+                END AS log_level,
+                '流程事件: ' || gse.stage_id || ' / ' || gse.event_type AS message,
+                gse.event_type AS user_action,
+                0 AS score,
+                CASE
+                    WHEN gse.duration_ms IS NOT NULL AND gse.duration_ms > 0
+                        THEN CAST(gse.duration_ms / 1000 AS INTEGER)
+                    ELSE 0
+                END AS play_time,
+                gse.created_at
+            FROM game_stage_events gse
+        )
+    `;
+}
+
 class GameRepository extends BaseRepository {
     constructor() {
         super('games');
@@ -334,13 +446,14 @@ class GameRepository extends BaseRepository {
      */
     async getGameStats(gameId, projectId) {
         const stats = await this.db.get(`
+            ${buildUnifiedSessionsCTE()}
             SELECT
                 COUNT(*) as total_sessions,
                 COUNT(CASE WHEN session_end IS NOT NULL THEN 1 END) as completed_sessions,
                 AVG(final_score) as avg_score,
                 MAX(final_score) as max_score,
                 AVG(total_play_time) as avg_play_time
-            FROM game_sessions
+            FROM unified_sessions
             WHERE game_id = ? AND project_id = ?
         `, [gameId, projectId]);
 
@@ -490,31 +603,37 @@ class GameRepository extends BaseRepository {
         const offset = (page - 1) * limit;
 
         let query = `
+            ${buildUnifiedSessionsCTE()}
             SELECT
-                gs.*,
+                us.*,
                 g.game_name_zh,
                 g.game_name_en,
                 p.project_name,
                 v.voucher_name
-            FROM game_sessions gs
-            LEFT JOIN games g ON gs.game_id = g.id
-            LEFT JOIN event_projects p ON gs.project_id = p.id
-            LEFT JOIN vouchers v ON gs.voucher_id = v.id
-            WHERE gs.game_id = ?
+            FROM unified_sessions us
+            LEFT JOIN games g ON us.game_id = g.id
+            LEFT JOIN event_projects p ON us.project_id = p.id
+            LEFT JOIN vouchers v ON us.voucher_id = v.id
+            WHERE us.game_id = ?
         `;
-        let countQuery = 'SELECT COUNT(*) as total FROM game_sessions WHERE game_id = ?';
+        let countQuery = `
+            ${buildUnifiedSessionsCTE()}
+            SELECT COUNT(*) as total
+            FROM unified_sessions
+            WHERE game_id = ?
+        `;
         let params = [gameId];
         let countParams = [gameId];
 
         if (trace_id && trace_id.trim()) {
-            query += ` AND gs.trace_id LIKE ?`;
+            query += ` AND us.trace_id LIKE ?`;
             countQuery += ` AND trace_id LIKE ?`;
             const searchTerm = `%${trace_id.trim()}%`;
             params.push(searchTerm);
             countParams.push(searchTerm);
         }
 
-        query += ` ORDER BY gs.session_start DESC LIMIT ? OFFSET ?`;
+        query += ` ORDER BY us.session_start DESC LIMIT ? OFFSET ?`;
         params.push(parseInt(limit), parseInt(offset));
 
         const sessions = await this.db.query(query, params);
@@ -543,18 +662,19 @@ class GameRepository extends BaseRepository {
      */
     async getSummaryStats(whereClause, params) {
         const summary = await this.db.get(`
+            ${buildUnifiedSessionsCTE()}
             SELECT
-                COUNT(DISTINCT gs.trace_id) as total_players,
-                COUNT(gs.id) as total_sessions,
-                AVG(gs.final_score) as avg_score,
-                MAX(gs.final_score) as max_score,
-                MIN(gs.final_score) as min_score,
-                AVG(gs.total_play_time) as avg_play_time,
-                MIN(gs.total_play_time) as min_play_time,
-                MAX(gs.total_play_time) as max_play_time
-            FROM game_sessions gs
+                COUNT(DISTINCT us.trace_id) as total_players,
+                COUNT(us.session_key) as total_sessions,
+                AVG(us.final_score) as avg_score,
+                MAX(us.final_score) as max_score,
+                MIN(us.final_score) as min_score,
+                AVG(us.total_play_time) as avg_play_time,
+                MIN(us.total_play_time) as min_play_time,
+                MAX(us.total_play_time) as max_play_time
+            FROM unified_sessions us
             ${whereClause}
-              AND gs.session_end IS NOT NULL
+              AND us.session_end IS NOT NULL
         `, params);
 
         return {
@@ -577,14 +697,15 @@ class GameRepository extends BaseRepository {
      */
     async getHourlyStats(whereClause, params) {
         const hourlyStats = await this.db.query(`
+            ${buildUnifiedSessionsCTE()}
             SELECT
-                strftime('%Y-%m-%d %H:00', gs.session_start) as hour,
-                COUNT(DISTINCT gs.trace_id) as player_count,
-                COUNT(gs.id) as session_count,
-                AVG(gs.final_score) as avg_score
-            FROM game_sessions gs
+                strftime('%Y-%m-%d %H:00', us.session_start) as hour,
+                COUNT(DISTINCT us.trace_id) as player_count,
+                COUNT(us.session_key) as session_count,
+                AVG(us.final_score) as avg_score
+            FROM unified_sessions us
             ${whereClause}
-              AND gs.session_end IS NOT NULL
+              AND us.session_end IS NOT NULL
             GROUP BY hour
             ORDER BY hour DESC
             LIMIT 24
@@ -608,19 +729,23 @@ class GameRepository extends BaseRepository {
      */
     async getFastestPlayers(whereClause, params) {
         const fastest = await this.db.query(`
+            ${buildUnifiedSessionsCTE()}
             SELECT
-                gs.trace_id,
-                gs.final_score,
-                gs.total_play_time,
-                gs.session_start,
+                us.trace_id,
+                us.final_score,
+                us.total_play_time,
+                us.session_start,
+                us.source_type,
+                us.status,
+                us.completion_stage_id,
                 fs.submitter_name,
                 fs.submitter_email
-            FROM game_sessions gs
-            LEFT JOIN form_submissions fs ON gs.trace_id = fs.trace_id
+            FROM unified_sessions us
+            LEFT JOIN form_submissions fs ON us.trace_id = fs.trace_id
             ${whereClause}
-              AND gs.session_end IS NOT NULL
-              AND gs.total_play_time > 0
-            ORDER BY gs.total_play_time ASC
+              AND us.session_end IS NOT NULL
+              AND us.total_play_time > 0
+            ORDER BY us.total_play_time ASC
             LIMIT 10
         `, params);
 
@@ -631,7 +756,10 @@ class GameRepository extends BaseRepository {
                 email: row.submitter_email,
                 score: row.final_score,
                 play_time: row.total_play_time,
-                session_start: row.session_start
+                session_start: row.session_start,
+                source_type: row.source_type,
+                session_status: row.status,
+                completion_stage_id: row.completion_stage_id
             }))
         };
     }
@@ -644,18 +772,22 @@ class GameRepository extends BaseRepository {
      */
     async getTopScores(whereClause, params) {
         const topScores = await this.db.query(`
+            ${buildUnifiedSessionsCTE()}
             SELECT
-                gs.trace_id,
-                gs.final_score,
-                gs.total_play_time,
-                gs.session_start,
+                us.trace_id,
+                us.final_score,
+                us.total_play_time,
+                us.session_start,
+                us.source_type,
+                us.status,
+                us.completion_stage_id,
                 fs.submitter_name,
                 fs.submitter_email
-            FROM game_sessions gs
-            LEFT JOIN form_submissions fs ON gs.trace_id = fs.trace_id
+            FROM unified_sessions us
+            LEFT JOIN form_submissions fs ON us.trace_id = fs.trace_id
             ${whereClause}
-              AND gs.session_end IS NOT NULL
-            ORDER BY gs.final_score DESC
+              AND us.session_end IS NOT NULL
+            ORDER BY us.final_score DESC, us.total_play_time ASC, us.session_start DESC
             LIMIT 10
         `, params);
 
@@ -666,7 +798,10 @@ class GameRepository extends BaseRepository {
                 email: row.submitter_email,
                 score: row.final_score,
                 play_time: row.total_play_time,
-                session_start: row.session_start
+                session_start: row.session_start,
+                source_type: row.source_type,
+                session_status: row.status,
+                completion_stage_id: row.completion_stage_id
             }))
         };
     }
@@ -682,43 +817,89 @@ class GameRepository extends BaseRepository {
      * @returns {Promise<Object>}
      */
     async getDailyUsers(targetDate, projectId = null) {
-        let query = `
+        const registrationProjectFilter = projectId ? ' AND fs.project_id = ?' : '';
+        const sessionProjectFilter = projectId ? ' AND us.project_id = ?' : '';
+
+        const params = [targetDate, targetDate];
+        if (projectId) {
+            params.push(projectId);
+        }
+        params.push(targetDate);
+        if (projectId) {
+            params.push(projectId);
+        }
+        params.push(targetDate);
+        if (projectId) {
+            params.push(projectId);
+        }
+
+        const users = await this.db.query(`
+            ${buildUnifiedSessionsCTE()}
+            ,
+            registration_traces AS (
+                SELECT DISTINCT
+                    fs.trace_id,
+                    fs.project_id
+                FROM form_submissions fs
+                LEFT JOIN checkin_records cr ON fs.trace_id = cr.trace_id
+                WHERE (
+                    DATE(fs.created_at) = ? OR
+                    DATE(cr.checkin_time) = ?
+                )
+                ${registrationProjectFilter}
+            ),
+            session_traces AS (
+                SELECT
+                    us.trace_id,
+                    MIN(us.project_id) AS project_id,
+                    MIN(us.session_start) AS first_session_start
+                FROM unified_sessions us
+                WHERE DATE(us.session_start) = ?
+                ${sessionProjectFilter}
+                GROUP BY us.trace_id
+            ),
+            candidate_traces AS (
+                SELECT trace_id, project_id FROM registration_traces
+                UNION
+                SELECT trace_id, project_id FROM session_traces
+            )
             SELECT
-                fs.trace_id,
+                ct.trace_id,
+                fs.user_id,
+                COALESCE(fs.submitter_name, '匿名玩家') AS submitter_name,
+                fs.submitter_email,
+                fs.company_name AS submitter_company,
+                fs.submitter_phone,
+                COALESCE(fs.project_id, st.project_id, ct.project_id) AS project_id,
+                p.project_name,
+                COALESCE(fs.created_at, st.first_session_start) AS registration_time,
+                cr.checkin_time AS checked_in_at,
+                COUNT(DISTINCT us.session_key) AS game_sessions,
+                MAX(us.final_score) AS highest_score,
+                COUNT(DISTINCT vr.id) AS vouchers_redeemed
+            FROM candidate_traces ct
+            LEFT JOIN form_submissions fs ON ct.trace_id = fs.trace_id
+            LEFT JOIN session_traces st ON ct.trace_id = st.trace_id
+            LEFT JOIN event_projects p ON p.id = COALESCE(fs.project_id, st.project_id, ct.project_id)
+            LEFT JOIN checkin_records cr ON ct.trace_id = cr.trace_id
+            LEFT JOIN unified_sessions us
+                ON ct.trace_id = us.trace_id
+               AND DATE(us.session_start) = ?
+               ${sessionProjectFilter}
+            LEFT JOIN voucher_redemptions vr ON ct.trace_id = vr.trace_id
+            GROUP BY
+                ct.trace_id,
                 fs.user_id,
                 fs.submitter_name,
                 fs.submitter_email,
                 fs.company_name,
                 fs.submitter_phone,
-                fs.project_id,
+                COALESCE(fs.project_id, st.project_id, ct.project_id),
                 p.project_name,
-                fs.created_at as registration_time,
-                cr.checkin_time,
-                COUNT(DISTINCT gs.id) as game_sessions,
-                MAX(gs.final_score) as highest_score,
-                COUNT(DISTINCT vr.id) as vouchers_redeemed
-            FROM form_submissions fs
-            LEFT JOIN event_projects p ON fs.project_id = p.id
-            LEFT JOIN checkin_records cr ON fs.trace_id = cr.trace_id
-            LEFT JOIN game_sessions gs ON fs.trace_id = gs.trace_id
-            LEFT JOIN voucher_redemptions vr ON fs.trace_id = vr.trace_id
-            WHERE (
-                DATE(fs.created_at) = ? OR
-                DATE(cr.checkin_time) = ? OR
-                DATE(gs.session_start) = ?
-            )
-        `;
-
-        const params = [targetDate, targetDate, targetDate];
-
-        if (projectId) {
-            query += ' AND fs.project_id = ?';
-            params.push(projectId);
-        }
-
-        query += ' GROUP BY fs.trace_id ORDER BY fs.created_at DESC';
-
-        const users = await this.db.query(query, params);
+                COALESCE(fs.created_at, st.first_session_start),
+                cr.checkin_time
+            ORDER BY COALESCE(fs.created_at, st.first_session_start) DESC
+        `, params);
 
         return { users, date: targetDate };
     }
@@ -735,18 +916,42 @@ class GameRepository extends BaseRepository {
                 fs.user_id,
                 fs.submitter_name,
                 fs.submitter_email,
-                fs.company_name,
+                fs.company_name AS submitter_company,
                 fs.submitter_phone,
-                fs.position,
+                fs.position AS submitter_title,
                 fs.status,
                 fs.project_id,
                 p.project_name,
                 fs.created_at as registration_time,
-                cr.checkin_time
+                cr.checkin_time AS checked_in_at
             FROM form_submissions fs
             LEFT JOIN event_projects p ON fs.project_id = p.id
             LEFT JOIN checkin_records cr ON fs.trace_id = cr.trace_id
             WHERE fs.trace_id = ?
+        `, [traceId]);
+    }
+
+    async findFlowUserInfoByTraceId(traceId) {
+        return this.db.get(`
+            ${buildUnifiedSessionsCTE()}
+            SELECT
+                us.trace_id,
+                us.user_id,
+                '匿名玩家' AS submitter_name,
+                NULL AS submitter_email,
+                NULL AS submitter_company,
+                NULL AS submitter_phone,
+                NULL AS submitter_title,
+                us.status,
+                us.project_id,
+                p.project_name,
+                us.session_start AS registration_time,
+                NULL AS checked_in_at
+            FROM unified_sessions us
+            LEFT JOIN event_projects p ON us.project_id = p.id
+            WHERE us.trace_id = ?
+            ORDER BY us.session_start DESC
+            LIMIT 1
         `, [traceId]);
     }
 
@@ -757,26 +962,33 @@ class GameRepository extends BaseRepository {
      */
     async findUserGameSessions(traceId) {
         return this.db.query(`
+            ${buildUnifiedSessionsCTE()}
             SELECT
-                gs.id,
-                gs.game_id,
+                us.id,
+                us.source_type,
+                us.flow_session_id,
+                us.status AS session_status,
+                us.entry_stage_id,
+                us.exit_stage_id,
+                us.completion_stage_id,
+                us.game_id,
                 g.game_name_zh,
                 g.game_name_en,
-                gs.booth_id,
+                us.booth_id,
                 b.booth_name,
                 b.booth_code,
-                gs.session_start,
-                gs.session_end,
-                gs.total_play_time,
-                gs.final_score,
-                gs.voucher_earned,
+                us.session_start,
+                us.session_end,
+                us.total_play_time,
+                us.final_score,
+                us.voucher_earned,
                 v.voucher_name
-            FROM game_sessions gs
-            LEFT JOIN games g ON gs.game_id = g.id
-            LEFT JOIN booths b ON gs.booth_id = b.id
-            LEFT JOIN vouchers v ON gs.voucher_id = v.id
-            WHERE gs.trace_id = ?
-            ORDER BY gs.session_start ASC
+            FROM unified_sessions us
+            LEFT JOIN games g ON us.game_id = g.id
+            LEFT JOIN booths b ON us.booth_id = b.id
+            LEFT JOIN vouchers v ON us.voucher_id = v.id
+            WHERE us.trace_id = ?
+            ORDER BY us.session_start ASC
         `, [traceId]);
     }
 
@@ -804,23 +1016,25 @@ class GameRepository extends BaseRepository {
      */
     async findUserGameLogs(traceId) {
         return this.db.query(`
+            ${buildUnifiedLogsCTE()}
             SELECT
-                gl.id,
-                gl.game_id,
+                ul.id,
+                ul.source_type,
+                ul.game_id,
                 g.game_name_zh,
-                gl.booth_id,
+                ul.booth_id,
                 b.booth_name,
-                gl.log_level,
-                gl.message,
-                gl.user_action,
-                gl.score,
-                gl.play_time,
-                gl.created_at
-            FROM game_logs gl
-            LEFT JOIN games g ON gl.game_id = g.id
-            LEFT JOIN booths b ON gl.booth_id = b.id
-            WHERE gl.trace_id = ?
-            ORDER BY gl.created_at DESC
+                ul.log_level,
+                ul.message,
+                ul.user_action,
+                ul.score,
+                ul.play_time,
+                ul.created_at
+            FROM unified_logs ul
+            LEFT JOIN games g ON ul.game_id = g.id
+            LEFT JOIN booths b ON ul.booth_id = b.id
+            WHERE ul.trace_id = ?
+            ORDER BY ul.created_at DESC
             LIMIT 20
         `, [traceId]);
     }
@@ -839,40 +1053,43 @@ class GameRepository extends BaseRepository {
      */
     async getLeaderboard(targetDate, projectId = null, gameId = null, limit = 10) {
         let query = `
+            ${buildUnifiedSessionsCTE()}
             SELECT
-                gs.trace_id,
+                us.trace_id,
                 fs.user_id,
                 fs.submitter_name,
-                fs.company_name,
-                gs.game_id,
+                fs.company_name AS submitter_company,
+                us.game_id,
                 g.game_name_zh,
-                gs.booth_id,
+                us.booth_id,
                 b.booth_name,
-                MAX(gs.final_score) as highest_score,
-                gs.total_play_time,
-                gs.session_start
-            FROM game_sessions gs
-            LEFT JOIN form_submissions fs ON gs.trace_id = fs.trace_id
-            LEFT JOIN games g ON gs.game_id = g.id
-            LEFT JOIN booths b ON gs.booth_id = b.id
-            WHERE DATE(gs.session_start) = ?
+                MAX(us.final_score) as highest_score,
+                MIN(CASE WHEN us.total_play_time > 0 THEN us.total_play_time END) as total_play_time,
+                MAX(us.session_start) as session_start,
+                MAX(us.source_type) as source_type,
+                MAX(us.completion_stage_id) as completion_stage_id
+            FROM unified_sessions us
+            LEFT JOIN form_submissions fs ON us.trace_id = fs.trace_id
+            LEFT JOIN games g ON us.game_id = g.id
+            LEFT JOIN booths b ON us.booth_id = b.id
+            WHERE DATE(us.session_start) = ?
         `;
 
         const params = [targetDate];
 
         if (projectId) {
-            query += ' AND gs.project_id = ?';
+            query += ' AND us.project_id = ?';
             params.push(projectId);
         }
 
         if (gameId) {
-            query += ' AND gs.game_id = ?';
+            query += ' AND us.game_id = ?';
             params.push(gameId);
         }
 
         query += `
-            GROUP BY gs.trace_id, gs.game_id
-            ORDER BY highest_score DESC
+            GROUP BY us.trace_id, us.game_id, us.booth_id
+            ORDER BY highest_score DESC, total_play_time ASC, session_start DESC
             LIMIT ?
         `;
         params.push(parseInt(limit));

@@ -22,6 +22,7 @@ const ORIGIN = process.env.PJ0132_ORIGIN || 'https://tianyen-service.com:4049';
 const USERNAME = process.env.PJ0132_ADMIN_USERNAME || 'admin';
 const PASSWORD = process.env.PJ0132_ADMIN_PASSWORD || 'Admin1qa';
 const INSECURE_TLS = /^(1|true|yes)$/i.test(String(process.env.PJ0132_INSECURE_TLS || '').trim());
+const TARGET_DATE = process.env.PJ0132_TARGET_DATE || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
 
 const colors = {
     reset: '\x1b[0m',
@@ -225,6 +226,14 @@ function getStage(stages, stageId) {
     return (stages || []).find((stage) => stage.stage_id === stageId);
 }
 
+function getProject(items, projectCode) {
+    return (items || []).find((item) => item.project_code === projectCode);
+}
+
+function getGame(items, gameCode) {
+    return (items || []).find((item) => item.game_code === gameCode);
+}
+
 async function loginAdmin() {
     const loginPage = await requestPage('GET', '/admin/login');
     const csrfToken = parseHtmlCsrfToken(loginPage.body);
@@ -326,6 +335,102 @@ async function verifyLanternFunnel(cookie) {
     assert(Number(throwLantern.reached_sessions || 0) > 0, 'lantern throw_lantern reached_sessions 應大於 0');
 }
 
+async function fetchProjects(cookie) {
+    const response = await requestJson(
+        'GET',
+        '/api/admin/projects?page=1&limit=200&search=PJ0131',
+        null,
+        { cookie }
+    );
+
+    assert(response.status === 200, `projects 預期 HTTP 200，實際 ${response.status}`);
+    assert(response.body?.success === true, 'projects 回應 success !== true');
+
+    return response.body?.data?.projects || [];
+}
+
+async function fetchGames(cookie) {
+    const response = await requestJson(
+        'GET',
+        '/api/admin/games?page=1&limit=200&search=%E6%89%8B%E6%A9%9F%E7%AB%AF',
+        null,
+        { cookie }
+    );
+
+    assert(response.status === 200, `games 預期 HTTP 200，實際 ${response.status}`);
+    assert(response.body?.success === true, 'games 回應 success !== true');
+
+    return response.body?.data?.games || [];
+}
+
+async function verifyLegacyDailyUsers(cookie, projectId) {
+    const response = await requestJson(
+        'GET',
+        `/admin/game-analytics/api/daily-users?date=${encodeURIComponent(TARGET_DATE)}&project_id=${projectId}`,
+        null,
+        { cookie }
+    );
+
+    assert(response.status === 200, `legacy daily-users 預期 HTTP 200，實際 ${response.status}`);
+    assert(response.body?.success === true, 'legacy daily-users 回應 success !== true');
+
+    const users = response.body?.data?.users || [];
+    assert(users.length > 0, 'legacy daily-users 應至少有 1 位使用者');
+    assert(users.some((user) => Number(user.game_sessions || 0) > 0), 'legacy daily-users 應有至少 1 位使用者具備 game_sessions');
+
+    return users;
+}
+
+async function verifyLegacyLeaderboard(cookie, projectId) {
+    const response = await requestJson(
+        'GET',
+        `/admin/game-analytics/api/leaderboard?date=${encodeURIComponent(TARGET_DATE)}&limit=10&project_id=${projectId}`,
+        null,
+        { cookie }
+    );
+
+    assert(response.status === 200, `legacy leaderboard 預期 HTTP 200，實際 ${response.status}`);
+    assert(response.body?.success === true, 'legacy leaderboard 回應 success !== true');
+
+    const leaderboard = response.body?.data?.leaderboard || [];
+    assert(leaderboard.length > 0, 'legacy leaderboard 應至少有 1 筆資料');
+    assert(leaderboard.some((item) => item.game_name_zh === '錢母-手機端'), 'legacy leaderboard 缺少 錢母-手機端');
+    assert(leaderboard.some((item) => item.game_name_zh === '天燈-手機端'), 'legacy leaderboard 缺少 天燈-手機端');
+}
+
+async function verifyLegacyUserJourney(cookie, traceId) {
+    const response = await requestJson(
+        'GET',
+        `/admin/game-analytics/api/user-journey/${encodeURIComponent(traceId)}`,
+        null,
+        { cookie }
+    );
+
+    assert(response.status === 200, `legacy user-journey 預期 HTTP 200，實際 ${response.status}`);
+    assert(response.body?.success === true, 'legacy user-journey 回應 success !== true');
+
+    const data = response.body?.data;
+    assert(data?.user_info?.trace_id === traceId, `legacy user-journey trace_id 不符，實際 ${data?.user_info?.trace_id || 'null'}`);
+    assert(Array.isArray(data?.game_sessions) && data.game_sessions.length > 0, 'legacy user-journey 缺少 game_sessions');
+    assert(data.game_sessions.some((session) => session.source_type === 'flow'), 'legacy user-journey 應包含 flow session');
+}
+
+async function verifyLegacyGameStats(cookie, gameId, projectId, expectedGameName) {
+    const response = await requestJson(
+        'GET',
+        `/api/admin/games/${gameId}/stats?project_id=${projectId}&type=summary&date=${encodeURIComponent(TARGET_DATE)}`,
+        null,
+        { cookie }
+    );
+
+    assert(response.status === 200, `legacy game stats(${expectedGameName}) 預期 HTTP 200，實際 ${response.status}`);
+    assert(response.body?.success === true, `legacy game stats(${expectedGameName}) 回應 success !== true`);
+
+    const summary = response.body?.data || {};
+    assert(Number(summary.total_sessions || 0) > 0, `legacy game stats(${expectedGameName}) total_sessions 應大於 0`);
+    assert(Number(summary.total_players || 0) > 0, `legacy game stats(${expectedGameName}) total_players 應大於 0`);
+}
+
 async function main() {
     console.log(`${colors.bold}PJ0132 Admin Analytics Black-Box Test${colors.reset}`);
     console.log(`${colors.dim}BASE_URL: ${BASE_URL}${colors.reset}`);
@@ -334,9 +439,14 @@ async function main() {
     if (INSECURE_TLS) {
         console.log(`${colors.yellow}TLS verify: disabled via PJ0132_INSECURE_TLS${colors.reset}`);
     }
+    console.log(`${colors.dim}Target date: ${TARGET_DATE}${colors.reset}`);
     console.log('');
 
     let cookie = '';
+    let projectId = null;
+    let tigerGameId = null;
+    let lanternGameId = null;
+    let traceId = '';
 
     await runStep('admin login via session cookie', async () => {
         cookie = await loginAdmin();
@@ -352,6 +462,46 @@ async function main() {
 
     await runStep('admin tracking funnel returns LANTERN stage progress', async () => {
         await verifyLanternFunnel(cookie);
+    });
+
+    await runStep('admin can resolve PJ0131 project id and mobile game ids', async () => {
+        const [projects, games] = await Promise.all([
+            fetchProjects(cookie),
+            fetchGames(cookie)
+        ]);
+        const project = getProject(projects, 'PJ0131');
+        const tigerGame = getGame(games, 'tiger-mobile');
+        const lanternGame = getGame(games, 'lantern-mobile');
+
+        assert(project?.id, '無法從 admin projects 取得 PJ0131 project id');
+        assert(tigerGame?.id, '無法從 admin games 取得 tiger-mobile game id');
+        assert(lanternGame?.id, '無法從 admin games 取得 lantern-mobile game id');
+
+        projectId = project.id;
+        tigerGameId = tigerGame.id;
+        lanternGameId = lanternGame.id;
+    });
+
+    await runStep('legacy game analytics daily-users returns mobile flow sessions', async () => {
+        const users = await verifyLegacyDailyUsers(cookie, projectId);
+        traceId = users.find((user) => Number(user.game_sessions || 0) > 0)?.trace_id || '';
+        assert(traceId, 'legacy daily-users 未找到可用 trace_id');
+    });
+
+    await runStep('legacy game analytics leaderboard includes tiger and lantern mobile games', async () => {
+        await verifyLegacyLeaderboard(cookie, projectId);
+    });
+
+    await runStep('legacy game analytics user journey includes flow sessions', async () => {
+        await verifyLegacyUserJourney(cookie, traceId);
+    });
+
+    await runStep('legacy game stats summary returns tiger mobile data', async () => {
+        await verifyLegacyGameStats(cookie, tigerGameId, projectId, 'tiger-mobile');
+    });
+
+    await runStep('legacy game stats summary returns lantern mobile data', async () => {
+        await verifyLegacyGameStats(cookie, lanternGameId, projectId, 'lantern-mobile');
     });
 
     console.log('');

@@ -249,7 +249,10 @@ function renderLeaderboard(leaderboard) {
                 <td>${item.submitter_company || '-'}</td>
                 <td>${item.game_name_zh || '-'}</td>
                 <td>${item.booth_name || '-'}</td>
-                <td class="text-center"><strong>${item.highest_score || 0}</strong></td>
+                <td class="text-center">
+                    <strong>${item.highest_score || 0}</strong>
+                    ${item.source_type === 'flow' ? '<br><span class="badge-info">手機流程</span>' : ''}
+                </td>
                 <td class="text-center">${item.total_play_time || 0} 秒</td>
             </tr>
         `;
@@ -410,6 +413,9 @@ function renderGameSessions(sessions) {
         const startTime = formatDateTimeGMT8(session.session_start);
         const duration = session.total_play_time || 0;
         const score = session.final_score || 0;
+        const isFlowSession = session.source_type === 'flow';
+        const sessionStatus = session.session_status || 'active';
+        const completionStage = session.completion_stage_id || session.exit_stage_id || session.entry_stage_id || '-';
         
         html += `
             <div class="timeline-item">
@@ -417,8 +423,11 @@ function renderGameSessions(sessions) {
                 <div class="timeline-content">
                     <strong>${session.game_name_zh}</strong>
                     ${session.booth_name ? `<span class="badge-info">${session.booth_name}</span>` : ''}
+                    ${isFlowSession ? '<span class="badge-warning">手機流程</span>' : ''}
                     <br>
-                    分數: <strong>${score}</strong> | 時長: ${duration} 秒
+                    ${isFlowSession
+                        ? `狀態: <strong>${sessionStatus}</strong> | 完成階段: ${completionStage} | 時長: ${duration} 秒`
+                        : `分數: <strong>${score}</strong> | 時長: ${duration} 秒`}
                     ${session.voucher_earned && session.voucher_name ? `<br><span class="badge-success">獲得兌換券: ${session.voucher_name}</span>` : ''}
                 </div>
             </div>
@@ -491,4 +500,3 @@ function closeJourneyModal(event) {
 function showNotification(message, type = 'info') {
     alert(message);
 }
-
