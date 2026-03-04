@@ -48,6 +48,17 @@
         </div>
     </div>
 
+    <div class="data-window-banner">
+        <div class="data-window-title">資料視窗</div>
+        <div class="data-window-primary" id="analytics-window-primary">載入中...</div>
+        <div class="data-window-secondary" id="analytics-window-secondary">
+            載入中...
+        </div>
+        <div class="data-window-secondary" id="leaderboard-window-secondary">
+            載入中...
+        </div>
+    </div>
+
     <!-- 統計卡片 -->
     <div class="stats-cards">
         <div class="stat-card">
@@ -222,6 +233,36 @@
     font-size: 28px;
     font-weight: bold;
     color: #333;
+}
+
+.data-window-banner {
+    background: #eef6ff;
+    border: 1px solid #cfe3ff;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 24px;
+}
+
+.data-window-title {
+    color: #1d4ed8;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.data-window-primary {
+    color: #0f172a;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.data-window-secondary {
+    color: #475569;
+    font-size: 13px;
+    margin-top: 4px;
 }
 
 /* 數據表格容器 */

@@ -24,6 +24,14 @@
     </div>
 </div>
 
+<div class="data-window-banner">
+    <div class="data-window-title">資料視窗</div>
+    <div class="data-window-primary" id="data-window-primary">全期間（GMT+8）</div>
+    <div class="data-window-secondary" id="data-window-secondary">
+        未選日期時顯示此攤位全期間資料；選日期後顯示該日 00:00-23:59（GMT+8）統計。
+    </div>
+</div>
+
 <!-- 總覽統計卡片 -->
 <div class="stats-cards">
     <div class="stat-card">
@@ -208,6 +216,35 @@
     font-weight: 500;
 }
 
+.data-window-banner {
+    background: #eef6ff;
+    border: 1px solid #cfe3ff;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+}
+
+.data-window-title {
+    color: #1d4ed8;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.data-window-primary {
+    color: #0f172a;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.data-window-secondary {
+    color: #475569;
+    font-size: 13px;
+}
+
 .analytics-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
@@ -328,6 +365,28 @@ function formatRate(value) {
     return `${Number(value || 0).toFixed(1)}%`;
 }
 
+function formatDateDisplay(dateString) {
+    return String(dateString || '').replace(/-/g, '/');
+}
+
+function updateDataWindow(date = null) {
+    const primary = document.getElementById('data-window-primary');
+    const secondary = document.getElementById('data-window-secondary');
+
+    if (!primary || !secondary) {
+        return;
+    }
+
+    if (date) {
+        primary.textContent = `${formatDateDisplay(date)} 單日資料（GMT+8）`;
+        secondary.textContent = '目前卡片、圖表與漏斗皆以所選日期 00:00-23:59（GMT+8）為統計視窗。';
+        return;
+    }
+
+    primary.textContent = '全期間資料（GMT+8）';
+    secondary.textContent = '目前卡片、圖表與漏斗顯示此攤位自有資料以來的全期間累計結果。';
+}
+
 // 載入統計資料
 async function loadStats(date = null) {
     try {
@@ -339,6 +398,7 @@ async function loadStats(date = null) {
         const data = await response.json();
         
         if (data.success) {
+            updateDataWindow(date);
             updateSummary(data.data.summary);
             updateHourlyChart(data.data.analytics?.hourly_quality || []);
             updateReplayRetry(data.data.analytics?.replay_retry || null);

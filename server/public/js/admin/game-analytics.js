@@ -42,12 +42,63 @@ function buildInfoLine(label, value) {
     return `<p><strong>${label}：</strong>${value}</p>`;
 }
 
+function formatDateDisplay(dateString) {
+    return String(dateString || '').replace(/-/g, '/');
+}
+
+function formatDateTimeInputDisplay(value) {
+    if (!value) {
+        return '';
+    }
+
+    const normalized = String(value).replace('T', ' ');
+    const [datePart, timePart = ''] = normalized.split(' ');
+    const trimmedTime = timePart.slice(0, 5);
+
+    return `${formatDateDisplay(datePart)} ${trimmedTime}`.trim();
+}
+
+function updateDataWindowIndicators() {
+    const date = document.getElementById('date-filter').value;
+    const startAt = document.getElementById('start-at-filter').value;
+    const endAt = document.getElementById('end-at-filter').value;
+    const projectLabel = document.getElementById('project-filter').selectedOptions[0]?.textContent || '全部專案';
+
+    const analyticsPrimary = document.getElementById('analytics-window-primary');
+    const analyticsSecondary = document.getElementById('analytics-window-secondary');
+    const leaderboardSecondary = document.getElementById('leaderboard-window-secondary');
+
+    if (!analyticsPrimary || !analyticsSecondary || !leaderboardSecondary) {
+        return;
+    }
+
+    let analyticsWindow = '全期間資料（GMT+8）';
+    if (startAt && endAt) {
+        analyticsWindow = `自訂時間區間 ${formatDateTimeInputDisplay(startAt)} 至 ${formatDateTimeInputDisplay(endAt)}（GMT+8）`;
+    } else if (startAt) {
+        analyticsWindow = `自訂時間區間自 ${formatDateTimeInputDisplay(startAt)} 起（GMT+8）`;
+    } else if (endAt) {
+        analyticsWindow = `自訂時間區間至 ${formatDateTimeInputDisplay(endAt)} 止（GMT+8）`;
+    } else if (date) {
+        analyticsWindow = `${formatDateDisplay(date)} 單日資料（GMT+8）`;
+    }
+
+    const leaderboardWindow = date
+        ? `${formatDateDisplay(date)} 單日資料（GMT+8）`
+        : '全期間資料（GMT+8）';
+
+    analyticsPrimary.textContent = `${analyticsWindow} | ${projectLabel}`;
+    analyticsSecondary.textContent = '總用戶數、遊戲會話、用戶列表、Session 深度、時長分佈、每小時遊玩與留存圖表會依這個資料視窗更新。';
+    leaderboardSecondary.textContent = `排行榜目前使用：${leaderboardWindow}。開始時間 / 結束時間只影響用戶列表與互動圖表，不影響排行榜。`;
+}
+
 // 頁面載入時執行
 document.addEventListener('DOMContentLoaded', function() {
     // 設定今天的日期
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('date-filter').value = today;
     document.getElementById('page-size-filter').value = '50';
+    updateDataWindowIndicators();
     
     loadProjects();
     loadGames();
@@ -57,15 +108,20 @@ document.addEventListener('DOMContentLoaded', function() {
     ['date-filter', 'project-filter', 'start-at-filter', 'end-at-filter'].forEach((id) => {
         document.getElementById(id).addEventListener('change', () => {
             usersPagination.page = 1;
+            updateDataWindowIndicators();
             loadData();
         });
     });
     document.getElementById('page-size-filter').addEventListener('change', () => {
         usersPagination.page = 1;
         usersPagination.limit = parseInt(document.getElementById('page-size-filter').value, 10) || 50;
+        updateDataWindowIndicators();
         loadUsers();
     });
-    document.getElementById('game-filter').addEventListener('change', loadLeaderboard);
+    document.getElementById('game-filter').addEventListener('change', () => {
+        updateDataWindowIndicators();
+        loadLeaderboard();
+    });
 });
 
 // 載入專案列表
@@ -88,6 +144,8 @@ async function loadProjects() {
                     select.appendChild(option);
                 });
             }
+
+            updateDataWindowIndicators();
         }
     } catch (error) {
         console.error('載入專案列表失敗:', error);
