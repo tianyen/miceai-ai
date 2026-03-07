@@ -15,6 +15,14 @@ const QRCode = require('qrcode');
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[0-9\-\+\s\(\)]{8,20}$/;
 const CHILDREN_AGE_KEYS = ['age_0_6', 'age_6_12', 'age_12_18'];
+const CHILDREN_AGE_RANGE_MAP = Object.freeze({
+    '0-6': 'age_0_6',
+    '6-12': 'age_6_12',
+    '12-18': 'age_12_18',
+    age_0_6: 'age_0_6',
+    age_6_12: 'age_6_12',
+    age_12_18: 'age_12_18'
+});
 
 class RegistrationService extends BaseService {
     constructor() {
@@ -198,6 +206,25 @@ class RegistrationService extends BaseService {
         return CHILDREN_AGE_KEYS.reduce((sum, key) => sum + (childrenAges[key] || 0), 0);
     }
 
+    _buildChildrenAgesFromRange(rawRange, fieldName = 'children_age_type') {
+        if (!this._hasValue(rawRange)) return null;
+
+        const normalizedRange = String(rawRange).trim();
+        const mappedKey = CHILDREN_AGE_RANGE_MAP[normalizedRange];
+
+        if (!mappedKey) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                message: '小孩年齡區間類型必須是 0-6、6-12、12-18',
+                field: fieldName
+            });
+        }
+
+        return CHILDREN_AGE_KEYS.reduce((acc, key) => {
+            acc[key] = key === mappedKey ? 1 : 0;
+            return acc;
+        }, {});
+    }
+
     _normalizeSingleRegistrationPayload(data, formConfig) {
         const enabledFieldSet = new Set([
             ...(formConfig.required_fields || []),
@@ -306,7 +333,8 @@ class RegistrationService extends BaseService {
         let childrenAges = null;
         if (enabledFieldSet.has('children_ages')) {
             const raw = data.childrenAges ?? data.children_ages;
-            assertRequired('children_ages', raw);
+            const childrenAgeType = data.childrenAgeType ?? data.children_age_type;
+            assertRequired('children_ages', this._hasValue(raw) ? raw : childrenAgeType);
 
             if (this._hasValue(raw)) {
                 if (typeof raw !== 'object' || Array.isArray(raw)) {
@@ -333,6 +361,8 @@ class RegistrationService extends BaseService {
                     normalized[key] = parsed;
                 }
                 childrenAges = normalized;
+            } else if (this._hasValue(childrenAgeType)) {
+                childrenAges = this._buildChildrenAgesFromRange(childrenAgeType, 'children_age_type');
             }
         }
 
@@ -454,14 +484,14 @@ class RegistrationService extends BaseService {
             const passCode = Math.random().toString().slice(2, 8);
 
             // 處理小孩的年齡區間 -> childrenAges 格式
-            // 前端傳入 age_range: '0-6', '6-12', '12-18'
+            // 前端可傳入 age_range / children_age_type，下拉選項：0-6 / 6-12 / 12-18
             let childrenAges = null;
-            if (p.isMinor || p.is_minor) {
-                const ageRange = p.ageRange || p.age_range;
+            const participantType = typeof p.type === 'string' ? p.type.trim().toLowerCase() : '';
+            const isMinor = p.isMinor || p.is_minor || participantType === 'child';
+            if (isMinor) {
+                const ageRange = p.ageRange || p.age_range || p.childrenAgeType || p.children_age_type;
                 if (ageRange) {
-                    // 轉換格式：'6-12' -> { age_6_12: 1 }
-                    const key = `age_${ageRange.replace('-', '_')}`;
-                    childrenAges = { [key]: 1 };
+                    childrenAges = this._buildChildrenAgesFromRange(ageRange, 'participants.age_range');
                 }
             }
 

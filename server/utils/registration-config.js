@@ -37,8 +37,10 @@ const FIELD_META = {
     adult_age: { type: 'integer', submit: true, label: '成人年齡', example: 30 },
     children_ages: {
         type: 'object',
+        ui_type: 'age_range_select',
         submit: true,
         label: '小孩年齡區間',
+        option_key: 'children_age_range_options',
         example: { age_0_6: 1, age_6_12: 0, age_12_18: 0 }
     },
     children_count: { type: 'integer', submit: false, label: '小孩人數（自動計算）', example: 1 },
@@ -76,6 +78,11 @@ const DEFAULT_FORM_CONFIG = {
     },
     gender_options: ['男', '女', '其他'],
     title_options: ['先生', '女士', '博士', '教授'],
+    children_age_range_options: [
+        { value: '0-6', key: 'age_0_6', label: '0-6歲' },
+        { value: '6-12', key: 'age_6_12', label: '6-12歲' },
+        { value: '12-18', key: 'age_12_18', label: '12-18歲' }
+    ],
     feature_toggles: {
         show_event_info: true,
         show_booth_info: false,
@@ -142,6 +149,9 @@ function normalizeFormConfig(rawConfig) {
     const titleOptions = Array.isArray(parsed.title_options) && parsed.title_options.length > 0
         ? parsed.title_options
         : DEFAULT_FORM_CONFIG.title_options;
+    const childrenAgeRangeOptions = Array.isArray(parsed.children_age_range_options) && parsed.children_age_range_options.length > 0
+        ? parsed.children_age_range_options
+        : DEFAULT_FORM_CONFIG.children_age_range_options;
 
     const featureToggles = {
         ...DEFAULT_FORM_CONFIG.feature_toggles,
@@ -159,6 +169,7 @@ function normalizeFormConfig(rawConfig) {
         },
         gender_options: genderOptions,
         title_options: titleOptions,
+        children_age_range_options: childrenAgeRangeOptions,
         feature_toggles: featureToggles,
         interstitial_effect: interstitialEffect
     };
@@ -231,6 +242,9 @@ function buildFrontendFields(formConfig) {
 
         if (meta.option_key) {
             field.options = config[meta.option_key] || [];
+        }
+        if (meta.ui_type) {
+            field.ui_type = meta.ui_type;
         }
 
         return field;

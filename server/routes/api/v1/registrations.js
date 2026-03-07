@@ -32,6 +32,8 @@ const { body, param, validationResult } = require('express-validator');
 
 // 驗證手機號碼格式
 const phoneRegex = /^[0-9\-\+\s\(\)]{8,20}$/;
+const childrenAgeRangeValues = ['0-6', '6-12', '12-18', 'age_0_6', 'age_6_12', 'age_12_18'];
+const participantTypeValues = ['adult', 'child'];
 
 /**
  * 處理 Service 層錯誤（AppError）
@@ -94,6 +96,7 @@ function handleServiceError(res, error, defaultMessage) {
  *           notes: '福利團體報名',         // 留言備註
  *           adult_age: null,               // 成年人年齡 (18-120)
  *           children_ages: { age_0_6: 1, age_6_12: 2, age_12_18: 0 },  // 小朋友年齡區間人數（自動計算 children_count）
+ *           children_age_type: '6-12',     // 小孩年齡區間類型（下拉選單，可與 children_ages 擇一）
  *           marketing_consent: false       // 行銷同意
  *         })
  *       });
@@ -132,6 +135,7 @@ function handleServiceError(res, error, defaultMessage) {
  *       | notes | string | ⭕ | 留言備註 (最多500字) |
  *       | adult_age | integer | ⭕ | 成年人年齡 (18-120) |
  *       | children_ages | object | ⭕ | 小朋友年齡區間人數，格式 `{ age_0_6: 1, age_6_12: 2, age_12_18: 0 }` |
+ *       | children_age_type | string | ⭕ | 小孩年齡區間類型（下拉）: `0-6` / `6-12` / `12-18` |
  *       | marketing_consent | boolean | ⭕ | 行銷推廣同意 |
  *
  *     parameters:
@@ -232,6 +236,11 @@ function handleServiceError(res, error, defaultMessage) {
  *                     description: 12-18歲人數
  *                     example: 0
  *                 example: { "age_0_6": 1, "age_6_12": 2, "age_12_18": 0 }
+ *               children_age_type:
+ *                 type: string
+ *                 enum: ["0-6", "6-12", "12-18"]
+ *                 description: 小孩年齡區間類型（下拉選單，會自動轉換為 children_ages）
+ *                 example: "6-12"
  *     responses:
  *       201:
  *         description: 報名成功
@@ -330,7 +339,8 @@ router.post('/events/:eventId/registrations', [
     body('children_ages').optional().isObject().withMessage('小朋友年齡必須是物件格式'),
     body('children_ages.age_0_6').optional().isInt({ min: 0, max: 10 }).withMessage('0-6歲人數必須在 0-10 之間'),
     body('children_ages.age_6_12').optional().isInt({ min: 0, max: 10 }).withMessage('6-12歲人數必須在 0-10 之間'),
-    body('children_ages.age_12_18').optional().isInt({ min: 0, max: 10 }).withMessage('12-18歲人數必須在 0-10 之間')
+    body('children_ages.age_12_18').optional().isInt({ min: 0, max: 10 }).withMessage('12-18歲人數必須在 0-10 之間'),
+    body('children_age_type').optional().isIn(childrenAgeRangeValues).withMessage('小孩年齡區間類型必須是 0-6、6-12、12-18')
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -347,7 +357,7 @@ router.post('/events/:eventId/registrations', [
         const {
             name, email, phone, company, position, gender, title, notes,
             data_consent, marketing_consent,
-            adult_age, children_ages
+            adult_age, children_ages, children_age_type
         } = req.body;
 
         const result = await registrationService.submitRegistration({
@@ -362,6 +372,7 @@ router.post('/events/:eventId/registrations', [
             notes,
             adult_age,
             children_ages,
+            children_age_type,
             data_consent,
             marketing_consent,
             ipAddress: req.ip || req.connection.remoteAddress || null,
@@ -501,6 +512,11 @@ router.post('/events/:eventId/registrations', [
  *                         type: integer
  *                         description: 12-18歲人數
  *                         example: 1
+ *                   children_age_type:
+ *                     type: string
+ *                     enum: ["0-6", "6-12", "12-18"]
+ *                     description: 小孩年齡區間類型（下拉選單）
+ *                     example: "6-12"
  *               participants:
  *                 type: array
  *                 items:
@@ -561,6 +577,21 @@ router.post('/events/:eventId/registrations', [
  *                         age_12_18:
  *                           type: integer
  *                           description: 12-18歲人數
+ *                     type:
+ *                       type: string
+ *                       enum: ["adult", "child"]
+ *                       description: 參加者類型（下拉選單）
+ *                       example: "child"
+ *                     age_range:
+ *                       type: string
+ *                       enum: ["0-6", "6-12", "12-18"]
+ *                       description: 小孩年齡區間（下拉選單，type=child 時建議填寫）
+ *                       example: "6-12"
+ *                     children_age_type:
+ *                       type: string
+ *                       enum: ["0-6", "6-12", "12-18"]
+ *                       description: age_range 別名（向後相容）
+ *                       example: "6-12"
  *                 maxItems: 4
  *                 description: 同行者列表（最多 4 人）
  *     responses:
@@ -596,6 +627,7 @@ router.post('/events/:eventId/registrations/batch', [
     body('primaryParticipant.children_ages.age_6_12').optional().isInt({ min: 0, max: 10 }).withMessage('6-12歲人數必須在 0-10 之間'),
     body('primaryParticipant.children_ages.age_12_18').optional().isInt({ min: 0, max: 10 }).withMessage('12-18歲人數必須在 0-10 之間'),
     body('primaryParticipant.adult_age').optional().isInt({ min: 18, max: 120 }).withMessage('成年人年齡必須在 18-120 之間'),
+    body('primaryParticipant.children_age_type').optional().isIn(childrenAgeRangeValues).withMessage('主報名人小孩年齡區間類型必須是 0-6、6-12、12-18'),
 
     body('participants').optional().isArray({ max: 4 }).withMessage('同行者最多 4 人'),
     body('participants.*.name').trim().isLength({ min: 2, max: 50 }).withMessage('同行者姓名長度錯誤'),
@@ -606,7 +638,10 @@ router.post('/events/:eventId/registrations/batch', [
     body('participants.*.children_ages.age_0_6').optional().isInt({ min: 0, max: 10 }).withMessage('0-6歲人數必須在 0-10 之間'),
     body('participants.*.children_ages.age_6_12').optional().isInt({ min: 0, max: 10 }).withMessage('6-12歲人數必須在 0-10 之間'),
     body('participants.*.children_ages.age_12_18').optional().isInt({ min: 0, max: 10 }).withMessage('12-18歲人數必須在 0-10 之間'),
-    body('participants.*.adult_age').optional().isInt({ min: 18, max: 120 }).withMessage('成年人年齡必須在 18-120 之間')
+    body('participants.*.adult_age').optional().isInt({ min: 18, max: 120 }).withMessage('成年人年齡必須在 18-120 之間'),
+    body('participants.*.type').optional().isIn(participantTypeValues).withMessage('參加者 type 必須是 adult 或 child'),
+    body('participants.*.age_range').optional().isIn(childrenAgeRangeValues).withMessage('小孩年齡區間必須是 0-6、6-12、12-18'),
+    body('participants.*.children_age_type').optional().isIn(childrenAgeRangeValues).withMessage('小孩年齡區間類型必須是 0-6、6-12、12-18')
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -634,9 +669,11 @@ router.post('/events/:eventId/registrations/batch', [
             notes: p.notes || null,
             adultAge: p.adult_age || null,
             childrenAges: p.children_ages || null,
+            type: p.type || null,
             // 新增：支援小孩參加者
             isMinor: p.is_minor === true || p.is_minor === 'true',
             ageRange: p.age_range || null,
+            childrenAgeType: p.children_age_type || null,
             dataConsent: p.data_consent === true || p.data_consent === 'true' || p.data_consent === 1,
             marketingConsent: p.marketing_consent === true || p.marketing_consent === 'true' || p.marketing_consent === 1
         });

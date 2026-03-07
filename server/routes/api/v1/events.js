@@ -391,12 +391,31 @@ router.get('/', [
  *                               type:
  *                                 type: string
  *                                 example: "email"
+ *                               ui_type:
+ *                                 type: string
+ *                                 nullable: true
+ *                                 description: UI 呈現型別（例如 age_range_select）
+ *                                 example: "age_range_select"
  *                               enabled:
  *                                 type: boolean
  *                               required:
  *                                 type: boolean
  *                               submit:
  *                                 type: boolean
+ *                               options:
+ *                                 type: array
+ *                                 description: 下拉選單選項（enum/age range 欄位）
+ *                                 items:
+ *                                   oneOf:
+ *                                     - type: string
+ *                                     - type: object
+ *                                       properties:
+ *                                         value:
+ *                                           type: string
+ *                                         key:
+ *                                           type: string
+ *                                         label:
+ *                                           type: string
  *                         payload_example:
  *                           type: object
  *                           description: 前端可直接參考的報名 payload 範例

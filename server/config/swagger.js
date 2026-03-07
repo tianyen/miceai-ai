@@ -47,7 +47,8 @@ const swaggerDefinition = {
       '| `notes` | string | ⭕ | 留言備註 (最多500字) | `"需要素食餐點"` |\n' +
       '| `marketing_consent` | boolean | ⭕ | 行銷推廣同意 | `false` |\n' +
       '| `adult_age` | integer | ⭕ | 成人年齡 (18-120) | `35` |\n' +
-      '| `children_ages` | object | ⭕ | 小孩年齡區間人數 | `{ "age_0_6": 1, "age_6_12": 2, "age_12_18": 0 }` |\n\n' +
+      '| `children_ages` | object | ⭕ | 小孩年齡區間人數 | `{ "age_0_6": 1, "age_6_12": 2, "age_12_18": 0 }` |\n' +
+      '| `children_age_type` | string | ⭕ | 小孩年齡區間（下拉） | `"0-6"` / `"6-12"` / `"12-18"` |\n\n' +
       '---\n\n' +
       '### 方式一：單人報名\n\n' +
       '**端點：** `POST /api/v1/events/{eventId}/registrations`\n\n' +
@@ -74,7 +75,8 @@ const swaggerDefinition = {
       '    notes: \'需要素食餐點\',\n' +
       '    marketing_consent: false,\n' +
       '    adult_age: 35,\n' +
-      '    children_ages: { age_0_6: 1, age_6_12: 2, age_12_18: 0 }  // 0-6歲1人, 6-12歲2人\n' +
+      '    children_ages: { age_0_6: 1, age_6_12: 2, age_12_18: 0 }, // 0-6歲1人, 6-12歲2人\n' +
+      '    children_age_type: \'6-12\' // 下拉選單，可與 children_ages 擇一\n' +
       '  })\n' +
       '});\n\n' +
       '// 步驟 3：處理回應\n' +
@@ -108,7 +110,8 @@ const swaggerDefinition = {
       '      notes: \'團體報名\',\n' +
       '      marketing_consent: false,\n' +
       '      adult_age: 40,\n' +
-      '      children_ages: { age_0_6: 0, age_6_12: 1, age_12_18: 0 }  // 6-12歲1人\n' +
+      '      children_ages: { age_0_6: 0, age_6_12: 1, age_12_18: 0 }, // 6-12歲1人\n' +
+      '      children_age_type: \'6-12\'\n' +
       '    },\n' +
       '    // 同行者 (最多 4 人)\n' +
       '    participants: [\n' +
@@ -120,7 +123,9 @@ const swaggerDefinition = {
       '        company: \'ABC 科技公司\',\n' +
       '        position: \'工程師\',\n' +
       '        gender: \'女\',\n' +
-      '        title: \'女士\'\n' +
+      '        title: \'女士\',\n' +
+      '        type: \'child\',\n' +
+      '        age_range: \'6-12\'\n' +
       '      },\n' +
       '      { name: \'張三\' }  // 最簡形式：只需 name\n' +
       '    ]\n' +
@@ -344,6 +349,12 @@ const swaggerDefinition = {
             },
             example: { age_0_6: 1, age_6_12: 2, age_12_18: 0 },
             description: '小孩年齡區間人數'
+          },
+          children_age_type: {
+            type: 'string',
+            enum: ['0-6', '6-12', '12-18'],
+            example: '6-12',
+            description: '小孩年齡區間（下拉選單）'
           },
           status: { type: 'string', enum: ['pending', 'confirmed', 'cancelled'], example: 'confirmed' },
           qr_code_base64: { type: 'string', example: 'data:image/png;base64,iVBORw0KG...' },
