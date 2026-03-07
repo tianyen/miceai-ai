@@ -17,8 +17,11 @@ const logger = require('../../../utils/logger');
  */
 function handleServiceError(res, error, defaultMessage) {
     if (error.statusCode) {
+        if (error.name === 'AppError') {
+            return responses.error(res, error);
+        }
         const message = error.details?.message || error.message || defaultMessage;
-        return responses.error(res, message, error.statusCode);
+        return responses.error(res, message, error.statusCode, error.details, error.code);
     }
     return responses.serverError(res, defaultMessage, error);
 }

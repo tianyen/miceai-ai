@@ -12,6 +12,7 @@
  */
 const BaseService = require('./base.service');
 const checkinRepository = require('../repositories/checkin.repository');
+const { isCheckinOperator, getAllowedProjects } = require('../middleware/checkinOperator');
 
 class CheckinService extends BaseService {
     constructor() {
@@ -27,6 +28,32 @@ class CheckinService extends BaseService {
      */
     async findParticipant(submissionId, traceId) {
         return this.repository.findParticipant(submissionId, traceId);
+    }
+
+    /**
+     * 驗證報到專員是否可操作指定專案
+     * @param {Object|number|null} userOrUserId - 用戶物件或 ID
+     * @param {number} projectId - 參與者專案 ID
+     */
+    assertProjectAccess(userOrUserId, projectId) {
+        if (!userOrUserId || typeof userOrUserId !== 'object') {
+            return;
+        }
+
+        if (!isCheckinOperator(userOrUserId)) {
+            return;
+        }
+
+        const normalizedProjectId = Number(projectId);
+        const allowed = getAllowedProjects(userOrUserId).map(Number);
+
+        if (!Number.isInteger(normalizedProjectId) || !allowed.includes(normalizedProjectId)) {
+            this.throwError(this.ErrorCodes.PROJECT_ACCESS_DENIED, {
+                message: '報到專員無權限存取此專案',
+                project_id: normalizedProjectId,
+                allowed_projects: allowed
+            });
+        }
     }
 
     /**
@@ -95,7 +122,8 @@ class CheckinService extends BaseService {
                     adult_age: participant.adult_age,
                     // Phase 3: 性別和小孩標識
                     gender: participant.gender,
-                    is_child: !!participant.parent_submission_id
+                    is_child: !!participant.parent_submission_id,
+                    is_vip: !!(participant.notes && participant.notes.includes('貴賓'))
                 }
             };
         }, 'performCheckin');
@@ -104,11 +132,15 @@ class CheckinService extends BaseService {
     /**
      * QR Scanner 報到
      * @param {string} qrData - QR Code 數據
-     * @param {number} userId - 操作用戶 ID
+     * @param {Object|number} userOrUserId - 操作用戶或用戶 ID
      * @param {string} ipAddress - IP 地址
      * @returns {Promise<Object>} 報到結果
      */
-    async qrScannerCheckin(qrData, userId, ipAddress) {
+    async qrScannerCheckin(qrData, userOrUserId, ipAddress) {
+        const userId = typeof userOrUserId === 'object'
+            ? userOrUserId.id
+            : Number(userOrUserId);
+
         // 解析 QR Code 數據
         let participantData;
         try {
@@ -131,6 +163,9 @@ class CheckinService extends BaseService {
         if (!participant) {
             this.throwError(this.ErrorCodes.SUBMISSION_NOT_FOUND, '找不到對應的參與者記錄');
         }
+
+        // 報到專員必須受 allowed_projects 限制
+        this.assertProjectAccess(userOrUserId, participant.project_id);
 
         // 檢查是否已報到
         if (await this.isAlreadyCheckedIn(participant)) {
@@ -174,6 +209,9 @@ class CheckinService extends BaseService {
         if (!participant) {
             this.throwError(this.ErrorCodes.SUBMISSION_NOT_FOUND, '參加者不存在');
         }
+
+        // 報到專員必須受 allowed_projects 限制
+        this.assertProjectAccess(user, participant.project_id);
 
         if (participant.checked_in_at) {
             this.throwError(this.ErrorCodes.ALREADY_CHECKED_IN, '此參加者已經簽到');

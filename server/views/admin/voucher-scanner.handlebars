@@ -194,12 +194,15 @@ function openCameraScanner() {
 // 掃描 QR Code
 async function scanQRCode() {
     const input = $('#qrCodeInput').val().trim();
-    
+
     if (!input) {
-        alert('請輸入兌換碼或 trace_id');
+        showScanResult({
+            status: 'error',
+            message: '請輸入兌換碼或 trace_id'
+        });
         return;
     }
-    
+
     try {
         // 嘗試解析 JSON
         let data = {};
@@ -219,52 +222,119 @@ async function scanQRCode() {
             },
             body: JSON.stringify(data)
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
-            showScanResult(result.data);
+            showScanResult({
+                status: 'success',
+                message: result.message || '兌換成功',
+                data: result.data
+            });
             loadRedemptions();
             $('#qrCodeInput').val('');
         } else {
-            alert('掃描失敗: ' + result.message);
+            showScanResult({
+                status: normalizeScanStatus(result, response.status),
+                message: result.message || '掃描失敗',
+                data: result.data || null,
+                error: result.error || null
+            });
         }
     } catch (error) {
         console.error('掃描錯誤:', error);
-        alert('掃描失敗: ' + error.message);
+        showScanResult({
+            status: 'error',
+            message: '掃描失敗: ' + error.message
+        });
     }
 }
 
-// 顯示掃描結果
-function showScanResult(data) {
-    const html = `
-        <div class="alert alert-success">
-            <h5><i class="fas fa-check-circle"></i> 兌換成功！</h5>
-            <hr>
-            <div class="row">
-                <div class="col-md-6">
-                    <p><strong>兌換碼:</strong> ${data.redemption_code}</p>
-                    <p><strong>Trace ID:</strong> ${data.trace_id || 'N/A'}</p>
-                    <p><strong>兌換券:</strong> ${data.voucher_name}</p>
-                    <p><strong>面額:</strong> NT$ ${data.voucher_value}</p>
-                </div>
-                <div class="col-md-6">
-                    <p><strong>廠商:</strong> ${data.voucher_vendor}</p>
-                    <p><strong>類別:</strong> ${data.voucher_category}</p>
-                    <p><strong>兌換時間:</strong> ${data.redeemed_at}</p>
-                    <p><strong>使用時間:</strong> ${data.used_at || '尚未使用'}</p>
-                </div>
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function normalizeScanStatus(result, statusCode) {
+    const errorCode = result?.error?.code;
+    const scanStatus = result?.error?.details?.scan_status;
+
+    if (scanStatus === 'duplicate' || errorCode === 5010 || statusCode === 409) {
+        return 'duplicate';
+    }
+    if (scanStatus === 'not_found' || errorCode === 3001 || statusCode === 404) {
+        return 'not_found';
+    }
+    return 'error';
+}
+
+// 顯示掃描結果（成功 / 重複 / 查無 / 失敗）
+function showScanResult({ status = 'success', message = '', data = null, error = null }) {
+    const statusMap = {
+        success: { className: 'alert-success', icon: 'fa-check-circle', title: '兌換成功' },
+        duplicate: { className: 'alert-warning', icon: 'fa-exclamation-triangle', title: '重複兌換' },
+        not_found: { className: 'alert-danger', icon: 'fa-times-circle', title: '查無兌換記錄' },
+        error: { className: 'alert-danger', icon: 'fa-bug', title: '掃描失敗' }
+    };
+    const preset = statusMap[status] || statusMap.error;
+
+    const participant = data?.participant || error?.details?.participant || null;
+    const participantHtml = participant ? `
+        <div class="mt-2">
+            <h6>參加者資訊</h6>
+            <p><strong>姓名:</strong> ${escapeHtml(participant.name || 'N/A')}</p>
+            <p><strong>身份:</strong> ${participant.is_vip ? '<span class="badge badge-warning">貴賓</span>' : '一般'}</p>
+            <p><strong>性別:</strong> ${escapeHtml(participant.gender || 'N/A')}</p>
+            <p><strong>成人年齡:</strong> ${participant.adult_age ? `${escapeHtml(participant.adult_age)} 歲` : 'N/A'}</p>
+        </div>
+    ` : '';
+
+    const mergedData = data || {
+        redemption_code: error?.details?.redemption_code || null,
+        trace_id: error?.details?.trace_id || null,
+        voucher_name: error?.details?.voucher_name || null,
+        voucher_vendor: error?.details?.voucher_vendor || null,
+        voucher_category: error?.details?.voucher_category || null,
+        voucher_value: error?.details?.voucher_value || null,
+        redeemed_at: error?.details?.redeemed_at || null,
+        used_at: error?.details?.used_at || null
+    };
+
+    const detailsHtml = mergedData ? `
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>兌換碼:</strong> ${escapeHtml(mergedData.redemption_code || 'N/A')}</p>
+                <p><strong>Trace ID:</strong> ${escapeHtml(mergedData.trace_id || 'N/A')}</p>
+                <p><strong>兌換券:</strong> ${escapeHtml(mergedData.voucher_name || 'N/A')}</p>
+                <p><strong>面額:</strong> ${escapeHtml(mergedData.voucher_value || 'N/A')}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>廠商:</strong> ${escapeHtml(mergedData.voucher_vendor || 'N/A')}</p>
+                <p><strong>類別:</strong> ${escapeHtml(mergedData.voucher_category || 'N/A')}</p>
+                <p><strong>發放時間:</strong> ${escapeHtml(mergedData.redeemed_at || 'N/A')}</p>
+                <p><strong>使用時間:</strong> ${escapeHtml(mergedData.used_at || '尚未使用')}</p>
             </div>
         </div>
+        ${participantHtml}
+    ` : '';
+
+    const html = `
+        <div class="alert ${preset.className}">
+            <h5><i class="fas ${preset.icon}"></i> ${preset.title}</h5>
+            <p class="mb-2">${escapeHtml(message || '')}</p>
+            ${detailsHtml ? `<hr>${detailsHtml}` : ''}
+        </div>
     `;
-    
+
     $('#scanResultContent').html(html);
     $('#scanResult').show();
-    
-    // 3 秒後自動隱藏
-    setTimeout(() => {
-        $('#scanResult').fadeOut();
-    }, 5000);
+
+    const hideAfterMs = status === 'success' ? 5000 : 8000;
+    setTimeout(() => $('#scanResult').fadeOut(), hideAfterMs);
 }
 
 // 清除輸入
@@ -356,4 +426,3 @@ async function markAsUsed(id) {
     }
 }
 </script>
-

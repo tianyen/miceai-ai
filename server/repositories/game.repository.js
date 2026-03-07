@@ -4,9 +4,52 @@
  * @description 處理 games, game_sessions, game_logs 相關資料庫操作
  */
 const BaseRepository = require('./base.repository');
+const database = require('../config/database');
 const { getGMT8DateRange, toDbUtcTimestamp } = require('../utils/timezone');
 
+function hasTable(tableName) {
+    try {
+        const row = database.getSync(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+            [tableName]
+        );
+        return !!row;
+    } catch (error) {
+        return false;
+    }
+}
+
 function buildUnifiedSessionsCTE() {
+    const hasFlowSessions = hasTable('game_flow_sessions');
+
+    if (!hasFlowSessions) {
+        return `
+            WITH unified_sessions AS (
+                SELECT
+                    gs.id,
+                    'legacy:' || gs.id AS session_key,
+                    'legacy' AS source_type,
+                    gs.project_id,
+                    gs.game_id,
+                    gs.booth_id,
+                    gs.trace_id,
+                    gs.user_id,
+                    gs.session_start,
+                    gs.session_end,
+                    gs.total_play_time,
+                    gs.final_score,
+                    gs.voucher_earned,
+                    gs.voucher_id,
+                    NULL AS flow_session_id,
+                    CASE WHEN gs.session_end IS NULL THEN 'active' ELSE 'completed' END AS status,
+                    NULL AS entry_stage_id,
+                    NULL AS exit_stage_id,
+                    NULL AS completion_stage_id
+                FROM game_sessions gs
+            )
+        `;
+    }
+
     return `
         WITH unified_sessions AS (
             SELECT
@@ -73,6 +116,29 @@ function buildUnifiedSessionsCTE() {
 }
 
 function buildUnifiedLogsCTE() {
+    const hasFlowEvents = hasTable('game_stage_events');
+
+    if (!hasFlowEvents) {
+        return `
+            WITH unified_logs AS (
+                SELECT
+                    gl.id,
+                    'legacy:' || gl.id AS log_key,
+                    'legacy' AS source_type,
+                    gl.game_id,
+                    gl.booth_id,
+                    gl.trace_id,
+                    gl.log_level,
+                    gl.message,
+                    gl.user_action,
+                    gl.score,
+                    gl.play_time,
+                    gl.created_at
+                FROM game_logs gl
+            )
+        `;
+    }
+
     return `
         WITH unified_logs AS (
             SELECT

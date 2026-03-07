@@ -129,7 +129,7 @@ class VoucherRepository extends BaseRepository {
      */
     async findByRedemptionCode(redemptionCode) {
         return this.db.get(`
-            SELECT vr.*, v.voucher_name, v.category, v.voucher_value, v.vendor
+            SELECT vr.*, v.voucher_name, v.category, v.voucher_value, v.vendor_name
             FROM voucher_redemptions vr
             JOIN vouchers v ON vr.voucher_id = v.id
             WHERE vr.redemption_code = ?
@@ -649,9 +649,23 @@ class VoucherRepository extends BaseRepository {
                     v.voucher_name,
                     v.vendor_name,
                     v.category,
-                    v.voucher_value
+                    v.voucher_value,
+                    fs.submitter_name,
+                    fs.gender,
+                    fs.adult_age,
+                    fs.children_count,
+                    fs.children_ages,
+                    fs.notes
                 FROM voucher_redemptions vr
                 JOIN vouchers v ON vr.voucher_id = v.id
+                LEFT JOIN form_submissions fs ON fs.id = (
+                    SELECT fs2.id
+                    FROM form_submissions fs2
+                    WHERE fs2.trace_id = vr.trace_id
+                      AND fs2.project_id = vr.project_id
+                    ORDER BY fs2.created_at DESC, fs2.id DESC
+                    LIMIT 1
+                )
                 WHERE vr.redemption_code = ?
             `, [code]);
         }
@@ -662,15 +676,62 @@ class VoucherRepository extends BaseRepository {
                     v.voucher_name,
                     v.vendor_name,
                     v.category,
-                    v.voucher_value
+                    v.voucher_value,
+                    fs.submitter_name,
+                    fs.gender,
+                    fs.adult_age,
+                    fs.children_count,
+                    fs.children_ages,
+                    fs.notes
                 FROM voucher_redemptions vr
                 JOIN vouchers v ON vr.voucher_id = v.id
+                LEFT JOIN form_submissions fs ON fs.id = (
+                    SELECT fs2.id
+                    FROM form_submissions fs2
+                    WHERE fs2.trace_id = vr.trace_id
+                      AND fs2.project_id = vr.project_id
+                    ORDER BY fs2.created_at DESC, fs2.id DESC
+                    LIMIT 1
+                )
                 WHERE vr.trace_id = ?
                 ORDER BY vr.redeemed_at DESC
                 LIMIT 1
             `, [traceId]);
         }
         return null;
+    }
+
+    /**
+     * 根據兌換記錄 ID 查詢
+     * @param {number} redemptionId - 兌換記錄 ID
+     * @returns {Promise<Object|null>}
+     */
+    async findRedemptionById(redemptionId) {
+        return this.db.get(`
+            SELECT
+                vr.*,
+                v.voucher_name,
+                v.vendor_name,
+                v.category,
+                v.voucher_value,
+                fs.submitter_name,
+                fs.gender,
+                fs.adult_age,
+                fs.children_count,
+                fs.children_ages,
+                fs.notes
+            FROM voucher_redemptions vr
+            JOIN vouchers v ON vr.voucher_id = v.id
+            LEFT JOIN form_submissions fs ON fs.id = (
+                SELECT fs2.id
+                FROM form_submissions fs2
+                WHERE fs2.trace_id = vr.trace_id
+                  AND fs2.project_id = vr.project_id
+                ORDER BY fs2.created_at DESC, fs2.id DESC
+                LIMIT 1
+            )
+            WHERE vr.id = ?
+        `, [redemptionId]);
     }
 
     /**
@@ -710,9 +771,23 @@ class VoucherRepository extends BaseRepository {
                 v.voucher_name,
                 v.vendor_name,
                 v.category,
-                v.voucher_value
+                v.voucher_value,
+                fs.submitter_name,
+                fs.gender,
+                fs.adult_age,
+                fs.children_count,
+                fs.children_ages,
+                fs.notes
             FROM voucher_redemptions vr
             JOIN vouchers v ON vr.voucher_id = v.id
+            LEFT JOIN form_submissions fs ON fs.id = (
+                SELECT fs2.id
+                FROM form_submissions fs2
+                WHERE fs2.trace_id = vr.trace_id
+                  AND fs2.project_id = vr.project_id
+                ORDER BY fs2.created_at DESC, fs2.id DESC
+                LIMIT 1
+            )
             ORDER BY vr.redeemed_at DESC
             LIMIT ?
         `, [limit]);

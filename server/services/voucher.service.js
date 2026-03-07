@@ -223,13 +223,45 @@ class VoucherService extends BaseService {
 
         if (!redemption) {
             this.throwError(this.ErrorCodes.NOT_FOUND, {
-                message: '找不到對應的兌換記錄'
+                message: '找不到對應的兌換記錄',
+                scan_status: 'not_found'
             });
         }
 
+        let childrenAges = null;
+        if (redemption.children_ages) {
+            try {
+                childrenAges = typeof redemption.children_ages === 'string'
+                    ? JSON.parse(redemption.children_ages)
+                    : redemption.children_ages;
+            } catch (error) {
+                childrenAges = null;
+            }
+        }
+
+        const participant = redemption.submitter_name ? {
+            name: redemption.submitter_name,
+            gender: redemption.gender || null,
+            adult_age: redemption.adult_age || null,
+            children_count: redemption.children_count || 0,
+            children_ages: childrenAges,
+            notes: redemption.notes || null,
+            is_vip: !!(redemption.notes && redemption.notes.includes('貴賓'))
+        } : null;
+
         if (redemption.is_used) {
-            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
-                message: '此兌換券已經使用過了'
+            this.throwError(this.ErrorCodes.VOUCHER_ALREADY_USED, {
+                message: '此兌換券已經使用過了',
+                scan_status: 'duplicate',
+                redemption_code: redemption.redemption_code,
+                trace_id: redemption.trace_id,
+                voucher_name: redemption.voucher_name,
+                voucher_vendor: redemption.vendor_name,
+                voucher_category: redemption.category,
+                voucher_value: redemption.voucher_value,
+                redeemed_at: redemption.redeemed_at,
+                used_at: redemption.used_at,
+                participant
             });
         }
 
@@ -244,6 +276,7 @@ class VoucherService extends BaseService {
         });
 
         return {
+            scan_status: 'success',
             redemption_code: redemption.redemption_code,
             trace_id: redemption.trace_id,
             voucher_name: redemption.voucher_name,
@@ -251,7 +284,8 @@ class VoucherService extends BaseService {
             voucher_category: redemption.category,
             voucher_value: redemption.voucher_value,
             redeemed_at: redemption.redeemed_at,
-            used_at: new Date().toISOString()
+            used_at: new Date().toISOString(),
+            participant
         };
     }
 
@@ -276,7 +310,15 @@ class VoucherService extends BaseService {
      * @returns {Promise<Object>}
      */
     async markRedemptionUsed(redemptionId) {
-        const redemption = await this.repository.findByRedemptionCode('');
+        const normalizedRedemptionId = Number(redemptionId);
+
+        if (!Number.isInteger(normalizedRedemptionId) || normalizedRedemptionId <= 0) {
+            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
+                message: '兌換記錄 ID 格式錯誤'
+            });
+        }
+
+        const redemption = await this.repository.findRedemptionById(normalizedRedemptionId);
 
         if (!redemption) {
             this.throwError(this.ErrorCodes.NOT_FOUND, {
@@ -285,15 +327,17 @@ class VoucherService extends BaseService {
         }
 
         if (redemption.is_used) {
-            this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
-                message: '此兌換券已經使用過了'
+            this.throwError(this.ErrorCodes.VOUCHER_ALREADY_USED, {
+                message: '此兌換券已經使用過了',
+                redemption_code: redemption.redemption_code,
+                used_at: redemption.used_at
             });
         }
 
-        await this.repository.markRedemptionUsed(redemptionId);
+        await this.repository.markRedemptionUsed(normalizedRedemptionId);
 
         this.log('markRedemptionUsed', {
-            redemption_id: redemptionId,
+            redemption_id: normalizedRedemptionId,
             redemption_code: redemption.redemption_code,
             trace_id: redemption.trace_id
         });

@@ -320,9 +320,21 @@
                             <span class="label">姓名</span>
                             <span class="value" id="modal-name">--</span>
                         </div>
+                        <div class="info-row" id="vip-row" style="display: none;">
+                            <span class="label">身份</span>
+                            <span class="value"><span class="badge badge-warning" id="modal-vip">貴賓</span></span>
+                        </div>
                         <div class="info-row" id="company-row" style="display: none;">
                             <span class="label">公司</span>
                             <span class="value" id="modal-company">--</span>
+                        </div>
+                        <div class="info-row" id="gender-row" style="display: none;">
+                            <span class="label">性別</span>
+                            <span class="value" id="modal-gender">--</span>
+                        </div>
+                        <div class="info-row" id="adult-age-row" style="display: none;">
+                            <span class="label">成人年齡</span>
+                            <span class="value" id="modal-adult-age">--</span>
                         </div>
                         <div class="info-row" id="children-row" style="display: none;">
                             <span class="label">同行人數</span>
@@ -421,6 +433,20 @@
             font-size: 14px;
             text-align: right;
             max-width: 60%;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
         }
 
         .checkin-modal-footer {
@@ -576,12 +602,36 @@
         // 姓名
         $('#modal-name').text(participant.name);
 
+        // 貴賓標記（由後端 is_vip 或備註關鍵字推斷）
+        const isVip = !!participant.is_vip || (participant.notes && participant.notes.includes('貴賓'));
+        if (isVip) {
+            $('#vip-row').show();
+        } else {
+            $('#vip-row').hide();
+        }
+
         // 公司
         if (participant.company) {
             $('#company-row').show();
             $('#modal-company').text(participant.company);
         } else {
             $('#company-row').hide();
+        }
+
+        // 性別
+        if (participant.gender) {
+            $('#gender-row').show();
+            $('#modal-gender').text(participant.gender);
+        } else {
+            $('#gender-row').hide();
+        }
+
+        // 成人年齡
+        if (participant.adult_age) {
+            $('#adult-age-row').show();
+            $('#modal-adult-age').text(`${participant.adult_age} 歲`);
+        } else {
+            $('#adult-age-row').hide();
         }
 
         // 同行人數（小朋友）
@@ -660,4 +710,3 @@
 </script>
 </body>
 </html>
-

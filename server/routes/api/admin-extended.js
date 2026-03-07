@@ -394,7 +394,7 @@ router.post('/qr-scanner/checkin', authenticateSession, async (req, res) => {
             return responses.error(res, 'QR Code 數據不能為空', 400);
         }
 
-        const result = await checkinService.qrScannerCheckin(qrData, req.user.id, req.ip);
+        const result = await checkinService.qrScannerCheckin(qrData, req.user, req.ip);
 
         responses.success(res, {
             message: `${result.participant.name} 報到成功`,
@@ -825,7 +825,7 @@ router.get('/projects/:id/stats', authenticateSession, async (req, res) => {
 
 // API: 獲取專案參加者列表 (JSON，支援分頁和排序)
 // @refactor: 使用 projectService + viewHelpers
-router.get('/projects/:id/participants', authenticateSession, async (req, res) => {
+router.get('/projects/:id/participants', authenticateSession, checkinOperatorGuard, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -874,7 +874,7 @@ router.get('/projects/:id/participants', authenticateSession, async (req, res) =
 });
 
 // API: 檢測專案重複報名
-router.get('/projects/:id/duplicate-participants', authenticateSession, async (req, res) => {
+router.get('/projects/:id/duplicate-participants', authenticateSession, checkinOperatorGuard, async (req, res) => {
     try {
         const result = await projectService.findDuplicateParticipants(req.params.id);
         responses.success(res, result, '重複報名檢測完成');
@@ -886,7 +886,7 @@ router.get('/projects/:id/duplicate-participants', authenticateSession, async (r
 
 // API: 獲取專案問卷狀況 (HTML)
 // @refactor: 使用 projectService + viewHelpers
-router.get('/projects/:id/questionnaires', authenticateSession, async (req, res) => {
+router.get('/projects/:id/questionnaires', authenticateSession, checkinOperatorGuard, async (req, res) => {
     try {
         const questionnaires = await projectService.getQuestionnaires(req.params.id);
 
@@ -907,7 +907,7 @@ router.get('/projects/:id/questionnaires', authenticateSession, async (req, res)
 
 // API: 獲取專案簽到統計 (HTML)
 // @refactor: 使用 checkinService + viewHelpers
-router.get('/projects/:id/checkin-stats', authenticateSession, async (req, res) => {
+router.get('/projects/:id/checkin-stats', authenticateSession, checkinOperatorGuard, async (req, res) => {
     try {
         const stats = await checkinService.getProjectCheckinStats(req.params.id);
         res.send(vh.checkinStatsGrid(stats));
@@ -919,7 +919,7 @@ router.get('/projects/:id/checkin-stats', authenticateSession, async (req, res) 
 
 // API: 獲取專案簽到記錄 (HTML)
 // @refactor: 使用 checkinService + viewHelpers
-router.get('/projects/:id/checkin-records', authenticateSession, async (req, res) => {
+router.get('/projects/:id/checkin-records', authenticateSession, checkinOperatorGuard, async (req, res) => {
     try {
         const records = await checkinService.getProjectCheckinRecords(req.params.id, 50);
 
@@ -943,7 +943,7 @@ router.get('/projects/:id/checkin-records', authenticateSession, async (req, res
 
 // API: 參加者追蹤搜尋 (HTML)
 // @refactor: 使用 projectService + viewHelpers
-router.get('/projects/:id/tracking', authenticateSession, async (req, res) => {
+router.get('/projects/:id/tracking', authenticateSession, checkinOperatorGuard, async (req, res) => {
     try {
         const searchTerm = req.query.search;
 
