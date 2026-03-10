@@ -606,9 +606,9 @@ class SubmissionRepository extends BaseRepository {
         const sql = `
             INSERT INTO form_submissions (
                 trace_id, project_id, submitter_name, submitter_email, submitter_phone,
-                participation_level, activity_notifications, product_updates,
+                participation_level, data_consent, marketing_consent, activity_notifications, product_updates,
                 submission_data, ip_address, user_agent, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         return this.rawRun(sql, [
             data.traceId,
@@ -617,6 +617,8 @@ class SubmissionRepository extends BaseRepository {
             data.email.substring(0, 100),
             data.phone.substring(0, 20),
             data.participationLevel,
+            data.dataConsent ? 1 : 0,
+            data.marketingConsent ? 1 : 0,
             data.activityNotifications ? 1 : 0,
             data.productUpdates ? 1 : 0,
             data.submissionData,

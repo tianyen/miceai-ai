@@ -171,3 +171,4 @@ server/database/README.md
 
 # CSV files (data exports, registration dumps, etc.)
 *.csv
+server/certs/

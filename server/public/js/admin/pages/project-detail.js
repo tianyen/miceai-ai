@@ -2039,8 +2039,8 @@ function saveFormConfig() {
             adult_age: '成人年齡',
             children_count: '小孩人數（自動計算）',
             children_ages: '小孩年齡區間',
-            data_consent: '資料使用同意',
-            marketing_consent: '行銷同意'
+            data_consent: '我同意個人資料蒐集與使用說明',
+            marketing_consent: '我同意接收活動通知與行銷資訊'
         },
         gender_options: genderOptions,
         title_options: titleOptions,

@@ -14,6 +14,32 @@ const projectRepository = require('../../repositories/project.repository');
 const submissionRepository = require('../../repositories/submission.repository');
 const checkinRepository = require('../../repositories/checkin.repository');
 
+function parseBooleanInput(value) {
+    if (value === undefined || value === null || value === '') {
+        return { provided: false, value: false };
+    }
+
+    if (typeof value === 'boolean') {
+        return { provided: true, value };
+    }
+
+    if (typeof value === 'number' && (value === 0 || value === 1)) {
+        return { provided: true, value: value === 1 };
+    }
+
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) {
+            return { provided: true, value: true };
+        }
+        if (['false', '0', 'no', 'n', 'off'].includes(normalized)) {
+            return { provided: true, value: false };
+        }
+    }
+
+    return { provided: true, invalid: true, value: false };
+}
+
 // 專案特定報名提交 API
 router.post('/register', async (req, res) => {
     try {
@@ -25,6 +51,8 @@ router.post('/register', async (req, res) => {
             email,
             phone,
             participation_level,
+            data_consent,
+            marketing_consent,
             activity_notifications,
             product_updates
         } = req.body;
@@ -59,6 +87,51 @@ router.post('/register', async (req, res) => {
             });
         }
 
+        const parsedDataConsent = parseBooleanInput(data_consent);
+        if (parsedDataConsent.invalid) {
+            return responses.validationError(res, {
+                message: 'data_consent 必須是布林值'
+            });
+        }
+        if (parsedDataConsent.provided && !parsedDataConsent.value) {
+            return responses.validationError(res, {
+                message: '必須同意個人資料蒐集與使用說明'
+            });
+        }
+
+        const parsedMarketingConsent = parseBooleanInput(marketing_consent);
+        if (parsedMarketingConsent.invalid) {
+            return responses.validationError(res, {
+                message: 'marketing_consent 必須是布林值'
+            });
+        }
+
+        const parsedActivityNotifications = parseBooleanInput(activity_notifications);
+        if (parsedActivityNotifications.invalid) {
+            return responses.validationError(res, {
+                message: 'activity_notifications 必須是布林值'
+            });
+        }
+
+        const parsedProductUpdates = parseBooleanInput(product_updates);
+        if (parsedProductUpdates.invalid) {
+            return responses.validationError(res, {
+                message: 'product_updates 必須是布林值'
+            });
+        }
+
+        const normalizedMarketingConsent = parsedMarketingConsent.provided
+            ? parsedMarketingConsent.value
+            : (parsedActivityNotifications.value || parsedProductUpdates.value);
+
+        const normalizedActivityNotifications = parsedActivityNotifications.provided
+            ? parsedActivityNotifications.value
+            : normalizedMarketingConsent;
+
+        const normalizedProductUpdates = parsedProductUpdates.provided
+            ? parsedProductUpdates.value
+            : normalizedMarketingConsent;
+
         // 使用 Repository 檢查追蹤 ID 是否已存在
         const traceIdExists = await submissionRepository.traceIdExists(trace_id);
 
@@ -82,8 +155,10 @@ router.post('/register', async (req, res) => {
             project_id,
             project_code,
             participation_level: parseInt(participation_level) || 50,
-            activity_notifications: !!activity_notifications,
-            product_updates: !!product_updates,
+            data_consent: parsedDataConsent.value,
+            marketing_consent: normalizedMarketingConsent,
+            activity_notifications: normalizedActivityNotifications,
+            product_updates: normalizedProductUpdates,
             submission_type: 'project_registration'
         };
 
@@ -95,8 +170,10 @@ router.post('/register', async (req, res) => {
             email,
             phone,
             participationLevel: parseInt(participation_level) || 50,
-            activityNotifications: !!activity_notifications,
-            productUpdates: !!product_updates,
+            dataConsent: parsedDataConsent.value,
+            marketingConsent: normalizedMarketingConsent,
+            activityNotifications: normalizedActivityNotifications,
+            productUpdates: normalizedProductUpdates,
             submissionData: JSON.stringify(submissionData),
             ipAddress: req.ip || req.connection.remoteAddress,
             userAgent: req.get('User-Agent')
@@ -113,7 +190,9 @@ router.post('/register', async (req, res) => {
                 attendee_name: name,
                 project_name: project.project_name,
                 participation_level,
-                notifications_enabled: activity_notifications || product_updates
+                data_consent: parsedDataConsent.value,
+                marketing_consent: normalizedMarketingConsent,
+                notifications_enabled: normalizedActivityNotifications || normalizedProductUpdates
             },
             ipAddress: req.ip || req.connection.remoteAddress,
             userAgent: req.get('User-Agent')
@@ -135,6 +214,10 @@ router.post('/register', async (req, res) => {
             submissionId: result.lastID,
             traceId: trace_id,
             projectName: project.project_name,
+            consents: {
+                data_consent: parsedDataConsent.value,
+                marketing_consent: normalizedMarketingConsent
+            },
             redirectUrl: `/success?trace_id=${trace_id}&project=${project_code}`
         }, `報名 ${project.project_name} 成功！感謝您的參與，我們將盡快與您聯繫。`);
 
@@ -145,4 +228,3 @@ router.post('/register', async (req, res) => {
 });
 
 module.exports = router;
-

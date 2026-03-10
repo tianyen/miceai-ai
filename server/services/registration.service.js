@@ -370,7 +370,7 @@ class RegistrationService extends BaseService {
         const dataConsent = enabledFieldSet.has('data_consent') ? this._toBoolean(rawDataConsent) : false;
         if (requiredFieldSet.has('data_consent') && !dataConsent) {
             this.throwError(this.ErrorCodes.VALIDATION_ERROR, {
-                message: '必須同意資料使用條款',
+                message: '必須同意個人資料蒐集與使用說明',
                 field: 'data_consent'
             });
         }
@@ -380,7 +380,7 @@ class RegistrationService extends BaseService {
         if (enabledFieldSet.has('marketing_consent')) {
             if (requiredFieldSet.has('marketing_consent') && !this._hasValue(rawMarketingConsent)) {
                 this.throwError(this.ErrorCodes.MISSING_REQUIRED_FIELD, {
-                    message: `${fieldLabels.marketing_consent || '行銷同意'}為必填欄位`,
+                    message: `${fieldLabels.marketing_consent || '我同意接收活動通知與行銷資訊'}為必填欄位`,
                     field: 'marketing_consent'
                 });
             }

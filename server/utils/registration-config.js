@@ -44,8 +44,8 @@ const FIELD_META = {
         example: { age_0_6: 1, age_6_12: 0, age_12_18: 0 }
     },
     children_count: { type: 'integer', submit: false, label: '小孩人數（自動計算）', example: 1 },
-    data_consent: { type: 'boolean', submit: true, label: '資料使用同意', example: true },
-    marketing_consent: { type: 'boolean', submit: true, label: '行銷同意', example: false }
+    data_consent: { type: 'boolean', submit: true, label: '我同意個人資料蒐集與使用說明', example: true },
+    marketing_consent: { type: 'boolean', submit: true, label: '我同意接收活動通知與行銷資訊', example: false }
 };
 
 const DEFAULT_FORM_CONFIG = {
@@ -73,8 +73,8 @@ const DEFAULT_FORM_CONFIG = {
         adult_age: '成人年齡',
         children_ages: '小孩年齡區間',
         children_count: '小孩人數（自動計算）',
-        data_consent: '資料使用同意',
-        marketing_consent: '行銷同意'
+        data_consent: '我同意個人資料蒐集與使用說明',
+        marketing_consent: '我同意接收活動通知與行銷資訊'
     },
     gender_options: ['男', '女', '其他'],
     title_options: ['先生', '女士', '博士', '教授'],

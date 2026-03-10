@@ -119,13 +119,6 @@ server/
 - `DATABASE_PATH`
 - `BASE_URL`
 
-2. Admin 請求使用 CSRF 保護，前端統一用 `getCsrfToken()`。
-
-3. 不要提交以下檔案：
-- `.env`
-- `server/data/*.db`
-- `server/certs/*`
-
 ## 排錯
 
 ### setup 卡住或 DB 壞檔
@@ -140,13 +133,6 @@ npm run setup
 代表 API 未成功啟動或測試 URL 不對。
 - 確認服務是否在目標 port 監聽
 - 或用 `BASE_URL` 指向正確位址
-
-## 文檔索引
-
-- V1 API: `server/docs/v1-api.md`
-- Registration Config Contract: `server/contracts/registration-config.v2.json`
-- 前端流程: `server/docs/frontend-flow.md`
-- 兌換券流程: `server/docs/voucher-flow.md`
 
 ---
 

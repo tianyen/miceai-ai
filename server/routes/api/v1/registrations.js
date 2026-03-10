@@ -86,7 +86,7 @@ function handleServiceError(res, error, defaultMessage) {
  *           name: '福利團體1',
  *           email: 'test@test.com',
  *           phone: '0900000000',
- *           data_consent: true,
+ *           data_consent: true,            // 我同意個人資料蒐集與使用說明
  *
  *           // ⭕ 選填欄位
  *           company: '月光映像館',           // 公司名稱
@@ -97,7 +97,7 @@ function handleServiceError(res, error, defaultMessage) {
  *           adult_age: null,               // 成年人年齡 (18-120)
  *           children_ages: { age_0_6: 1, age_6_12: 2, age_12_18: 0 },  // 小朋友年齡區間人數（自動計算 children_count）
  *           children_age_type: '6-12',     // 小孩年齡區間類型（下拉選單，可與 children_ages 擇一）
- *           marketing_consent: false       // 行銷同意
+ *           marketing_consent: false       // 我同意接收活動通知與行銷資訊
  *         })
  *       });
  *       const result = await response.json();
@@ -127,7 +127,7 @@ function handleServiceError(res, error, defaultMessage) {
  *       | name | string | ✅ | 姓名 (2-50字) |
  *       | email | string | ✅ | 電子郵件 |
  *       | phone | string | ✅ | 手機號碼 |
- *       | data_consent | boolean | ✅ | 資料使用同意 (必須為 true) |
+ *       | data_consent | boolean | ✅ | 我同意個人資料蒐集與使用說明 (必須為 true) |
  *       | company | string | ⭕ | 公司名稱 (最多100字) |
  *       | position | string | ⭕ | 職位 (最多50字) |
  *       | gender | string | ⭕ | 性別: `男` / `女` / `其他` |
@@ -136,7 +136,7 @@ function handleServiceError(res, error, defaultMessage) {
  *       | adult_age | integer | ⭕ | 成年人年齡 (18-120) |
  *       | children_ages | object | ⭕ | 小朋友年齡區間人數，格式 `{ age_0_6: 1, age_6_12: 2, age_12_18: 0 }` |
  *       | children_age_type | string | ⭕ | 小孩年齡區間類型（下拉）: `0-6` / `6-12` / `12-18` |
- *       | marketing_consent | boolean | ⭕ | 行銷推廣同意 |
+ *       | marketing_consent | boolean | ⭕ | 我同意接收活動通知與行銷資訊 |
  *
  *     parameters:
  *       - in: path
@@ -201,11 +201,11 @@ function handleServiceError(res, error, defaultMessage) {
  *                 example: "福利團體報名"
  *               data_consent:
  *                 type: boolean
- *                 description: 資料使用同意（必須為 true）
+ *                 description: 我同意個人資料蒐集與使用說明（必須為 true）
  *                 example: true
  *               marketing_consent:
  *                 type: boolean
- *                 description: 行銷同意
+ *                 description: 我同意接收活動通知與行銷資訊
  *                 example: false
  *               adult_age:
  *                 type: integer
@@ -328,11 +328,11 @@ router.post('/events/:eventId/registrations', [
     body('notes').optional().trim().isLength({ max: 500 }).withMessage('留言備註不能超過 500 字符'),
     body('data_consent').isBoolean().custom(value => {
         if (value !== true) {
-            throw new Error('必須同意資料使用條款');
+            throw new Error('必須同意個人資料蒐集與使用說明');
         }
         return true;
     }),
-    body('marketing_consent').optional().isBoolean().withMessage('行銷同意必須是布林值'),
+    body('marketing_consent').optional().isBoolean().withMessage('活動通知與行銷資訊同意必須是布林值'),
     // 新增欄位驗證
     body('adult_age').optional().isInt({ min: 18, max: 120 }).withMessage('成年人年齡必須在 18-120 之間'),
     // children_ages 改為年齡區間物件格式 { age_0_6: 1, age_6_12: 2, age_12_18: 0 }
@@ -462,11 +462,11 @@ router.post('/events/:eventId/registrations', [
  *                     example: "0912345678"
  *                   data_consent:
  *                     type: boolean
- *                     description: 資料使用同意
+ *                     description: 我同意個人資料蒐集與使用說明
  *                     example: true
  *                   marketing_consent:
  *                     type: boolean
- *                     description: 行銷同意
+ *                     description: 我同意接收活動通知與行銷資訊
  *                     example: false
  *                   company:
  *                     type: string
@@ -620,7 +620,7 @@ router.post('/events/:eventId/registrations/batch', [
     body('primaryParticipant.name').trim().isLength({ min: 2, max: 50 }).withMessage('主報名人姓名長度錯誤'),
     body('primaryParticipant.email').isEmail().withMessage('主報名人 Email 格式錯誤'),
     body('primaryParticipant.phone').matches(phoneRegex).withMessage('主報名人手機號碼格式錯誤'),
-    body('primaryParticipant.data_consent').custom(val => val === true || val === 'true' || val === 1).withMessage('主報名人必須同意資料使用條款'),
+    body('primaryParticipant.data_consent').custom(val => val === true || val === 'true' || val === 1).withMessage('主報名人必須同意個人資料蒐集與使用說明'),
     // 主報名人 children_ages 驗證
     body('primaryParticipant.children_ages').optional().isObject().withMessage('小朋友年齡必須是物件格式'),
     body('primaryParticipant.children_ages.age_0_6').optional().isInt({ min: 0, max: 10 }).withMessage('0-6歲人數必須在 0-10 之間'),

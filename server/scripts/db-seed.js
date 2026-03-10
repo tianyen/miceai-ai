@@ -454,8 +454,8 @@ async function addSeedData() {
             { key: 'adult_age', type: 'integer', label: '成人年齡', required: 0, enabled: 1, order: 90 },
             { key: 'children_ages', type: 'object', label: '小孩年齡區間', required: 0, enabled: 1, order: 100 },
             { key: 'children_count', type: 'integer', label: '小孩人數（自動計算）', required: 0, enabled: 1, order: 110 },
-            { key: 'data_consent', type: 'boolean', label: '資料使用同意', required: 1, enabled: 1, order: 120 },
-            { key: 'marketing_consent', type: 'boolean', label: '行銷同意', required: 0, enabled: 1, order: 130 }
+            { key: 'data_consent', type: 'boolean', label: '我同意個人資料蒐集與使用說明', required: 1, enabled: 1, order: 120 },
+            { key: 'marketing_consent', type: 'boolean', label: '我同意接收活動通知與行銷資訊', required: 0, enabled: 1, order: 130 }
         ];
 
         const registrationFieldStmt = db.prepare(`

@@ -39,13 +39,13 @@ const swaggerDefinition = {
       '| `name` | string | ✅ | 姓名 (2-50字) | `"王大明"` |\n' +
       '| `email` | string | ✅ | 電子郵件 | `"wang@example.com"` |\n' +
       '| `phone` | string | ✅ | 手機號碼 (8-20字) | `"0912345678"` |\n' +
-      '| `data_consent` | boolean | ✅ | 資料使用同意 (必須為 true) | `true` |\n' +
+      '| `data_consent` | boolean | ✅ | 我同意個人資料蒐集與使用說明 (必須為 true) | `true` |\n' +
       '| `company` | string | ⭕ | 公司名稱 (最多100字) | `"ABC科技公司"` |\n' +
       '| `position` | string | ⭕ | 職位 (最多50字) | `"工程師"` |\n' +
       '| `gender` | string | ⭕ | 性別 | `"男"` / `"女"` / `"其他"` |\n' +
       '| `title` | string | ⭕ | 尊稱 | `"先生"` / `"女士"` / `"博士"` / `"教授"` |\n' +
       '| `notes` | string | ⭕ | 留言備註 (最多500字) | `"需要素食餐點"` |\n' +
-      '| `marketing_consent` | boolean | ⭕ | 行銷推廣同意 | `false` |\n' +
+      '| `marketing_consent` | boolean | ⭕ | 我同意接收活動通知與行銷資訊 | `false` |\n' +
       '| `adult_age` | integer | ⭕ | 成人年齡 (18-120) | `35` |\n' +
       '| `children_ages` | object | ⭕ | 小孩年齡區間人數 | `{ "age_0_6": 1, "age_6_12": 2, "age_12_18": 0 }` |\n' +
       '| `children_age_type` | string | ⭕ | 小孩年齡區間（下拉） | `"0-6"` / `"6-12"` / `"12-18"` |\n\n' +
